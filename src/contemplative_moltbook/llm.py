@@ -22,6 +22,7 @@ from .config import (
     OLLAMA_MODEL,
     SUBSCRIBED_SUBMOLTS,
 )
+from .domain import get_domain_config, resolve_prompt
 from .prompts import (
     COMMENT_PROMPT,
     COOPERATION_POST_PROMPT,
@@ -94,6 +95,7 @@ def _load_identity() -> str:
 
     Validates the file content against forbidden patterns to prevent
     prompt injection via tampered identity files.
+    Falls back to config/prompts/system.md via the domain module.
     """
     if IDENTITY_PATH.exists():
         try:
@@ -216,8 +218,10 @@ def _wrap_untrusted_content(post_text: str) -> str:
 
 
 def score_relevance(post_text: str) -> float:
-    """Score a post's relevance to contemplative AI topics (0.0 to 1.0)."""
-    prompt = RELEVANCE_PROMPT.format(post_content=_wrap_untrusted_content(post_text))
+    """Score a post's relevance to domain topics (0.0 to 1.0)."""
+    domain = get_domain_config()
+    resolved = resolve_prompt(RELEVANCE_PROMPT, domain)
+    prompt = resolved.format(post_content=_wrap_untrusted_content(post_text))
     result = generate(prompt, max_length=50)
     if result is None:
         return 0.0
@@ -257,7 +261,9 @@ def generate_cooperation_post(
             + _wrap_untrusted_content(knowledge_context)
         )
 
-    prompt = COOPERATION_POST_PROMPT.format(
+    domain = get_domain_config()
+    resolved = resolve_prompt(COOPERATION_POST_PROMPT, domain)
+    prompt = resolved.format(
         feed_topics=_wrap_untrusted_content(feed_topics),
         insights_section=insights_section,
         knowledge_section=knowledge_section,
@@ -300,7 +306,9 @@ def generate_reply(
 
 def generate_post_title(feed_topics: str) -> Optional[str]:
     """Generate a unique, specific post title from current feed topics."""
-    prompt = POST_TITLE_PROMPT.format(
+    domain = get_domain_config()
+    resolved = resolve_prompt(POST_TITLE_PROMPT, domain)
+    prompt = resolved.format(
         feed_topics=_wrap_untrusted_content(feed_topics),
     )
     result = generate(prompt, max_length=100)

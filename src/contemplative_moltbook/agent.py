@@ -16,17 +16,14 @@ from .client import MoltbookClient, MoltbookClientError
 from .config import (
     COMMENT_PACING_MAX_SECONDS,
     COMMENT_PACING_MIN_SECONDS,
-    DEFAULT_POST_SUBMOLT,
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
-    KNOWN_AGENT_THRESHOLD,
     MAX_COMMENTS_PER_SESSION,
     MAX_POST_LENGTH,
-    RELEVANCE_THRESHOLD,
-    SUBSCRIBED_SUBMOLTS,
     VALID_ID_PATTERN,
 )
 from .content import ContentManager
+from .domain import DomainConfig, get_domain_config
 from .llm import (
     check_topic_novelty,
     extract_topics,
@@ -65,8 +62,10 @@ class Agent:
         self,
         autonomy: AutonomyLevel = AutonomyLevel.APPROVE,
         memory: Optional[MemoryStore] = None,
+        domain_config: Optional[DomainConfig] = None,
     ) -> None:
         self._autonomy = autonomy
+        self._domain = domain_config or get_domain_config()
         self._content = ContentManager()
         self._verification = VerificationTracker()
         self._client: Optional[MoltbookClient] = None
@@ -84,7 +83,7 @@ class Agent:
 
     def _ensure_subscriptions(self, client: MoltbookClient) -> None:
         """Subscribe to all configured submolts (idempotent)."""
-        results = [client.subscribe_submolt(name) for name in SUBSCRIBED_SUBMOLTS]
+        results = [client.subscribe_submolt(name) for name in self._domain.subscribed_submolts]
         if not any(results):
             logger.warning("All submolt subscription attempts failed")
 
@@ -184,7 +183,7 @@ class Agent:
                 json={
                     "title": "Introducing Contemplative Agent",
                     "content": content,
-                    "submolt": DEFAULT_POST_SUBMOLT,
+                    "submolt": self._domain.default_submolt,
                 },
             )
             scheduler.record_post()
@@ -282,9 +281,9 @@ class Agent:
         # Lower threshold for agents we've previously interacted with
         author_id = (post.get("author") or {}).get("id", "")
         threshold = (
-            KNOWN_AGENT_THRESHOLD
+            self._domain.known_agent_threshold
             if author_id and self._memory.has_interacted_with(author_id)
-            else RELEVANCE_THRESHOLD
+            else self._domain.relevance_threshold
         )
         if score < threshold:
             logger.debug("Post %s relevance %.2f below threshold %.2f", post_id, score, threshold)
@@ -748,11 +747,11 @@ class Agent:
             return
 
         from .config import VALID_SUBMOLT_PATTERN
-        selected = select_submolt(content, SUBSCRIBED_SUBMOLTS)
+        selected = select_submolt(content, self._domain.subscribed_submolts)
         if selected and not VALID_SUBMOLT_PATTERN.match(selected):
             logger.warning("select_submolt returned invalid name %r, using default", selected)
             selected = None
-        submolt = selected or DEFAULT_POST_SUBMOLT
+        submolt = selected or self._domain.default_submolt
 
         scheduler.wait_for_post()
         try:

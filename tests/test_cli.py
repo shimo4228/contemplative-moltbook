@@ -112,7 +112,7 @@ class TestAutonomyFlags:
             main()
 
         from contemplative_moltbook.agent import AutonomyLevel
-        mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.APPROVE)
+        mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.APPROVE, domain_config=None)
 
     @patch("contemplative_moltbook.cli.Agent")
     def test_guarded_flag(self, mock_agent_cls):
@@ -123,7 +123,7 @@ class TestAutonomyFlags:
             main()
 
         from contemplative_moltbook.agent import AutonomyLevel
-        mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.GUARDED)
+        mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.GUARDED, domain_config=None)
 
     @patch("contemplative_moltbook.cli.Agent")
     def test_auto_flag(self, mock_agent_cls):
@@ -134,7 +134,7 @@ class TestAutonomyFlags:
             main()
 
         from contemplative_moltbook.agent import AutonomyLevel
-        mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.AUTO)
+        mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.AUTO, domain_config=None)
 
     @patch("contemplative_moltbook.cli.Agent")
     def test_verbose_flag(self, mock_agent_cls):

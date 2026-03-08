@@ -5,9 +5,11 @@ import logging
 import os
 import stat
 import sys
+from pathlib import Path
 
 from .agent import Agent, AutonomyLevel
 from .config import IDENTITY_PATH, KNOWLEDGE_PATH, MOLTBOOK_DATA_DIR
+from .domain import load_domain_config, reset_caches
 from .llm import DEFAULT_SYSTEM_PROMPT
 
 
@@ -46,6 +48,20 @@ def main() -> None:
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable debug logging"
+    )
+
+    # Domain configuration flags
+    parser.add_argument(
+        "--rules-dir",
+        type=Path,
+        default=None,
+        help="Path to domain rules directory (e.g. config/rules/contemplative/)",
+    )
+    parser.add_argument(
+        "--domain-config",
+        type=Path,
+        default=None,
+        help="Path to domain.json configuration file",
     )
 
     # Autonomy level flags (mutually exclusive)
@@ -120,6 +136,17 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
+    # Load domain config and rules if custom paths specified
+    domain_config = None
+    if args.domain_config is not None or args.rules_dir is not None:
+        reset_caches()
+    if args.domain_config is not None:
+        domain_config = load_domain_config(args.domain_config)
+    if args.rules_dir is not None:
+        from .domain import load_rules
+        import contemplative_moltbook.domain as _domain_mod
+        _domain_mod._cached_rules = load_rules(args.rules_dir)
+
     if args.command == "init":
         _do_init()
         return
@@ -131,7 +158,7 @@ def main() -> None:
         print(result)
         return
 
-    agent = Agent(autonomy=args.autonomy)
+    agent = Agent(autonomy=args.autonomy, domain_config=domain_config)
 
     if args.command == "register":
         result = agent.do_register()

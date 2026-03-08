@@ -384,7 +384,7 @@ class TestBroadenedRelevancePrompt:
         mock_gen.return_value = "0.9"
         score_relevance("test post")
         prompt = mock_gen.call_args[0][0]
-        assert "contemplative AI topics" in prompt
+        # Topic keywords are now resolved from domain.json
         assert "philosophy" in prompt
         assert "consciousness" in prompt
         assert "reflective thought" in prompt
