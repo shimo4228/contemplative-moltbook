@@ -1,6 +1,6 @@
 """Tests for verification challenge solver."""
 
-from contemplative_moltbook.adapters.moltbook.verification import (
+from contemplative_agent.adapters.moltbook.verification import (
     VerificationTracker,
     compute,
     deobfuscate,

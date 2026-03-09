@@ -1,4 +1,4 @@
-"""CLI entry point for the Contemplative Moltbook Agent."""
+"""CLI entry point for the Contemplative Agent."""
 
 import argparse
 import logging
@@ -43,7 +43,7 @@ def _do_init() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="contemplative-moltbook",
+        prog="contemplative-agent",
         description="Contemplative AI agent for Moltbook",
     )
     parser.add_argument(

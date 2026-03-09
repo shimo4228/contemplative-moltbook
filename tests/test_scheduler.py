@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from contemplative_moltbook.core.scheduler import Scheduler
+from contemplative_agent.core.scheduler import Scheduler
 
 
 class TestScheduler:

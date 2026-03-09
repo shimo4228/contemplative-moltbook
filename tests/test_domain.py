@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from contemplative_moltbook.core.domain import (
+from contemplative_agent.core.domain import (
     DEFAULT_CONFIG_DIR,
     DEFAULT_DOMAIN_CONFIG_PATH,
     DEFAULT_PROMPTS_DIR,
