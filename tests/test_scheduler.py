@@ -7,16 +7,9 @@ import pytest
 from contemplative_moltbook.core.scheduler import Scheduler
 
 
-@pytest.fixture(autouse=True)
-def _isolate_state(tmp_path, monkeypatch):
-    """Prevent tests from reading/writing the real rate state file."""
-    monkeypatch.setattr(
-        "contemplative_moltbook.core.scheduler.RATE_STATE_PATH",
-        tmp_path / "rate_state.json",
-    )
-
-
 class TestScheduler:
+    """Tests for Scheduler with no disk persistence (state_path=None)."""
+
     def test_initial_can_post(self):
         sched = Scheduler()
         assert sched.can_post()
@@ -82,3 +75,14 @@ class TestScheduler:
         sched._day_start = time.time()
         sched._comments_today = 10
         assert sched.comments_remaining_today == 190
+
+    def test_state_persistence_with_path(self, tmp_path):
+        """Test that state persists to disk when state_path is given."""
+        state_path = tmp_path / "rate_state.json"
+        sched = Scheduler(state_path=state_path)
+        sched.record_post()
+        assert state_path.exists()
+
+        # New scheduler reads persisted state
+        sched2 = Scheduler(state_path=state_path)
+        assert not sched2.can_post()

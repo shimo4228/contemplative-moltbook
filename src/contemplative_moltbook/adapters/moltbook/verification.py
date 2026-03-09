@@ -10,7 +10,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Optional, Tuple
 
-from ...config import MAX_VERIFICATION_FAILURES
+from .config import MAX_VERIFICATION_FAILURES
 
 if TYPE_CHECKING:
     from .client import MoltbookClient

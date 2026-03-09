@@ -6,9 +6,9 @@ import logging
 import re
 from typing import Optional
 
-from ...config import MAX_COMMENT_LENGTH, MAX_POST_LENGTH
-from ...domain import get_domain_config, resolve_prompt
-from ...prompts import (
+from ...core.config import MAX_COMMENT_LENGTH, MAX_POST_LENGTH
+from ...core.domain import get_domain_config, resolve_prompt
+from ...core.prompts import (
     COMMENT_PROMPT,
     COOPERATION_POST_PROMPT,
     POST_TITLE_PROMPT,

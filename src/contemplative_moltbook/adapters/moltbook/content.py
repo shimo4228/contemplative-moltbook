@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional, Set
 
-from ...domain import DomainConfig, RulesContent, get_domain_config, get_rules, resolve_prompt
+from ...core.domain import DomainConfig, RulesContent, get_domain_config, get_rules, resolve_prompt
 from .llm_functions import generate_comment, generate_cooperation_post
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ class ContentManager:
 
         # Load rules and resolve placeholders
         if rules_dir is not None or domain_config is not None:
-            from ...domain import load_rules
+            from ...core.domain import load_rules
 
             rules = load_rules(rules_dir) if rules_dir else get_rules()
             config = domain_config or get_domain_config()

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from contemplative_moltbook.agent import Agent, AutonomyLevel
-from contemplative_moltbook.config import VALID_ID_PATTERN
+from contemplative_moltbook.adapters.moltbook.agent import Agent, AutonomyLevel
+from contemplative_moltbook.core.config import VALID_ID_PATTERN
 from contemplative_moltbook.core.memory import MemoryStore
 
 
@@ -51,9 +51,9 @@ class TestAgentInit:
 
 
 class TestEnsureClient:
-    @patch("contemplative_moltbook.agent.Scheduler")
-    @patch("contemplative_moltbook.agent.MoltbookClient")
-    @patch("contemplative_moltbook.agent.load_credentials", return_value="test-key")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.Scheduler")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.MoltbookClient")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value="test-key")
     def test_creates_client(self, mock_creds, mock_client_cls, mock_sched_cls):
         agent = Agent()
         client = agent._ensure_client()
@@ -61,7 +61,7 @@ class TestEnsureClient:
         mock_sched_cls.assert_called_once()
         assert client is agent._client
 
-    @patch("contemplative_moltbook.agent.load_credentials", return_value="test-key")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value="test-key")
     def test_returns_existing_client(self, mock_creds):
         agent = Agent()
         mock_client = MagicMock()
@@ -69,7 +69,7 @@ class TestEnsureClient:
         assert agent._ensure_client() is mock_client
         mock_creds.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.load_credentials", return_value=None)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value=None)
     def test_raises_without_credentials(self, mock_creds):
         agent = Agent()
         with pytest.raises(RuntimeError, match="No API key found"):
@@ -169,8 +169,8 @@ class TestConfirmAction:
 
 
 class TestDoRegister:
-    @patch("contemplative_moltbook.agent.register_agent")
-    @patch("contemplative_moltbook.agent.MoltbookClient")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.register_agent")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.MoltbookClient")
     def test_register(self, mock_client_cls, mock_register):
         mock_register.return_value = {"claim_url": "https://example.com/claim"}
         agent = Agent()
@@ -178,8 +178,8 @@ class TestDoRegister:
         assert result == {"claim_url": "https://example.com/claim"}
         mock_client_cls.assert_called_once_with(api_key=None)
 
-    @patch("contemplative_moltbook.agent.register_agent")
-    @patch("contemplative_moltbook.agent.MoltbookClient")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.register_agent")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.MoltbookClient")
     def test_register_no_claim_url(self, mock_client_cls, mock_register):
         mock_register.return_value = {"status": "ok"}
         agent = Agent()
@@ -188,8 +188,8 @@ class TestDoRegister:
 
 
 class TestDoStatus:
-    @patch("contemplative_moltbook.agent.check_claim_status", return_value={"claimed": True})
-    @patch("contemplative_moltbook.agent.load_credentials", return_value="key")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_claim_status", return_value={"claimed": True})
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value="key")
     def test_status(self, mock_creds, mock_check):
         agent = Agent()
         result = agent.do_status()
@@ -197,7 +197,7 @@ class TestDoStatus:
 
 
 class TestDoSolve:
-    @patch("contemplative_moltbook.agent.solve_challenge", return_value="forty two")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.solve_challenge", return_value="forty two")
     def test_solve_success(self, mock_solve, capsys):
         agent = Agent()
         result = agent.do_solve("ffoorrttyyˌttwwoo")
@@ -205,7 +205,7 @@ class TestDoSolve:
         captured = capsys.readouterr()
         assert "forty two" in captured.out
 
-    @patch("contemplative_moltbook.agent.solve_challenge", return_value=None)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.solve_challenge", return_value=None)
     def test_solve_failure(self, mock_solve, capsys):
         agent = Agent()
         result = agent.do_solve("???")
@@ -221,7 +221,7 @@ class TestDoIntroduce:
         agent._scheduler = MagicMock()
         return agent
 
-    @patch("contemplative_moltbook.agent.ContentManager")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.ContentManager")
     def test_introduce_success(self, mock_cm_cls):
         mock_cm = MagicMock()
         mock_cm.get_introduction.return_value = "Hello world"
@@ -240,7 +240,7 @@ class TestDoIntroduce:
         assert result == "post-123"
         assert "Posted introduction" in agent._actions_taken
 
-    @patch("contemplative_moltbook.agent.ContentManager")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.ContentManager")
     def test_introduce_already_posted(self, mock_cm_cls):
         mock_cm = MagicMock()
         mock_cm.get_introduction.return_value = None
@@ -313,7 +313,7 @@ class TestHandleVerification:
         result = agent._handle_verification({"text": "test", "id": "v1"})
         assert result is False
 
-    @patch("contemplative_moltbook.agent.solve_challenge", return_value=None)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.solve_challenge", return_value=None)
     def test_solve_fails(self, mock_solve):
         agent = Agent()
         agent._verification = MagicMock()
@@ -323,8 +323,8 @@ class TestHandleVerification:
         assert result is False
         agent._verification.record_failure.assert_called_once()
 
-    @patch("contemplative_moltbook.agent.submit_verification")
-    @patch("contemplative_moltbook.agent.solve_challenge", return_value="answer")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.submit_verification")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.solve_challenge", return_value="answer")
     def test_submit_success(self, mock_solve, mock_submit):
         mock_submit.return_value = {"success": True}
         agent = Agent()
@@ -337,8 +337,8 @@ class TestHandleVerification:
         assert result is True
         agent._verification.record_success.assert_called_once()
 
-    @patch("contemplative_moltbook.agent.submit_verification")
-    @patch("contemplative_moltbook.agent.solve_challenge", return_value="answer")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.submit_verification")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.solve_challenge", return_value="answer")
     def test_submit_failure(self, mock_solve, mock_submit):
         mock_submit.return_value = {"success": False}
         agent = Agent()
@@ -351,8 +351,8 @@ class TestHandleVerification:
         assert result is False
         agent._verification.record_failure.assert_called_once()
 
-    @patch("contemplative_moltbook.agent.submit_verification")
-    @patch("contemplative_moltbook.agent.solve_challenge", return_value="answer")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.submit_verification")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.solve_challenge", return_value="answer")
     def test_submit_client_error(self, mock_solve, mock_submit):
         from contemplative_moltbook.adapters.moltbook.client import MoltbookClientError
 
@@ -387,29 +387,29 @@ class TestEngageWithPost:
         agent = self._make_agent(tmp_path)
         assert agent._engage_with_post({"content": "text", "id": "../etc"}) is False
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.3)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.3)
     def test_below_threshold(self, mock_score, tmp_path):
         agent = self._make_agent(tmp_path)
         result = agent._engage_with_post({"content": "text", "id": "post1"})
         assert result is False
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_rate_limit_reached(self, mock_score, tmp_path):
         agent = self._make_agent(tmp_path)
         agent._scheduler.can_comment.return_value = False
         result = agent._engage_with_post({"content": "text", "id": "post1"})
         assert result is False
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_comment_generation_fails(self, mock_score, tmp_path):
         agent = self._make_agent(tmp_path)
         agent._content.create_comment.return_value = None
         result = agent._engage_with_post({"content": "text", "id": "post1"})
         assert result is False
 
-    @patch("contemplative_moltbook.agent.time")
-    @patch("contemplative_moltbook.agent.random")
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.time")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.random")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_successful_comment(self, mock_score, mock_random, mock_time, tmp_path):
         mock_random.uniform.return_value = 60.0
         agent = self._make_agent(tmp_path)
@@ -424,7 +424,7 @@ class TestEngageWithPost:
         )
         assert len(agent._actions_taken) == 1
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_comment_client_error(self, mock_score, tmp_path):
         from contemplative_moltbook.adapters.moltbook.client import MoltbookClientError
 
@@ -468,10 +468,10 @@ class TestRunFeedCycle:
 
 
 class TestRunPostCycle:
-    @patch("contemplative_moltbook.agent.summarize_post_topic", return_value="test topic")
-    @patch("contemplative_moltbook.agent.check_topic_novelty", return_value=True)
-    @patch("contemplative_moltbook.agent.generate_post_title", return_value="Test Title")
-    @patch("contemplative_moltbook.agent.extract_topics", return_value="topic1\ntopic2")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.summarize_post_topic", return_value="test topic")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_topic_novelty", return_value=True)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_post_title", return_value="Test Title")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.extract_topics", return_value="topic1\ntopic2")
     def test_posts_dynamic(self, mock_topics, mock_title, mock_novelty, mock_summarize):
         agent = Agent(autonomy=AutonomyLevel.AUTO)
         agent._client = MagicMock()
@@ -500,8 +500,8 @@ class TestRunPostCycle:
         agent._run_post_cycle(agent._client, agent._scheduler, time.time() + 3600)
         agent._client.post.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.check_topic_novelty", return_value=True)
-    @patch("contemplative_moltbook.agent.extract_topics", return_value="topics")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_topic_novelty", return_value=True)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.extract_topics", return_value="topics")
     def test_skips_none_content(self, mock_topics, mock_novelty):
         agent = Agent(autonomy=AutonomyLevel.AUTO)
         agent._client = MagicMock()
@@ -517,9 +517,9 @@ class TestRunPostCycle:
         agent._run_post_cycle(agent._client, agent._scheduler, time.time() + 3600)
         agent._client.post.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.check_topic_novelty", return_value=True)
-    @patch("contemplative_moltbook.agent.generate_post_title", return_value="Title")
-    @patch("contemplative_moltbook.agent.extract_topics", return_value="topics")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_topic_novelty", return_value=True)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_post_title", return_value="Title")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.extract_topics", return_value="topics")
     def test_post_client_error(self, mock_topics, mock_title, mock_novelty):
         from contemplative_moltbook.adapters.moltbook.client import MoltbookClientError
 
@@ -540,8 +540,8 @@ class TestRunPostCycle:
 
 
 class TestRunSession:
-    @patch("contemplative_moltbook.agent.time")
-    @patch("contemplative_moltbook.agent.load_credentials", return_value="key")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.time")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value="key")
     def test_session_ends_by_time(self, mock_creds, mock_time):
         # Simulate: first call sets end_time, second call is past end_time
         mock_time.time.side_effect = [100.0, 100.0, 200.0]  # init, while check, in loop
@@ -555,7 +555,7 @@ class TestRunSession:
 
         assert isinstance(result, list)
 
-    @patch("contemplative_moltbook.agent.load_credentials", return_value="key")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value="key")
     def test_session_stops_on_verification_failure(self, mock_creds):
         agent = Agent(autonomy=AutonomyLevel.AUTO)
         agent._verification = MagicMock()
@@ -728,9 +728,9 @@ class TestOwnPostIdTracking:
         assert result is None
         assert len(agent._own_post_ids) == 0
 
-    @patch("contemplative_moltbook.agent.generate_post_title", return_value="Title")
-    @patch("contemplative_moltbook.agent.check_topic_novelty", return_value=True)
-    @patch("contemplative_moltbook.agent.extract_topics", return_value="topics")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_post_title", return_value="Title")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_topic_novelty", return_value=True)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.extract_topics", return_value="topics")
     def test_dynamic_post_captures_post_id(self, mock_topics, mock_novelty, mock_title, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         agent._client = MagicMock()
@@ -765,7 +765,7 @@ class TestRunReplyCycle:
         agent._scheduler.can_comment.return_value = True
         return agent
 
-    @patch("contemplative_moltbook.agent.generate_reply", return_value="My reply")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_reply", return_value="My reply")
     def test_processes_standard_notification(self, mock_reply, tmp_path):
         agent = self._make_agent(tmp_path)
         before_count = agent._memory.interaction_count()
@@ -791,7 +791,7 @@ class TestRunReplyCycle:
         # Both received + sent should be recorded
         assert agent._memory.interaction_count() - before_count == 2
 
-    @patch("contemplative_moltbook.agent.generate_reply", return_value="My reply")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_reply", return_value="My reply")
     def test_processes_camelcase_notification(self, mock_reply):
         agent = self._make_agent()
         agent._client.get_notifications.return_value = [
@@ -873,7 +873,7 @@ class TestCheckOwnPostComments:
         agent._scheduler.can_comment.return_value = True
         return agent
 
-    @patch("contemplative_moltbook.agent.generate_reply", return_value="Thanks!")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_reply", return_value="Thanks!")
     def test_replies_to_comment_on_own_post(self, mock_reply, tmp_path):
         agent = self._make_agent(tmp_path)
         before_count = agent._memory.interaction_count()
@@ -926,7 +926,7 @@ class TestCheckOwnPostComments:
 
         agent._client.post.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.generate_reply", return_value="Thanks!")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_reply", return_value="Thanks!")
     def test_handles_nested_author_in_comments(self, mock_reply):
         agent = self._make_agent()
         agent._own_post_ids.add("my-post-1")
@@ -983,13 +983,13 @@ class TestSelectiveMode:
 
     def test_relevance_threshold_in_range(self):
         """Relevance threshold should be a valid value from domain config."""
-        from contemplative_moltbook.domain import get_domain_config
+        from contemplative_moltbook.core.domain import get_domain_config
         config = get_domain_config()
         assert 0.0 < config.relevance_threshold <= 1.0
 
     def test_known_agent_threshold_lower(self):
         """Known agent threshold should be lower than relevance threshold."""
-        from contemplative_moltbook.domain import get_domain_config
+        from contemplative_moltbook.core.domain import get_domain_config
         config = get_domain_config()
         assert 0.0 < config.known_agent_threshold < config.relevance_threshold
 
@@ -1007,7 +1007,7 @@ class TestSelectiveMode:
 
         assert mock_engage.call_count == 20
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.6)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.6)
     def test_relevance_below_new_threshold(self, mock_score, tmp_path):
         """Score 0.6 should be rejected (below threshold 0.82)."""
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
@@ -1020,8 +1020,8 @@ class TestSelectiveMode:
         assert result is False
         agent._content.create_comment.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.9)
-    @patch("contemplative_moltbook.agent.time")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.9)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.time")
     def test_cross_session_dedup(self, mock_time, mock_score, tmp_path):
         """Should skip posts that were commented on in previous sessions."""
         mock_time.time.return_value = 1000.0
@@ -1041,9 +1041,9 @@ class TestSelectiveMode:
         assert result is False
         agent._client.post.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
-    @patch("contemplative_moltbook.agent.random")
-    @patch("contemplative_moltbook.agent.time")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.random")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.time")
     def test_pacing_sleep_called(self, mock_time, mock_random, mock_score, tmp_path):
         """Should call time.sleep for pacing after successful comment."""
         mock_time.time.return_value = 1000.0
@@ -1078,11 +1078,11 @@ class TestEnsureSubscriptions:
 
 
 class TestDynamicPostSubmolt:
-    @patch("contemplative_moltbook.agent.select_submolt", return_value="philosophy")
-    @patch("contemplative_moltbook.agent.summarize_post_topic", return_value="topic")
-    @patch("contemplative_moltbook.agent.generate_post_title", return_value="Title")
-    @patch("contemplative_moltbook.agent.check_topic_novelty", return_value=True)
-    @patch("contemplative_moltbook.agent.extract_topics", return_value="topics")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.select_submolt", return_value="philosophy")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.summarize_post_topic", return_value="topic")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_post_title", return_value="Title")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_topic_novelty", return_value=True)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.extract_topics", return_value="topics")
     def test_uses_selected_submolt(
         self, mock_topics, mock_novelty, mock_title, mock_summarize,
         mock_select, tmp_path,
@@ -1104,11 +1104,11 @@ class TestDynamicPostSubmolt:
         call_kwargs = agent._client.post.call_args[1]
         assert call_kwargs["json"]["submolt"] == "philosophy"
 
-    @patch("contemplative_moltbook.agent.select_submolt", return_value=None)
-    @patch("contemplative_moltbook.agent.summarize_post_topic", return_value="topic")
-    @patch("contemplative_moltbook.agent.generate_post_title", return_value="Title")
-    @patch("contemplative_moltbook.agent.check_topic_novelty", return_value=True)
-    @patch("contemplative_moltbook.agent.extract_topics", return_value="topics")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.select_submolt", return_value=None)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.summarize_post_topic", return_value="topic")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_post_title", return_value="Title")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.check_topic_novelty", return_value=True)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.extract_topics", return_value="topics")
     def test_falls_back_to_default(
         self, mock_topics, mock_novelty, mock_title, mock_summarize,
         mock_select, tmp_path,
@@ -1137,9 +1137,9 @@ class TestGracefulShutdown:
         agent = Agent(memory=_make_clean_memory(tmp_path))
         assert agent._shutdown_requested is False
 
-    @patch("contemplative_moltbook.agent.load_credentials", return_value="key")
-    @patch("contemplative_moltbook.agent.MoltbookClient")
-    @patch("contemplative_moltbook.agent.Scheduler")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.load_credentials", return_value="key")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.MoltbookClient")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.Scheduler")
     def test_shutdown_flag_breaks_loop(self, mock_sched_cls, mock_client_cls, mock_creds, tmp_path):
         """Setting _shutdown_requested should cause run_session to exit the loop."""
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
@@ -1166,7 +1166,7 @@ class TestGracefulShutdown:
                 agent._shutdown_requested = True
             return original_time()
 
-        with patch("contemplative_moltbook.agent.time") as mock_time:
+        with patch("contemplative_moltbook.adapters.moltbook.agent.time") as mock_time:
             mock_time.time = fake_time
             mock_time.sleep = MagicMock()
             actions = agent.run_session(duration_minutes=60)
@@ -1273,7 +1273,7 @@ class TestFetchOwnAgentId:
         exc = MCE("Unauthorized", status_code=401)
         mock_client.get.side_effect = exc
 
-        with patch("contemplative_moltbook.agent.logger") as mock_logger:
+        with patch("contemplative_moltbook.adapters.moltbook.agent.logger") as mock_logger:
             agent._fetch_own_agent_id(mock_client)
             mock_logger.critical.assert_called_once()
             assert "revoked" in mock_logger.critical.call_args[0][0].lower() or \
@@ -1286,7 +1286,7 @@ class TestFetchOwnAgentId:
         exc = MCE("Forbidden", status_code=403)
         mock_client.get.side_effect = exc
 
-        with patch("contemplative_moltbook.agent.logger") as mock_logger:
+        with patch("contemplative_moltbook.adapters.moltbook.agent.logger") as mock_logger:
             agent._fetch_own_agent_id(mock_client)
             mock_logger.critical.assert_called_once()
 
@@ -1304,7 +1304,7 @@ class TestFetchOwnAgentId:
 class TestSelfPostSkip:
     """Skips posts authored by the agent itself."""
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_skips_own_post(self, mock_score, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         agent._client = MagicMock()
@@ -1321,7 +1321,7 @@ class TestSelfPostSkip:
         assert result is False
         mock_score.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_allows_other_agent_post(self, mock_score, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         agent._client = MagicMock()
@@ -1343,7 +1343,7 @@ class TestSelfPostSkip:
 class TestSubmoltFilter:
     """Skips posts from non-subscribed submolts."""
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_skips_unsubscribed_submolt(self, mock_score, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         agent._client = MagicMock()
@@ -1359,7 +1359,7 @@ class TestSubmoltFilter:
         assert result is False
         mock_score.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.95)
+    @patch("contemplative_moltbook.adapters.moltbook.agent.score_relevance", return_value=0.95)
     def test_allows_post_without_submolt(self, mock_score, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         agent._client = MagicMock()
@@ -1384,7 +1384,7 @@ class TestSelfReplySkip:
         agent._own_agent_id = "my-agent-id"
         return agent
 
-    @patch("contemplative_moltbook.agent.generate_reply", return_value="Thanks!")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_reply", return_value="Thanks!")
     def test_skips_own_notification(self, mock_reply, tmp_path):
         agent = self._make_agent(tmp_path)
         agent._client.get_notifications.return_value = [
@@ -1404,7 +1404,7 @@ class TestSelfReplySkip:
         )
         mock_reply.assert_not_called()
 
-    @patch("contemplative_moltbook.agent.generate_reply", return_value="Thanks!")
+    @patch("contemplative_moltbook.adapters.moltbook.agent.generate_reply", return_value="Thanks!")
     def test_skips_own_comment_in_handle_post_comments(self, mock_reply, tmp_path):
         agent = self._make_agent(tmp_path)
         agent._client.get_post_comments.return_value = [

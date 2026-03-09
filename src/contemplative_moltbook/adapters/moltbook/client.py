@@ -8,12 +8,14 @@ from urllib.parse import urlparse
 
 import requests
 
-from ...config import (
+from .config import (
     ALLOWED_DOMAIN,
     BASE_URL,
     CONNECT_TIMEOUT,
     MAX_RETRY_ON_429,
     READ_TIMEOUT,
+)
+from ...core.config import (
     VALID_ID_PATTERN,
     VALID_SUBMOLT_PATTERN,
 )

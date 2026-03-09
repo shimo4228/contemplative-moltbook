@@ -1,17 +1,17 @@
-"""Constants and configuration for the Moltbook agent."""
+"""Moltbook platform-specific constants.
+
+URLs, paths, timeouts, and rate limits specific to the Moltbook deployment.
+"""
 
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
 
-VALID_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
-
-
+# --- API ---
 BASE_URL = "https://www.moltbook.com/api/v1"
 ALLOWED_DOMAIN = "www.moltbook.com"
 
+# --- Data paths ---
 MOLTBOOK_DATA_DIR = Path(
     os.environ.get("MOLTBOOK_HOME", str(Path.home() / ".config" / "moltbook"))
 )
@@ -24,35 +24,22 @@ LEGACY_MEMORY_PATH = MOLTBOOK_DATA_DIR / "memory.json"
 COMMENTED_CACHE_PATH = MOLTBOOK_DATA_DIR / "commented_cache.json"
 EPISODE_RETENTION_DAYS = 30
 
+# --- Agent pacing ---
 COMMENT_PACING_MIN_SECONDS = 60
 COMMENT_PACING_MAX_SECONDS = 180
 
-VALID_SUBMOLT_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,49}$")
-
+# --- Ollama LLM ---
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "qwen3.5:9b"
 
+# --- HTTP client ---
 MAX_VERIFICATION_FAILURES = 7
 MAX_RETRY_ON_429 = 3
 CONNECT_TIMEOUT = 30
 READ_TIMEOUT = 60
 
-MAX_POST_LENGTH = 20000
-MAX_COMMENT_LENGTH = 10000
-FORBIDDEN_SUBSTRING_PATTERNS: Tuple[str, ...] = (
-    "api_key",
-    "api-key",
-    "apikey",
-    "Bearer ",
-    "auth_token",
-    "access_token",
-)
-FORBIDDEN_WORD_PATTERNS: Tuple[str, ...] = (
-    "password",
-    "secret",
-)
 
-
+# --- Rate limits ---
 @dataclass(frozen=True)
 class RateLimits:
     """Rate limits for Moltbook API actions."""

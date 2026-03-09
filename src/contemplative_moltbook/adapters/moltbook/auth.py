@@ -7,7 +7,7 @@ import logging
 import os
 from typing import TYPE_CHECKING, Optional
 
-from ...config import CREDENTIALS_PATH
+from .config import CREDENTIALS_PATH
 
 if TYPE_CHECKING:
     from .client import MoltbookClient

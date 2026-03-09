@@ -7,31 +7,57 @@ import logging
 import os
 import re
 import time
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
 import requests
 
-from ..config import (
+from .config import (
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
-    IDENTITY_PATH,
-    MAX_COMMENT_LENGTH,
     MAX_POST_LENGTH,
-    OLLAMA_BASE_URL,
-    OLLAMA_MODEL,
 )
-from ..prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-# Backward compatibility alias
-DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
+# Default Ollama settings — overridden by adapter config or env vars
+_DEFAULT_OLLAMA_URL = "http://localhost:11434"
+_DEFAULT_OLLAMA_MODEL = "qwen3.5:9b"
 
 LOCALHOST_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 CIRCUIT_FAILURE_THRESHOLD = 5
 CIRCUIT_COOLDOWN_SECONDS = 120
+
+# Module-level settings — set by configure() from the adapter
+_identity_path: Optional[Path] = None
+_ollama_base_url: str = _DEFAULT_OLLAMA_URL
+_ollama_model: str = _DEFAULT_OLLAMA_MODEL
+_default_system_prompt: Optional[str] = None
+
+
+def configure(
+    *,
+    identity_path: Optional[Path] = None,
+    ollama_base_url: Optional[str] = None,
+    ollama_model: Optional[str] = None,
+    default_system_prompt: Optional[str] = None,
+) -> None:
+    """Configure LLM module with adapter-specific settings.
+
+    Called by the adapter (e.g. Moltbook) at startup to inject
+    platform-specific paths and URLs.
+    """
+    global _identity_path, _ollama_base_url, _ollama_model, _default_system_prompt
+    if identity_path is not None:
+        _identity_path = identity_path
+    if ollama_base_url is not None:
+        _ollama_base_url = ollama_base_url
+    if ollama_model is not None:
+        _ollama_model = ollama_model
+    if default_system_prompt is not None:
+        _default_system_prompt = default_system_prompt
 
 
 class _CircuitBreaker:
@@ -76,6 +102,26 @@ class _CircuitBreaker:
 _circuit = _CircuitBreaker()
 
 
+def _get_default_system_prompt() -> str:
+    """Return the default system prompt, lazy-loading from domain module."""
+    if _default_system_prompt is not None:
+        return _default_system_prompt
+    # Lazy import to avoid circular dependency at module load time
+    from .prompts import SYSTEM_PROMPT
+    return SYSTEM_PROMPT
+
+
+# Backward compatibility alias (lazy property)
+class _DefaultSystemPromptAccessor:
+    """Lazy accessor for DEFAULT_SYSTEM_PROMPT."""
+    def __str__(self) -> str:
+        return _get_default_system_prompt()
+    def __repr__(self) -> str:
+        return f"DEFAULT_SYSTEM_PROMPT({_get_default_system_prompt()!r:.80})"
+
+DEFAULT_SYSTEM_PROMPT = _DefaultSystemPromptAccessor()
+
+
 def _load_identity() -> str:
     """Load identity from file, falling back to default system prompt.
 
@@ -83,9 +129,10 @@ def _load_identity() -> str:
     prompt injection via tampered identity files.
     Falls back to config/prompts/system.md via the domain module.
     """
-    if IDENTITY_PATH.exists():
+    identity = _identity_path
+    if identity is not None and identity.exists():
         try:
-            content = IDENTITY_PATH.read_text(encoding="utf-8").strip()
+            content = identity.read_text(encoding="utf-8").strip()
             if content:
                 # Validate against forbidden patterns
                 content_lower = content.lower()
@@ -96,15 +143,15 @@ def _load_identity() -> str:
                             "using default",
                             pattern,
                         )
-                        return DEFAULT_SYSTEM_PROMPT
+                        return _get_default_system_prompt()
                 return content
         except OSError as exc:
             logger.warning("Failed to read identity file: %s", exc)
-    return DEFAULT_SYSTEM_PROMPT
+    return _get_default_system_prompt()
 
 
 def _get_ollama_url() -> str:
-    url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_BASE_URL)
+    url = os.environ.get("OLLAMA_BASE_URL", _ollama_base_url)
     parsed = urlparse(url)
     if parsed.hostname not in LOCALHOST_HOSTS:
         raise ValueError(
@@ -114,7 +161,7 @@ def _get_ollama_url() -> str:
 
 
 def _get_model() -> str:
-    return os.environ.get("OLLAMA_MODEL", OLLAMA_MODEL)
+    return os.environ.get("OLLAMA_MODEL", _ollama_model)
 
 
 def _strip_thinking(text: str) -> str:

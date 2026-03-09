@@ -18,14 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from ..config import (
-    COMMENTED_CACHE_PATH,
-    EPISODE_LOG_DIR,
-    EPISODE_RETENTION_DAYS,
-    FORBIDDEN_SUBSTRING_PATTERNS,
-    KNOWLEDGE_PATH,
-    LEGACY_MEMORY_PATH,
-)
+from .config import FORBIDDEN_SUBSTRING_PATTERNS
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +85,22 @@ class EpisodeLog:
     """
 
     def __init__(self, log_dir: Optional[Path] = None) -> None:
-        self._log_dir = log_dir or EPISODE_LOG_DIR
+        self._log_dir = log_dir
 
-    def _today_path(self) -> Path:
+    def _today_path(self) -> Optional[Path]:
+        if self._log_dir is None:
+            return None
         return self._log_dir / f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.jsonl"
 
-    def _path_for_date(self, date_str: str) -> Path:
+    def _path_for_date(self, date_str: str) -> Optional[Path]:
+        if self._log_dir is None:
+            return None
         return self._log_dir / f"{date_str}.jsonl"
 
     def append(self, record_type: str, data: Dict[str, Any]) -> None:
         """Append a record immediately to today's log file."""
+        if self._log_dir is None:
+            return
         self._log_dir.mkdir(parents=True, exist_ok=True)
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
@@ -109,6 +108,8 @@ class EpisodeLog:
             "data": data,
         }
         path = self._today_path()
+        if path is None:
+            return
         try:
             with path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -118,21 +119,26 @@ class EpisodeLog:
 
     def read_today(self) -> List[Dict[str, Any]]:
         """Read all records from today's log."""
-        return self._read_file(self._today_path())
+        path = self._today_path()
+        return self._read_file(path) if path is not None else []
 
     def read_range(self, days: int = 1) -> List[Dict[str, Any]]:
         """Read records from the last N days."""
+        if self._log_dir is None:
+            return []
         records: List[Dict[str, Any]] = []
         now = datetime.now(timezone.utc)
         for i in range(days):
             date_str = (now - timedelta(days=i)).strftime("%Y-%m-%d")
-            records.extend(self._read_file(self._path_for_date(date_str)))
+            path = self._path_for_date(date_str)
+            if path is not None:
+                records.extend(self._read_file(path))
         return records
 
     def cleanup(self, retention_days: Optional[int] = None) -> int:
         """Delete log files older than retention_days. Returns count deleted."""
-        retention = retention_days if retention_days is not None else EPISODE_RETENTION_DAYS
-        if not self._log_dir.exists():
+        retention = retention_days if retention_days is not None else 30
+        if self._log_dir is None or not self._log_dir.exists():
             return 0
         cutoff = datetime.now(timezone.utc) - timedelta(days=retention)
         deleted = 0
@@ -189,7 +195,7 @@ class KnowledgeStore:
     """
 
     def __init__(self, path: Optional[Path] = None) -> None:
-        self._path = path or KNOWLEDGE_PATH
+        self._path = path
         self._agents: Dict[str, str] = {}  # agent_id -> name
         self._followed: set[str] = set()
         self._post_topics: List[str] = []
@@ -264,7 +270,7 @@ class KnowledgeStore:
         tainted data that may have been injected via compromised
         external content during distillation.
         """
-        if not self._path.exists():
+        if self._path is None or not self._path.exists():
             logger.debug("No knowledge file at %s", self._path)
             return
         try:
@@ -288,6 +294,9 @@ class KnowledgeStore:
 
     def save(self) -> None:
         """Persist knowledge to Markdown file using atomic write."""
+        if self._path is None:
+            logger.debug("No knowledge path configured, skipping save")
+            return
         self._path.parent.mkdir(parents=True, exist_ok=True)
         lines = ["# Knowledge Base\n"]
 
@@ -381,10 +390,10 @@ class MemoryStore:
             knowledge_path = knowledge_path or base_dir / "knowledge.md"
             commented_cache_path = commented_cache_path or base_dir / "commented_cache.json"
         else:
-            self._legacy_path = LEGACY_MEMORY_PATH
+            self._legacy_path = None
         self._episodes = EpisodeLog(log_dir=log_dir)
         self._knowledge = KnowledgeStore(path=knowledge_path)
-        self._commented_cache_path = commented_cache_path or COMMENTED_CACHE_PATH
+        self._commented_cache_path = commented_cache_path
         self._interactions: List[Interaction] = []
         self._interacted_ids: set[str] = set()
         self._post_history: List[PostRecord] = []
@@ -409,9 +418,15 @@ class MemoryStore:
 
     def load(self) -> None:
         """Load memory: try new format first, fall back to legacy migration."""
-        knowledge_exists = self._knowledge._path.exists()
+        knowledge_exists = (
+            self._knowledge._path is not None and self._knowledge._path.exists()
+        )
 
-        if self._legacy_path.exists() and not knowledge_exists:
+        if (
+            self._legacy_path is not None
+            and self._legacy_path.exists()
+            and not knowledge_exists
+        ):
             # Legacy file exists but no knowledge.md yet — migrate
             # Migration already populates in-memory lists, so skip episode loading
             self._migrate_legacy()
@@ -657,7 +672,7 @@ class MemoryStore:
 
     def _load_commented_cache(self) -> set:
         """Load commented cache from file, falling back to JSONL scan."""
-        if self._commented_cache_path.exists():
+        if self._commented_cache_path is not None and self._commented_cache_path.exists():
             try:
                 data = json.loads(
                     self._commented_cache_path.read_text(encoding="utf-8")
@@ -682,7 +697,7 @@ class MemoryStore:
 
     def _save_commented_cache(self) -> None:
         """Persist commented cache to JSON file (atomic write)."""
-        if self._commented_cache is None:
+        if self._commented_cache is None or self._commented_cache_path is None:
             return
         self._commented_cache_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = self._commented_cache_path.with_suffix(".json.tmp")

@@ -17,7 +17,7 @@ from .config import FORBIDDEN_SUBSTRING_PATTERNS
 logger = logging.getLogger(__name__)
 
 # Default config directory relative to the package root
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DEFAULT_CONFIG_DIR = _PROJECT_ROOT / "config"
 DEFAULT_DOMAIN_CONFIG_PATH = DEFAULT_CONFIG_DIR / "domain.json"
 DEFAULT_PROMPTS_DIR = DEFAULT_CONFIG_DIR / "prompts"

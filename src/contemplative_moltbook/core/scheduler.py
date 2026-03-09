@@ -1,14 +1,10 @@
-"""Rate-limit-aware scheduling for Moltbook API actions."""
+"""Rate-limit-aware scheduling for API actions."""
 
 import json
 import logging
 import time
-
-from ..config import (
-    NEW_AGENT_RATE_LIMITS,
-    RATE_LIMITS,
-    RATE_STATE_PATH,
-)
+from pathlib import Path
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +13,22 @@ class Scheduler:
     """Tracks action timestamps and enforces rate limits.
 
     Persists state to disk so limits survive restarts.
+
+    Args:
+        state_path: Path to persist rate state. If None, state is in-memory only.
+        limits: A rate-limit object with post_interval_seconds,
+                comment_interval_seconds, and comments_per_day attributes.
+        is_new_agent: If True and no explicit limits given, uses stricter defaults.
     """
 
-    def __init__(self, is_new_agent: bool = False) -> None:
-        self._limits = NEW_AGENT_RATE_LIMITS if is_new_agent else RATE_LIMITS
+    def __init__(
+        self,
+        state_path: Optional[Path] = None,
+        limits: Optional[object] = None,
+        is_new_agent: bool = False,
+    ) -> None:
+        self._state_path = state_path
+        self._limits = limits or _InMemoryLimits(is_new_agent=is_new_agent)
         self._last_post_time: float = 0.0
         self._last_comment_time: float = 0.0
         self._comments_today: int = 0
@@ -28,10 +36,10 @@ class Scheduler:
         self._load_state()
 
     def _load_state(self) -> None:
-        if not RATE_STATE_PATH.exists():
+        if self._state_path is None or not self._state_path.exists():
             return
         try:
-            data = json.loads(RATE_STATE_PATH.read_text(encoding="utf-8"))
+            data = json.loads(self._state_path.read_text(encoding="utf-8"))
             self._last_post_time = data.get("last_post_time", 0.0)
             self._last_comment_time = data.get("last_comment_time", 0.0)
             self._comments_today = data.get("comments_today", 0)
@@ -40,17 +48,19 @@ class Scheduler:
             logger.warning("Failed to load rate state: %s", exc)
 
     def _save_state(self) -> None:
-        RATE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if self._state_path is None:
+            return
+        self._state_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "last_post_time": self._last_post_time,
             "last_comment_time": self._last_comment_time,
             "comments_today": self._comments_today,
             "day_start": self._day_start,
         }
-        RATE_STATE_PATH.write_text(
+        self._state_path.write_text(
             json.dumps(data, indent=2) + "\n", encoding="utf-8"
         )
-        RATE_STATE_PATH.chmod(0o600)
+        self._state_path.chmod(0o600)
 
     def _reset_daily_if_needed(self) -> None:
         now = time.time()
@@ -118,3 +128,17 @@ class Scheduler:
         if wait > 0:
             logger.info("Waiting %.0fs for comment rate limit...", wait)
             time.sleep(wait)
+
+
+class _InMemoryLimits:
+    """Fallback rate limits when no adapter config is provided."""
+
+    def __init__(self, is_new_agent: bool = False) -> None:
+        if is_new_agent:
+            self.post_interval_seconds = 7200
+            self.comment_interval_seconds = 60
+            self.comments_per_day = 50
+        else:
+            self.post_interval_seconds = 1800
+            self.comment_interval_seconds = 20
+            self.comments_per_day = 200

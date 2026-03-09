@@ -11,10 +11,14 @@ import time
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
-from .adapters.moltbook.auth import check_claim_status, load_credentials, register_agent
-from .adapters.moltbook.client import MoltbookClient, MoltbookClientError
-from .adapters.moltbook.content import ContentManager
-from .adapters.moltbook.llm_functions import (
+from .auth import check_claim_status, load_credentials, register_agent
+from .client import MoltbookClient, MoltbookClientError
+from .config import (
+    COMMENT_PACING_MAX_SECONDS,
+    COMMENT_PACING_MIN_SECONDS,
+)
+from .content import ContentManager
+from .llm_functions import (
     check_topic_novelty,
     extract_topics,
     generate_post_title,
@@ -24,22 +28,20 @@ from .adapters.moltbook.llm_functions import (
     select_submolt,
     summarize_post_topic,
 )
-from .adapters.moltbook.verification import (
+from .verification import (
     VerificationTracker,
     solve_challenge,
     submit_verification,
 )
-from .config import (
-    COMMENT_PACING_MAX_SECONDS,
-    COMMENT_PACING_MIN_SECONDS,
+from ...core.config import (
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
     MAX_POST_LENGTH,
     VALID_ID_PATTERN,
 )
-from .core.memory import MemoryStore
-from .core.scheduler import Scheduler
-from .domain import DomainConfig, get_domain_config
+from ...core.domain import DomainConfig, get_domain_config
+from ...core.memory import MemoryStore
+from ...core.scheduler import Scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -838,7 +840,7 @@ class Agent:
             logger.info("Post rate limit hit after content generation (concurrent session?)")
             return
 
-        from .config import VALID_SUBMOLT_PATTERN
+        from ...core.config import VALID_SUBMOLT_PATTERN
         selected = select_submolt(content, self._domain.subscribed_submolts)
         if selected and not VALID_SUBMOLT_PATTERN.match(selected):
             logger.warning("select_submolt returned invalid name %r, using default", selected)

@@ -111,7 +111,7 @@ class TestAutonomyFlags:
         with patch("sys.argv", ["contemplative-moltbook", "--approve", "status"]):
             main()
 
-        from contemplative_moltbook.agent import AutonomyLevel
+        from contemplative_moltbook.adapters.moltbook.agent import AutonomyLevel
         mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.APPROVE, domain_config=None)
 
     @patch("contemplative_moltbook.cli.Agent")
@@ -122,7 +122,7 @@ class TestAutonomyFlags:
         with patch("sys.argv", ["contemplative-moltbook", "--guarded", "status"]):
             main()
 
-        from contemplative_moltbook.agent import AutonomyLevel
+        from contemplative_moltbook.adapters.moltbook.agent import AutonomyLevel
         mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.GUARDED, domain_config=None)
 
     @patch("contemplative_moltbook.cli.Agent")
@@ -133,7 +133,7 @@ class TestAutonomyFlags:
         with patch("sys.argv", ["contemplative-moltbook", "--auto", "status"]):
             main()
 
-        from contemplative_moltbook.agent import AutonomyLevel
+        from contemplative_moltbook.adapters.moltbook.agent import AutonomyLevel
         mock_agent_cls.assert_called_once_with(autonomy=AutonomyLevel.AUTO, domain_config=None)
 
     @patch("contemplative_moltbook.cli.Agent")

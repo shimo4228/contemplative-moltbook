@@ -9,7 +9,7 @@ from typing import List, Literal, Optional
 
 from .llm import generate
 from .memory import EpisodeLog, KnowledgeStore
-from ..prompts import DISTILL_PROMPT, EVAL_PROMPT
+from .prompts import DISTILL_PROMPT, EVAL_PROMPT
 
 logger = logging.getLogger(__name__)
 

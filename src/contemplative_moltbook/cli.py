@@ -7,9 +7,9 @@ import stat
 import sys
 from pathlib import Path
 
-from .agent import Agent, AutonomyLevel
-from .config import IDENTITY_PATH, KNOWLEDGE_PATH, MOLTBOOK_DATA_DIR
-from .domain import load_domain_config, reset_caches
+from .adapters.moltbook.agent import Agent, AutonomyLevel
+from .adapters.moltbook.config import IDENTITY_PATH, KNOWLEDGE_PATH, MOLTBOOK_DATA_DIR
+from .core.domain import load_domain_config, reset_caches
 from .core.llm import DEFAULT_SYSTEM_PROMPT
 
 
@@ -143,7 +143,7 @@ def main() -> None:
     if args.domain_config is not None:
         domain_config = load_domain_config(args.domain_config)
     if args.rules_dir is not None:
-        from .domain import load_rules, set_rules_cache
+        from .core.domain import load_rules, set_rules_cache
         set_rules_cache(load_rules(args.rules_dir))
 
     if args.command == "init":
