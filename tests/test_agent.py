@@ -9,7 +9,6 @@ import pytest
 from contemplative_moltbook.agent import Agent, AutonomyLevel
 from contemplative_moltbook.config import (
     KNOWN_AGENT_THRESHOLD,
-    MAX_COMMENTS_PER_SESSION,
     RELEVANCE_THRESHOLD,
     SUBSCRIBED_SUBMOLTS,
     VALID_ID_PATTERN,
@@ -993,45 +992,6 @@ class TestSelectiveMode:
     def test_known_agent_threshold_raised(self):
         """Known agent threshold should be 0.65."""
         assert KNOWN_AGENT_THRESHOLD == 0.65
-
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.9)
-    @patch("contemplative_moltbook.agent.time")
-    def test_session_comment_limit(self, mock_time, mock_score, tmp_path):
-        """Should stop commenting after MAX_COMMENTS_PER_SESSION."""
-        mock_time.time.return_value = 1000.0
-
-        agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-        agent._scheduler.can_comment.return_value = True
-        agent._content = MagicMock()
-        agent._content.create_comment.return_value = "Nice"
-
-        # Simulate already at limit
-        agent._session_comment_count = MAX_COMMENTS_PER_SESSION
-
-        result = agent._engage_with_post({"content": "text", "id": "post1"})
-        assert result is False
-        agent._client.post.assert_not_called()
-
-    @patch("contemplative_moltbook.agent.score_relevance", return_value=0.9)
-    @patch("contemplative_moltbook.agent.random")
-    @patch("contemplative_moltbook.agent.time")
-    def test_session_comment_counter_increments(self, mock_time, mock_random, mock_score, tmp_path):
-        """Counter should increment on successful comment."""
-        mock_time.time.return_value = 1000.0
-        mock_random.uniform.return_value = 60.0
-
-        agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-        agent._scheduler.can_comment.return_value = True
-        agent._content = MagicMock()
-        agent._content.create_comment.return_value = "Nice"
-
-        assert agent._session_comment_count == 0
-        agent._engage_with_post({"content": "text", "id": "post1"})
-        assert agent._session_comment_count == 1
 
     def test_feed_processes_all_posts(self):
         """Should process all posts from feed (no FEED_SCAN_LIMIT)."""

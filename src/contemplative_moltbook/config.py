@@ -21,7 +21,6 @@ LEGACY_MEMORY_PATH = MOLTBOOK_DATA_DIR / "memory.json"
 COMMENTED_CACHE_PATH = MOLTBOOK_DATA_DIR / "commented_cache.json"
 EPISODE_RETENTION_DAYS = 30
 
-MAX_COMMENTS_PER_SESSION = 10
 COMMENT_PACING_MIN_SECONDS = 60
 COMMENT_PACING_MAX_SECONDS = 180
 
@@ -66,7 +65,7 @@ class RateLimits:
 
     post_interval_seconds: int = 1800  # 1 per 30 min
     comment_interval_seconds: int = 20
-    comments_per_day: int = 50
+    comments_per_day: int = 200
 
 
 @dataclass(frozen=True)
@@ -75,7 +74,7 @@ class NewAgentRateLimits:
 
     post_interval_seconds: int = 7200  # 1 per 2h
     comment_interval_seconds: int = 60
-    comments_per_day: int = 20
+    comments_per_day: int = 50
 
 
 RATE_LIMITS = RateLimits()

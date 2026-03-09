@@ -48,14 +48,14 @@ class TestScheduler:
 
     def test_daily_limit_exceeded(self):
         sched = Scheduler()
-        sched._comments_today = 50
+        sched._comments_today = 200
         sched._day_start = time.time()
         sched._last_comment_time = 0.0
         assert not sched.can_comment()
 
     def test_daily_reset_after_24h(self):
         sched = Scheduler()
-        sched._comments_today = 50
+        sched._comments_today = 200
         sched._day_start = time.time() - 90000  # > 24h ago
         sched._last_comment_time = 0.0
         assert sched.can_comment()
@@ -81,4 +81,4 @@ class TestScheduler:
         sched = Scheduler()
         sched._day_start = time.time()
         sched._comments_today = 10
-        assert sched.comments_remaining_today == 40
+        assert sched.comments_remaining_today == 190

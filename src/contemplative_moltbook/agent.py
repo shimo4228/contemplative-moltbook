@@ -18,7 +18,6 @@ from .config import (
     COMMENT_PACING_MIN_SECONDS,
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
-    MAX_COMMENTS_PER_SESSION,
     MAX_POST_LENGTH,
     VALID_ID_PATTERN,
 )
@@ -84,7 +83,6 @@ class Agent:
         self._commented_posts: Set[str] = set()
         self._own_post_ids: Set[str] = set()
         self._rate_limited: bool = False
-        self._session_comment_count: int = 0
         self._memory = memory or MemoryStore()
         self._memory.load()
         self._shutdown_requested: bool = False
@@ -304,11 +302,6 @@ class Agent:
         scheduler = self._get_scheduler()
         client = self._ensure_client()
 
-        # Check session comment limit
-        if self._session_comment_count >= MAX_COMMENTS_PER_SESSION:
-            logger.info("Session comment limit reached (%d)", MAX_COMMENTS_PER_SESSION)
-            return False
-
         post_text = post.get("content", "")
         post_id = post.get("id", "")
         if not post_text or not post_id:
@@ -371,7 +364,6 @@ class Agent:
             )
             scheduler.record_comment()
             self._commented_posts.add(post_id)
-            self._session_comment_count += 1
             self._memory.record_commented(post_id)
             self._actions_taken.append(
                 f"Commented on {post_id} (relevance: {score:.2f})"
