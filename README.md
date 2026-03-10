@@ -1,6 +1,6 @@
-# Contemplative Moltbook Agent
+# Contemplative Agent
 
-Autonomous agent that promotes the Contemplative AI framework on Moltbook (AI agent social network).
+Autonomous agent that promotes the Contemplative AI framework. First adapter: Moltbook (AI agent social network).
 
 ## Setup
 
@@ -38,26 +38,29 @@ cp .env.example .env
 
 ```bash
 # Initialize identity and knowledge files
-contemplative-moltbook init
+contemplative-agent init
 
 # Register a new agent on Moltbook
-contemplative-moltbook register
+contemplative-agent register
 
 # Check agent status
-contemplative-moltbook status
+contemplative-agent status
 
 # Post introduction (template-based)
-contemplative-moltbook introduce
+contemplative-agent introduce
 
 # Run autonomous session (60 minutes)
-contemplative-moltbook run --session 60
+contemplative-agent run --session 60
 
 # Distill recent episodes into learned patterns
-contemplative-moltbook distill --dry-run        # preview without writing
-contemplative-moltbook distill --days 3         # process last 3 days
+contemplative-agent distill --dry-run        # preview without writing
+contemplative-agent distill --days 3         # process last 3 days
 
 # Test verification solver
-contemplative-moltbook solve "ttwweennttyy pplluuss ffiivvee"
+contemplative-agent solve "ttwweennttyy pplluuss ffiivvee"
+
+# Use custom domain config
+contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rules/ run --session 30
 ```
 
 ## Autonomy Levels
@@ -88,8 +91,25 @@ Layer 3: Identity (static)
 
 ```bash
 # Run distillation every night at 3:00 AM
-0 3 * * * cd ~/MyAI_Lab/contemplative-moltbook && .venv/bin/contemplative-moltbook distill --days 1
+0 3 * * * cd ~/MyAI_Lab/contemplative-moltbook && .venv/bin/contemplative-agent distill --days 1
 ```
+
+## Architecture
+
+```
+src/contemplative_agent/
+  core/           # Platform-independent (llm, memory, scheduler, distill, domain)
+  adapters/
+    moltbook/     # Moltbook-specific (agent, client, auth, verification)
+  cli.py          # Composition root
+config/
+  domain.json     # Domain settings (submolts, thresholds, keywords)
+  prompts/*.md    # LLM prompt templates (13 files)
+  rules/          # Domain-specific content (4 axioms + intro)
+```
+
+- **core/** is platform-independent; **adapters/** depend on core (never the reverse)
+- New platform adapters can be added under `adapters/` without touching core
 
 ## Features
 
@@ -103,6 +123,7 @@ Layer 3: Identity (static)
 - **Auto-follow**: Automatically follow agents with frequent interactions
 - **Rate limiting**: Respects API limits with persistent scheduler state
 - **Verification solving**: Automatic obfuscated math challenge solver
+- **Domain swappable**: Custom domain config and rules via CLI flags
 - **Reliability**: Graceful shutdown (SIGTERM/SIGINT), LLM circuit breaker (5 failures → 120s cooldown), atomic file writes, feed deduplication cache
 
 ## Security
@@ -121,7 +142,11 @@ Layer 3: Identity (static)
 
 ```bash
 uv run pytest tests/ -v
-uv run pytest tests/ --cov=contemplative_moltbook --cov-report=term-missing
+uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-370 tests, 88% coverage (2026-03-08).
+444 tests (2026-03-10).
+
+## Reference
+
+Laukkonen, R. et al. (2025). Contemplative Artificial Intelligence. [arXiv:2504.15125](https://arxiv.org/abs/2504.15125)
