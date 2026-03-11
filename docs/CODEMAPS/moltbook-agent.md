@@ -1,37 +1,37 @@
-<!-- Generated: 2026-03-10 | Files scanned: 20 | Token estimate: ~1200 -->
+<!-- Generated: 2026-03-12 | Files scanned: 21 | Token estimate: ~1200 -->
 # Moltbook Agent Codemap
 
 ## Module Dependency Graph
 
 ```
-cli.py (184L)  -- composition root
+cli.py (203L)  -- composition root
  -> core/
  |    config.py (26L)       -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
- |    domain.py (285L)      -- domain config + prompt/rules loader
+ |    domain.py (289L)      -- domain config + prompt/rules loader
  |    prompts.py (51L)      -- lazy-loading proxy to config/prompts/*.md
- |    llm.py (278L)         -- Ollama interface, circuit breaker, sanitization
+ |    llm.py (304L)         -- Ollama interface, circuit breaker, sanitization
  |    memory.py (722L)      -- 3-layer memory (EpisodeLog + KnowledgeStore + facade)
  |    scheduler.py (165L)   -- rate limit scheduling, persistence
  |    distill.py (250L)     -- sleep-time memory distillation
  |
  -> adapters/moltbook/
-      config.py (62L)          -- URLs, paths, timeouts, rate limits
-      agent.py (623L)          -- session orchestrator (feed/reply/post cycles)
-      reply_handler.py (323L)  -- notification reply processing
-      post_pipeline.py (147L)  -- dynamic post generation pipeline
-      client.py (234L)         -- HTTP client (auth, domain lock, retry)
+      config.py (82L)          -- URLs, paths, timeouts, rate limits
+      agent.py (687L)          -- session orchestrator (feed/reply/post cycles)
+      reply_handler.py (333L)  -- notification reply processing
+      post_pipeline.py (151L)  -- dynamic post generation pipeline
+      client.py (255L)         -- HTTP client (auth, domain lock, retry)
       auth.py (111L)           -- credential management, register
-      content.py (154L)        -- rules-based content, dedup, LLM generation
+      content.py (130L)        -- rules-based content, dedup, LLM generation
       llm_functions.py (220L)  -- Moltbook-specific LLM functions
       verification.py (236L)   -- obfuscated math challenge solver
 
 config/                        -- externalized templates (domain-swappable)
   domain.json                  -- submolts, thresholds, topic keywords
   prompts/*.md (13 files)      -- LLM prompt templates with {placeholders}
-  rules/contemplative/*.md     -- domain-specific content (4 axioms + intro)
+  rules/contemplative/*.md     -- domain-specific content (constitutional clauses + intro)
 ```
 
-**Total: 20 modules, ~4077 LOC**
+**Total: 21 modules, ~4220 LOC**
 
 ## Key Classes
 
@@ -50,7 +50,7 @@ config/                        -- externalized templates (domain-swappable)
 | `Insight` | core/memory.py | Frozen dataclass for session reflections |
 | `DomainConfig` | core/domain.py | Frozen dataclass: domain settings from JSON |
 | `PromptTemplates` | core/domain.py | Frozen dataclass: all prompt templates |
-| `RulesContent` | core/domain.py | Frozen dataclass: introduction + axiom templates |
+| `RulesContent` | core/domain.py | Frozen dataclass: introduction + constitutional clauses |
 | `ContentManager` | adapters/moltbook/content.py | Rules-based content with dedup |
 | `Scheduler` | core/scheduler.py | Persistent rate limit enforcement |
 | `VerificationTracker` | adapters/moltbook/verification.py | Failure counting, auto-stop |
@@ -70,6 +70,7 @@ contemplative-agent solve TEXT          -> Agent.do_solve(TEXT)
 Global flags:
   --domain-config PATH           Custom domain.json
   --rules-dir PATH               Custom rules directory
+  --no-axioms                    Disable CCAI constitutional clauses (A/B testing)
   --approve / --guarded / --auto Autonomy level
 ```
 
@@ -107,7 +108,7 @@ Circuit breaker (`_CircuitBreaker`) opens after 5 consecutive failures, 120s coo
 3 templates use domain placeholders (`{topic_keywords}`, `{domain_name}`) resolved at runtime via `domain.resolve_prompt()`.
 Backward-compatible module constants (e.g. `SYSTEM_PROMPT`) available via `prompts.__getattr__`.
 
-Domain-specific content (4 axiom templates + introduction) in `config/rules/contemplative/*.md`,
+Domain-specific content (constitutional clauses + introduction) in `config/rules/contemplative/*.md`,
 loaded via `domain.load_rules()` with `{repo_url}` placeholder resolved from `domain.json`.
 
 ## Persistent State Files

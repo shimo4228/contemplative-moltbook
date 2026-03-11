@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-10 | Files scanned: 21 | Token estimate: ~650 -->
+<!-- Generated: 2026-03-12 | Files scanned: 21 | Token estimate: ~650 -->
 # Architecture
 
 ## Project Type
@@ -10,7 +10,7 @@ Python application: Contemplative AI agent with core/adapter separation
                     contemplative-agent
                     ===================
   config/
-    domain.json           prompts/*.md (13)    rules/contemplative/*.md (5)
+    domain.json           prompts/*.md (13)    rules/contemplative/*.md (2)
          |
          v
   +-------------------------------------------+

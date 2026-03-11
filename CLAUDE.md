@@ -28,6 +28,8 @@ src/contemplative_agent/
       auth.py                           # クレデンシャル管理
       content.py                        # コンテンツテンプレート
       llm_functions.py                  # Moltbook 固有 LLM 関数
+      reply_handler.py                  # 通知返信処理
+      post_pipeline.py                  # 動的投稿生成パイプライン
       verification.py                   # 認証チャレンジソルバー
 tests/                                  # テストスイート
 ```
@@ -63,7 +65,7 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 - Python 3.9+ (venv は 3.13.5)
 - 依存: requests のみ。LLM は Ollama (qwen3.5:9b, localhost)
 - ビルド: hatch
-- 20 モジュール、~4077 LOC
+- 21 モジュール、~4220 LOC
 
 ## セキュリティ方針
 
@@ -80,7 +82,7 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 
 ## テスト
 
-444件全パス (2026-03-10)。
+461件全パス (2026-03-12)。
 distill 94%, memory 93%, verification 94%, agent 90%, scheduler 88%, content 87%, llm 80%, client 79%, cli 75%, auth 75%, domain, prompts, config (core/adapters 分割済み)。
 
 ## メモリアーキテクチャ (3層)
@@ -99,4 +101,4 @@ distill 94%, memory 93%, verification 94%, agent 90%, scheduler 88%, content 87%
 Laukkonen, R. et al. (2025). Contemplative Artificial Intelligence. arXiv:2504.15125
 
 # currentDate
-Today's date is 2026-03-10.
+Today's date is 2026-03-12.
