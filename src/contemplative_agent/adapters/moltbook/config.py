@@ -66,8 +66,8 @@ NEW_AGENT_RATE_LIMITS = NewAgentRateLimits()
 class AdaptiveBackoffConfig:
     """Adaptive backoff parameters for API rate limit management.
 
-    The API allows 60 req/min (GET+POST shared quota).
-    One cycle consumes ~8 requests (1 notification + 6 feed + 1 post).
+    The API uses separate quotas: GET 60 req/min, POST 30 req/min.
+    One cycle consumes ~3-5 requests with /home-based approach.
     """
 
     base_cycle_wait: float = 60.0         # Normal cycle interval (seconds)
@@ -75,7 +75,8 @@ class AdaptiveBackoffConfig:
     backoff_multiplier: float = 2.0       # Exponential backoff multiplier
     decay_factor: float = 0.5             # Shrink factor on clean cycle
     remaining_threshold: int = 10         # Start slowing when <= 10 remaining
-    cycle_budget_reserve: int = 5         # In-cycle: stop processing when <= 5 remaining
+    read_budget_reserve: int = 5          # In-cycle: stop GET when <= 5 remaining
+    write_budget_reserve: int = 3         # In-cycle: stop POST when <= 3 remaining
     proactive_wait_seconds: float = 120.0  # Default wait when reset time unknown
 
 

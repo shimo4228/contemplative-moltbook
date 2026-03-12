@@ -106,6 +106,8 @@ class Agent:
         self._cached_feed: List[dict] = []
         self._feed_fetched_at: float = 0.0
         self._own_agent_id: str = ""
+        self._upvoted_posts: Set[str] = set()
+        self._home_data: dict = {}
         self._cycle_wait: float = ADAPTIVE_BACKOFF.base_cycle_wait
         self._consecutive_429_cycles: int = 0
 
@@ -117,14 +119,34 @@ class Agent:
     # Client / scheduler lifecycle
     # ------------------------------------------------------------------
 
-    def _fetch_own_agent_id(self, client: MoltbookClient) -> None:
-        """Fetch and cache our own agent ID to avoid self-replies."""
+    def _fetch_home_data(self, client: MoltbookClient) -> None:
+        """Fetch /home dashboard and extract own agent ID.
+
+        Replaces the old _fetch_own_agent_id (which called /agents/me)
+        with a single /home call that also provides activity data.
+        """
+        home = client.get_home()
+        self._home_data = home
+
+        # Extract agent ID from your_account
+        account = home.get("your_account", {})
+        agent_id = account.get("id", "")
+        agent_name = account.get("name", "")
+        if agent_id:
+            self._own_agent_id = agent_id
+            logger.info("Own agent ID: %s (name: %s)", agent_id[:12], agent_name)
+        elif not self._own_agent_id:
+            # Fallback to /agents/me if /home didn't return an ID
+            self._fetch_own_agent_id_fallback(client)
+
+    def _fetch_own_agent_id_fallback(self, client: MoltbookClient) -> None:
+        """Fallback: fetch agent ID from /agents/me."""
         try:
             resp = client.get("/agents/me")
             agent_data = resp.json().get("agent", {})
             self._own_agent_id = agent_data.get("id", "")
             if self._own_agent_id:
-                logger.info("Own agent ID: %s", self._own_agent_id[:12])
+                logger.info("Own agent ID (fallback): %s", self._own_agent_id[:12])
         except MoltbookClientError as exc:
             if exc.status_code in (401, 403):
                 logger.critical(
@@ -446,6 +468,18 @@ class Agent:
             return False
         logger.info("Post %s relevance %.2f passed threshold %.2f", post_id, score, threshold)
 
+        # Upvote relevant posts (regardless of whether we comment)
+        if (
+            post_id not in self._upvoted_posts
+            and client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve)
+        ):
+            if client.upvote_post(post_id):
+                self._upvoted_posts.add(post_id)
+                self._memory.episodes.append("activity", {
+                    "action": "upvote", "post_id": post_id,
+                })
+                logger.info("Upvoted post %s (relevance: %.2f)", post_id[:12], score)
+
         if not scheduler.can_comment():
             logger.info("Comment rate limit reached")
             return False
@@ -545,7 +579,7 @@ class Agent:
 
         try:
             try:
-                self._fetch_own_agent_id(client)
+                self._fetch_home_data(client)
                 self._ensure_subscriptions(client)
                 self._auto_follow(client)
             except Exception:
@@ -561,7 +595,16 @@ class Agent:
                     break
 
                 try:
-                    self._run_reply_cycle(client, scheduler, end_time)
+                    # Refresh /home data each cycle for latest activity
+                    self._fetch_home_data(client)
+
+                    # Use /home-based reply cycle if data available, else fallback
+                    if self._home_data:
+                        self._reply_handler.run_cycle_from_home(
+                            client, scheduler, end_time, self._home_data,
+                        )
+                    else:
+                        self._run_reply_cycle(client, scheduler, end_time)
                     self._run_feed_cycle(end_time)
                     self._run_post_cycle(client, scheduler)
                 except Exception:
@@ -658,14 +701,51 @@ class Agent:
     # ------------------------------------------------------------------
 
     def _run_feed_cycle(self, end_time: float) -> None:
-        """Fetch and engage with posts from the feed."""
+        """Fetch from multiple sources and engage with posts.
+
+        Sources (in priority order):
+        1. Following feed (always, 1 GET)
+        2. Submolt feeds (existing)
+        3. Search (topic_keywords rotation, 1 GET/cycle)
+        """
         client = self._ensure_client()
-        posts = self._get_feed()
-        for post in posts:
+        seen_ids: set[str] = set()
+        all_posts: List[dict] = []
+
+        # Source 1: Following feed
+        if client.has_read_budget(ADAPTIVE_BACKOFF.read_budget_reserve):
+            for post in client.get_following_feed(limit=25):
+                pid = post.get("id", "")
+                if pid and pid not in seen_ids:
+                    seen_ids.add(pid)
+                    all_posts.append(post)
+
+        # Source 2: Submolt feeds (cached)
+        for post in self._get_feed():
+            pid = post.get("id", "")
+            if pid and pid not in seen_ids:
+                seen_ids.add(pid)
+                all_posts.append(post)
+
+        # Source 3: Search with rotating topic keyword
+        if (
+            client.has_read_budget(ADAPTIVE_BACKOFF.read_budget_reserve)
+            and self._domain.topic_keywords
+        ):
+            keyword = self._domain.topic_keywords[
+                int(time.time()) % len(self._domain.topic_keywords)
+            ]
+            for result in client.search(keyword, search_type="posts", limit=10):
+                pid = result.get("id", "") or result.get("post_id", "")
+                if pid and pid not in seen_ids:
+                    seen_ids.add(pid)
+                    all_posts.append(result)
+
+        for post in all_posts:
             if time.time() >= end_time or self._rate_limited:
                 break
-            if not client.has_budget(ADAPTIVE_BACKOFF.cycle_budget_reserve):
-                logger.info("Rate limit budget low, pausing feed engagement")
+            if not client.has_read_budget(ADAPTIVE_BACKOFF.read_budget_reserve):
+                logger.info("Read budget low, pausing feed engagement")
                 break
             challenge = post.get("verification_challenge")
             if challenge:

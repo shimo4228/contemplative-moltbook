@@ -1148,9 +1148,14 @@ class TestGracefulShutdown:
         mock_client.subscribe_submolt.return_value = True
         mock_client.get_notifications.return_value = []
         mock_client.get.return_value = MagicMock(json=MagicMock(return_value={"posts": []}))
+        mock_client.get_home.return_value = {"your_account": {"id": "me", "name": "bot"}}
+        mock_client.get_following_feed.return_value = []
+        mock_client.search.return_value = []
         mock_client.recent_429_count = 0
         mock_client.rate_limit_remaining = None
         mock_client.has_budget.return_value = True
+        mock_client.has_read_budget.return_value = True
+        mock_client.has_write_budget.return_value = True
         mock_client_cls.return_value = mock_client
 
         mock_sched = MagicMock()
@@ -1184,9 +1189,12 @@ class TestGracefulShutdown:
         agent._shutdown_requested = True
         agent._client = MagicMock()
         agent._client.subscribe_submolt.return_value = True
+        agent._client.get_home.return_value = {"your_account": {"id": "me", "name": "bot"}}
         agent._client.recent_429_count = 0
         agent._client.rate_limit_remaining = None
         agent._client.has_budget.return_value = True
+        agent._client.has_read_budget.return_value = True
+        agent._client.has_write_budget.return_value = True
         agent._scheduler = MagicMock()
         agent._scheduler.seconds_until_comment.return_value = 0
         agent._scheduler.seconds_until_post.return_value = 0
@@ -1241,71 +1249,67 @@ class TestExtractAgentFields:
         assert result["content"] == "hello"
 
 
-class TestFetchOwnAgentId:
-    """Tests for _fetch_own_agent_id: success, error, and JSON decode failure."""
+class TestFetchHomeData:
+    """Tests for _fetch_home_data and _fetch_own_agent_id_fallback."""
 
-    def test_success_sets_agent_id(self, tmp_path):
+    def test_home_extracts_agent_id(self, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         mock_client = MagicMock()
+        mock_client.get_home.return_value = {
+            "your_account": {"id": "agent-123", "name": "bot"},
+            "activity_on_your_posts": [],
+        }
+
+        agent._fetch_home_data(mock_client)
+        assert agent._own_agent_id == "agent-123"
+        assert agent._home_data["your_account"]["name"] == "bot"
+
+    def test_home_empty_falls_back_to_agents_me(self, tmp_path):
+        agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
+        mock_client = MagicMock()
+        mock_client.get_home.return_value = {}
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {"agent": {"id": "agent-123", "name": "bot"}}
+        mock_resp.json.return_value = {"agent": {"id": "fallback-456", "name": "bot"}}
         mock_client.get.return_value = mock_resp
 
-        agent._fetch_own_agent_id(mock_client)
-        assert agent._own_agent_id == "agent-123"
+        agent._fetch_home_data(mock_client)
+        assert agent._own_agent_id == "fallback-456"
 
-    def test_error_leaves_id_empty(self, tmp_path):
+    def test_fallback_error_leaves_id_empty(self, tmp_path):
         from contemplative_agent.adapters.moltbook.client import MoltbookClientError as MCE
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         mock_client = MagicMock()
+        mock_client.get_home.return_value = {}
         mock_client.get.side_effect = MCE("Network error")
 
-        agent._fetch_own_agent_id(mock_client)
+        agent._fetch_home_data(mock_client)
         assert agent._own_agent_id == ""
 
-    def test_json_decode_error_caught(self, tmp_path):
-        agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
-        mock_client = MagicMock()
-        mock_resp = MagicMock()
-        mock_resp.json.side_effect = ValueError("Invalid JSON")
-        mock_client.get.return_value = mock_resp
-
-        agent._fetch_own_agent_id(mock_client)
-        assert agent._own_agent_id == ""
-
-    def test_401_logs_critical_warning(self, tmp_path):
+    def test_fallback_401_logs_critical(self, tmp_path):
         from contemplative_agent.adapters.moltbook.client import MoltbookClientError as MCE
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         mock_client = MagicMock()
+        mock_client.get_home.return_value = {}
         exc = MCE("Unauthorized", status_code=401)
         mock_client.get.side_effect = exc
 
         with patch("contemplative_agent.adapters.moltbook.agent.logger") as mock_logger:
-            agent._fetch_own_agent_id(mock_client)
+            agent._fetch_home_data(mock_client)
             mock_logger.critical.assert_called_once()
             assert "revoked" in mock_logger.critical.call_args[0][0].lower() or \
                    "compromised" in mock_logger.critical.call_args[0][0].lower()
 
-    def test_403_logs_critical_warning(self, tmp_path):
-        from contemplative_agent.adapters.moltbook.client import MoltbookClientError as MCE
+    def test_home_stores_activity_data(self, tmp_path):
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
         mock_client = MagicMock()
-        exc = MCE("Forbidden", status_code=403)
-        mock_client.get.side_effect = exc
+        activity = [{"post_id": "p1", "new_notification_count": 3}]
+        mock_client.get_home.return_value = {
+            "your_account": {"id": "a1", "name": "bot"},
+            "activity_on_your_posts": activity,
+        }
 
-        with patch("contemplative_agent.adapters.moltbook.agent.logger") as mock_logger:
-            agent._fetch_own_agent_id(mock_client)
-            mock_logger.critical.assert_called_once()
-
-    def test_unexpected_shape(self, tmp_path):
-        agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
-        mock_client = MagicMock()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {"error": "unauthorized"}
-        mock_client.get.return_value = mock_resp
-
-        agent._fetch_own_agent_id(mock_client)
-        assert agent._own_agent_id == ""
+        agent._fetch_home_data(mock_client)
+        assert agent._home_data["activity_on_your_posts"] == activity
 
 
 class TestSelfPostSkip:

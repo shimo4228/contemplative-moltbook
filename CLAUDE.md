@@ -78,11 +78,11 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 
 ## API レート制限
 
-詳細は [docs/moltbook-api.md](docs/moltbook-api.md) を参照。60 req/min、GET・POST 共通。3層防御（サイクル内バジェット、プロアクティブ待機、リアクティブバックオフ）。
+詳細は [docs/moltbook-api.md](docs/moltbook-api.md) を参照。GET 60 req/min、POST 30 req/min（分離クォータ）。3層防御（`has_read_budget()`/`has_write_budget()` バジェット、プロアクティブ待機、リアクティブバックオフ）。
 
 ## テスト
 
-461件全パス (2026-03-12)。
+510件全パス (2026-03-12)。
 distill 94%, memory 93%, verification 94%, agent 90%, scheduler 88%, content 87%, llm 80%, client 79%, cli 75%, auth 75%, domain, prompts, config (core/adapters 分割済み)。
 
 ## メモリアーキテクチャ (3層)

@@ -44,7 +44,7 @@ class PostPipeline:
         """Post new content if rate limit allows."""
         if not scheduler.can_post():
             return
-        if not client.has_budget(reserve=ADAPTIVE_BACKOFF.cycle_budget_reserve):
+        if not client.has_write_budget(reserve=ADAPTIVE_BACKOFF.write_budget_reserve):
             logger.info("Rate limit budget low, skipping post cycle")
             return
         self._run_dynamic_post(client, scheduler)

@@ -319,15 +319,317 @@ class TestRateLimitBudget:
 
     def test_has_budget_true_when_remaining_above_reserve(self):
         client = MoltbookClient(api_key="test-key")
-        client._rate_limit_remaining = 20
+        client._read_remaining = 20
+        client._write_remaining = 20
         assert client.has_budget(reserve=5) is True
 
     def test_has_budget_false_when_remaining_at_reserve(self):
         client = MoltbookClient(api_key="test-key")
-        client._rate_limit_remaining = 5
+        client._read_remaining = 5
+        client._write_remaining = 5
         assert client.has_budget(reserve=5) is False
 
     def test_has_budget_false_when_remaining_below_reserve(self):
         client = MoltbookClient(api_key="test-key")
-        client._rate_limit_remaining = 3
+        client._read_remaining = 3
+        client._write_remaining = 3
         assert client.has_budget(reserve=5) is False
+
+
+class TestDualRateLimit:
+    """Tests for GET/POST separated rate limiting."""
+
+    def test_parse_rate_headers_assigns_to_read_for_get(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.headers = {"X-RateLimit-Remaining": "42"}
+        client._parse_rate_headers(mock_response, method="GET")
+        assert client.read_remaining == 42
+        assert client.write_remaining is None
+
+    def test_parse_rate_headers_assigns_to_write_for_post(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.headers = {"X-RateLimit-Remaining": "15"}
+        client._parse_rate_headers(mock_response, method="POST")
+        assert client.write_remaining == 15
+        assert client.read_remaining is None
+
+    def test_rate_limit_remaining_backward_compat_returns_min(self):
+        client = MoltbookClient(api_key="test-key")
+        client._read_remaining = 50
+        client._write_remaining = 10
+        assert client.rate_limit_remaining == 10
+
+    def test_rate_limit_remaining_none_when_both_unknown(self):
+        client = MoltbookClient(api_key="test-key")
+        assert client.rate_limit_remaining is None
+
+    def test_has_read_budget(self):
+        client = MoltbookClient(api_key="test-key")
+        client._read_remaining = 3
+        assert client.has_read_budget(reserve=5) is False
+        client._read_remaining = 10
+        assert client.has_read_budget(reserve=5) is True
+
+    def test_has_write_budget(self):
+        client = MoltbookClient(api_key="test-key")
+        client._write_remaining = 2
+        assert client.has_write_budget(reserve=3) is False
+        client._write_remaining = 10
+        assert client.has_write_budget(reserve=3) is True
+
+    def test_method_fallback_defaults_to_read(self):
+        """Default method arg is GET → read bucket."""
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.headers = {"X-RateLimit-Remaining": "5"}
+        client._parse_rate_headers(mock_response)  # default method="GET"
+        assert client.read_remaining == 5
+
+
+class TestGetHome:
+    def test_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {
+            "your_account": {"name": "TestBot", "id": "abc"},
+            "activity_on_your_posts": [],
+        }
+        with patch.object(client._session, "request", return_value=mock_response):
+            result = client.get_home()
+        assert result["your_account"]["name"] == "TestBot"
+
+    def test_failure_returns_empty_dict(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            result = client.get_home()
+        assert result == {}
+
+    def test_invalid_json_returns_empty_dict(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.side_effect = ValueError("bad json")
+        with patch.object(client._session, "request", return_value=mock_response):
+            result = client.get_home()
+        assert result == {}
+
+
+class TestMarkNotificationsRead:
+    def test_mark_read_by_post_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.mark_notifications_read_by_post("post-123") is True
+
+    def test_mark_read_by_post_invalid_id(self):
+        client = MoltbookClient(api_key="test-key")
+        assert client.mark_notifications_read_by_post("../hack") is False
+
+    def test_mark_all_read_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.mark_all_notifications_read() is True
+
+    def test_mark_all_read_failure(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "error"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.mark_all_notifications_read() is False
+
+
+class TestUpvote:
+    def test_upvote_post_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.upvote_post("post-123") is True
+
+    def test_upvote_post_already_upvoted_409(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 409
+        mock_response.text = "Already upvoted"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.upvote_post("post-123") is True
+
+    def test_upvote_post_invalid_id(self):
+        client = MoltbookClient(api_key="test-key")
+        assert client.upvote_post("../hack") is False
+
+    def test_upvote_comment_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.upvote_comment("comment-456") is True
+
+    def test_upvote_comment_already_upvoted_409(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 409
+        mock_response.text = "Already upvoted"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.upvote_comment("comment-456") is True
+
+    def test_upvote_comment_server_error(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "error"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.upvote_comment("comment-456") is False
+
+
+class TestSearch:
+    def test_search_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {
+            "results": [{"id": "p1", "title": "test"}],
+        }
+        with patch.object(client._session, "request", return_value=mock_response):
+            results = client.search("contemplative AI")
+        assert len(results) == 1
+
+    def test_search_caps_query_and_limit(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"results": []}
+        with patch.object(client._session, "request", return_value=mock_response) as mock_req:
+            client.search("x" * 300, limit=100)
+            call_kwargs = mock_req.call_args[1]
+            params = call_kwargs["params"]
+            assert len(params["q"]) == 200
+            assert params["limit"] == 50
+
+    def test_search_failure_returns_empty(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "error"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.search("test") == []
+
+    def test_search_type_param(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"results": []}
+        with patch.object(client._session, "request", return_value=mock_response) as mock_req:
+            client.search("test", search_type="comments")
+            params = mock_req.call_args[1]["params"]
+            assert params["type"] == "comments"
+
+    def test_search_invalid_json(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.side_effect = ValueError("bad")
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.search("test") == []
+
+
+class TestFollowingFeed:
+    def test_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {
+            "posts": [{"id": "p1"}, {"id": "p2"}],
+        }
+        with patch.object(client._session, "request", return_value=mock_response):
+            posts = client.get_following_feed()
+        assert len(posts) == 2
+
+    def test_failure_returns_empty(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "error"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.get_following_feed() == []
+
+
+class TestUnfollowAgent:
+    def test_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.unfollow_agent("some-agent") is True
+
+    def test_invalid_name(self):
+        client = MoltbookClient(api_key="test-key")
+        assert client.unfollow_agent("../hack") is False
+
+    def test_server_error(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "error"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.unfollow_agent("some-agent") is False
+
+
+class TestUpdateProfile:
+    def test_success(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.update_profile(description="New bio") is True
+
+    def test_failure(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.text = "forbidden"
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response):
+            assert client.update_profile(description="New bio") is False
+
+
+class TestPatchMethod:
+    def test_patch_request(self):
+        client = MoltbookClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        with patch.object(client._session, "request", return_value=mock_response) as mock_req:
+            client.patch("/test", json={"key": "val"})
+            assert mock_req.call_args[0][0] == "PATCH"

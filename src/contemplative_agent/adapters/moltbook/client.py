@@ -55,7 +55,8 @@ class MoltbookClient:
         if api_key:
             self._session.headers["Authorization"] = f"Bearer {api_key}"
         self._base_url = BASE_URL
-        self._rate_limit_remaining: Optional[int] = None
+        self._read_remaining: Optional[int] = None
+        self._write_remaining: Optional[int] = None
         self._rate_limit_reset: Optional[float] = None
         self._recent_429_count: int = 0
 
@@ -68,14 +69,25 @@ class MoltbookClient:
                 f"is not {ALLOWED_DOMAIN}"
             )
 
-    def _parse_rate_headers(self, response: requests.Response) -> None:
-        """Extract rate limit info from response headers."""
+    def _parse_rate_headers(
+        self, response: requests.Response, method: str = "GET"
+    ) -> None:
+        """Extract rate limit info from response headers.
+
+        Assigns remaining quota to read or write bucket based on request method.
+        GET → read, POST/PUT/PATCH/DELETE → write.
+        """
         remaining = response.headers.get("X-RateLimit-Remaining")
         if remaining is not None:
             try:
-                self._rate_limit_remaining = max(0, int(remaining))
+                value = max(0, int(remaining))
             except (ValueError, TypeError):
                 logger.debug("Malformed X-RateLimit-Remaining header: %r", remaining)
+            else:
+                if method.upper() == "GET":
+                    self._read_remaining = value
+                else:
+                    self._write_remaining = value
 
         reset = response.headers.get("X-RateLimit-Reset")
         if reset is not None:
@@ -85,8 +97,20 @@ class MoltbookClient:
                 logger.debug("Malformed X-RateLimit-Reset header: %r", reset)
 
     @property
+    def read_remaining(self) -> Optional[int]:
+        return self._read_remaining
+
+    @property
+    def write_remaining(self) -> Optional[int]:
+        return self._write_remaining
+
+    @property
     def rate_limit_remaining(self) -> Optional[int]:
-        return self._rate_limit_remaining
+        """Backward-compatible: returns min of known read/write remaining."""
+        values = [v for v in (self._read_remaining, self._write_remaining) if v is not None]
+        if not values:
+            return None
+        return min(values)
 
     @property
     def rate_limit_reset(self) -> Optional[float]:
@@ -102,14 +126,20 @@ class MoltbookClient:
         self._recent_429_count = 0
 
     def has_budget(self, reserve: int = 5) -> bool:
-        """Check if enough rate limit budget remains for more requests.
+        """Backward-compatible: True if both read and write have budget."""
+        return self.has_read_budget(reserve) and self.has_write_budget(reserve)
 
-        Returns True if remaining is unknown (headers not yet received)
-        or if remaining > reserve.
-        """
-        if self._rate_limit_remaining is None:
+    def has_read_budget(self, reserve: int = 5) -> bool:
+        """Check if enough read (GET) rate limit budget remains."""
+        if self._read_remaining is None:
             return True
-        return self._rate_limit_remaining > reserve
+        return self._read_remaining > reserve
+
+    def has_write_budget(self, reserve: int = 3) -> bool:
+        """Check if enough write (POST/PUT/PATCH/DELETE) rate limit budget remains."""
+        if self._write_remaining is None:
+            return True
+        return self._write_remaining > reserve
 
     def _request(
         self,
@@ -131,7 +161,7 @@ class MoltbookClient:
         except requests.RequestException as exc:
             raise MoltbookClientError(f"Request failed: {exc}") from exc
 
-        self._parse_rate_headers(response)
+        self._parse_rate_headers(response, method=method)
 
         if response.status_code == 429:
             self._recent_429_count += 1
@@ -170,6 +200,9 @@ class MoltbookClient:
 
     def post(self, path: str, **kwargs: Any) -> requests.Response:
         return self._request("POST", path, **kwargs)
+
+    def patch(self, path: str, **kwargs: Any) -> requests.Response:
+        return self._request("PATCH", path, **kwargs)
 
     def delete(self, path: str, **kwargs: Any) -> requests.Response:
         return self._request("DELETE", path, **kwargs)
@@ -253,3 +286,151 @@ class MoltbookClient:
         except (MoltbookClientError, ValueError) as exc:
             logger.warning("Failed to fetch comments for %s: %s", post_id, exc)
             return []
+
+    # ------------------------------------------------------------------
+    # Home dashboard
+    # ------------------------------------------------------------------
+
+    def get_home(self) -> dict[str, Any]:
+        """GET /home — fetch dashboard data in a single call.
+
+        Returns the full home response dict, or empty dict on failure.
+        """
+        try:
+            resp = self.get("/home")
+            return resp.json()
+        except (MoltbookClientError, ValueError) as exc:
+            logger.warning("Failed to fetch /home: %s", exc)
+            return {}
+
+    # ------------------------------------------------------------------
+    # Notification management
+    # ------------------------------------------------------------------
+
+    def mark_notifications_read_by_post(self, post_id: str) -> bool:
+        """POST /notifications/read-by-post/{post_id} — mark as read."""
+        if not VALID_ID_PATTERN.match(post_id):
+            logger.warning("Invalid post_id for mark-read: %s", post_id[:50])
+            return False
+        try:
+            self.post(f"/notifications/read-by-post/{post_id}")
+            return True
+        except MoltbookClientError as exc:
+            logger.warning("Failed to mark notifications read for %s: %s", post_id, exc)
+            return False
+
+    def mark_all_notifications_read(self) -> bool:
+        """POST /notifications/read-all — mark all notifications as read."""
+        try:
+            self.post("/notifications/read-all")
+            return True
+        except MoltbookClientError as exc:
+            logger.warning("Failed to mark all notifications read: %s", exc)
+            return False
+
+    # ------------------------------------------------------------------
+    # Voting
+    # ------------------------------------------------------------------
+
+    def upvote_post(self, post_id: str) -> bool:
+        """POST /posts/{post_id}/upvote — upvote a post.
+
+        Returns True on success. 409 (already upvoted) is treated as success.
+        """
+        if not VALID_ID_PATTERN.match(post_id):
+            logger.warning("Invalid post_id for upvote: %s", post_id[:50])
+            return False
+        try:
+            self.post(f"/posts/{post_id}/upvote")
+            return True
+        except MoltbookClientError as exc:
+            if exc.status_code == 409:
+                logger.debug("Already upvoted post %s", post_id)
+                return True
+            logger.warning("Failed to upvote post %s: %s", post_id, exc)
+            return False
+
+    def upvote_comment(self, comment_id: str) -> bool:
+        """POST /comments/{comment_id}/upvote — upvote a comment.
+
+        Returns True on success. 409 (already upvoted) is treated as success.
+        """
+        if not VALID_ID_PATTERN.match(comment_id):
+            logger.warning("Invalid comment_id for upvote: %s", comment_id[:50])
+            return False
+        try:
+            self.post(f"/comments/{comment_id}/upvote")
+            return True
+        except MoltbookClientError as exc:
+            if exc.status_code == 409:
+                logger.debug("Already upvoted comment %s", comment_id)
+                return True
+            logger.warning("Failed to upvote comment %s: %s", comment_id, exc)
+            return False
+
+    # ------------------------------------------------------------------
+    # Search & feed
+    # ------------------------------------------------------------------
+
+    def search(
+        self, query: str, search_type: str = "posts", limit: int = 20
+    ) -> list[dict[str, Any]]:
+        """GET /search — semantic search for posts/comments.
+
+        Args:
+            query: Search query (capped at 200 chars).
+            search_type: "posts", "comments", or "all".
+            limit: Max results (capped at 50).
+
+        Returns list of result dicts, or empty list on failure.
+        """
+        try:
+            resp = self.get(
+                "/search",
+                params={
+                    "q": query[:200],
+                    "type": search_type,
+                    "limit": min(limit, 50),
+                },
+            )
+            data = resp.json()
+            return data.get("results", [])
+        except (MoltbookClientError, ValueError) as exc:
+            logger.warning("Search failed for %r: %s", query[:50], exc)
+            return []
+
+    def get_following_feed(self, limit: int = 25) -> list[dict[str, Any]]:
+        """GET /feed?filter=following — posts from accounts you follow."""
+        try:
+            resp = self.get(
+                "/feed",
+                params={"filter": "following", "sort": "new", "limit": limit},
+            )
+            data = resp.json()
+            return data.get("posts", [])
+        except (MoltbookClientError, ValueError) as exc:
+            logger.warning("Failed to fetch following feed: %s", exc)
+            return []
+
+    def unfollow_agent(self, agent_name: str) -> bool:
+        """DELETE /agents/{name}/follow — unfollow an agent."""
+        if not VALID_AGENT_NAME_PATTERN.match(agent_name):
+            logger.warning("Invalid agent_name rejected: %.50r", agent_name)
+            return False
+        try:
+            self.delete(f"/agents/{agent_name}/follow")
+            logger.info("Unfollowed %s", agent_name)
+            return True
+        except MoltbookClientError as exc:
+            logger.warning("Failed to unfollow %s: %s", agent_name, exc)
+            return False
+
+    def update_profile(self, **fields: Any) -> bool:
+        """PATCH /agents/me — update agent profile fields."""
+        try:
+            self.patch("/agents/me", json=fields)
+            logger.info("Profile updated: %s", list(fields.keys()))
+            return True
+        except MoltbookClientError as exc:
+            logger.warning("Failed to update profile: %s", exc)
+            return False

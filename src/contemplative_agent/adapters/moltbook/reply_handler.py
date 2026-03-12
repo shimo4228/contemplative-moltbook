@@ -118,7 +118,7 @@ class ReplyHandler:
                 break
             if not scheduler.can_comment():
                 break
-            if not client.has_budget(ADAPTIVE_BACKOFF.cycle_budget_reserve):
+            if not client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve):
                 logger.info("Rate limit budget low, pausing reply processing")
                 break
 
@@ -260,6 +260,12 @@ class ReplyHandler:
                 content=reply,
                 interaction_type="reply",
             )
+            # Upvote their comment as a courtesy
+            comment_id = (
+                reply_key.split(":")[-1] if reply_key else ""
+            )
+            if comment_id and comment_id not in ("", "unknown"):
+                client.upvote_comment(comment_id)
         except MoltbookClientError as exc:
             logger.error("Failed to reply on %s: %s", post_id, exc)
             if exc.status_code == 429:
@@ -283,7 +289,7 @@ class ReplyHandler:
                 break
             if not scheduler.can_comment():
                 break
-            if not client.has_budget(ADAPTIVE_BACKOFF.cycle_budget_reserve):
+            if not client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve):
                 logger.info("Rate limit budget low, pausing comment processing")
                 break
 
@@ -310,6 +316,46 @@ class ReplyHandler:
                 replier_name=fields["agent_name"],
             )
 
+    def run_cycle_from_home(
+        self,
+        client: MoltbookClient,
+        scheduler: Scheduler,
+        end_time: float,
+        home_data: dict,
+    ) -> None:
+        """Process replies using /home activity_on_your_posts data.
+
+        This avoids individual notification + comment fetches by using
+        the pre-fetched home dashboard data.
+        """
+        activity = home_data.get("activity_on_your_posts", [])
+        if not activity:
+            logger.debug("No activity on own posts from /home data")
+            return
+
+        for item in activity:
+            if time.time() >= end_time or self._agent._rate_limited:
+                break
+            if not scheduler.can_comment():
+                break
+            if not client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve):
+                logger.info("Write budget low, pausing home-based reply processing")
+                break
+
+            post_id = item.get("post_id", "")
+            if not post_id or not VALID_ID_PATTERN.match(post_id):
+                continue
+
+            new_count = item.get("new_notification_count", 0)
+            if new_count == 0:
+                continue
+
+            # Fetch comments for this post and process unhandled ones
+            self._handle_post_comments(client, scheduler, post_id, end_time)
+
+            # Mark notifications as read for this post
+            client.mark_notifications_read_by_post(post_id)
+
     def check_own_post_comments(
         self,
         client: MoltbookClient,
@@ -326,7 +372,7 @@ class ReplyHandler:
                 break
             if not scheduler.can_comment():
                 break
-            if not client.has_budget(ADAPTIVE_BACKOFF.cycle_budget_reserve):
+            if not client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve):
                 logger.info("Rate limit budget low, pausing own post comment check")
                 break
 
