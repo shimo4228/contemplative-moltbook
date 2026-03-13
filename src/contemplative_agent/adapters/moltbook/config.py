@@ -46,7 +46,7 @@ class RateLimits:
 
     post_interval_seconds: int = 1800  # 1 per 30 min
     comment_interval_seconds: int = 20
-    comments_per_day: int = 200
+    comments_per_day: int = 300
 
 
 @dataclass(frozen=True)
