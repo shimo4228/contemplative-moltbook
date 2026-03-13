@@ -184,8 +184,17 @@ def main() -> None:
 
     if args.command == "distill":
         from .core.distill import distill
+        from .core.memory import EpisodeLog, KnowledgeStore
 
-        result = distill(days=args.days, dry_run=args.dry_run)
+        log_dir = MOLTBOOK_DATA_DIR / "logs"
+        episode_log = EpisodeLog(log_dir=log_dir)
+        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+        result = distill(
+            days=args.days,
+            dry_run=args.dry_run,
+            episode_log=episode_log,
+            knowledge_store=knowledge_store,
+        )
         print(result)
         return
 

@@ -5,8 +5,7 @@ Topic domain: {topic_keywords}
 Score how relevant the following post is to the topic domain above.
 
 Rules:
-- Output ONLY a number like 0.3 or 0.85
-- Do NOT write any words, explanations, or sentences
+- Output exactly one decimal number like 0.3 or 0.85
 - 0.0 = completely unrelated
 - 0.5 = loosely related
 - 1.0 = directly about the topic

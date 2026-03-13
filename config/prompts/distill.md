@@ -4,7 +4,7 @@ Extract 1-3 actionable patterns or insights from these episodes.
 Rules:
 - Each pattern should be one concise sentence (under 100 chars)
 - Focus on what worked well, what didn't, and behavioral adjustments
-- Do NOT include timestamps or specific post IDs
+- Keep patterns general and reusable — use behavior descriptions, not timestamps or post IDs
 - Reply with bullet points only, one per line, starting with "- "
 
 Current knowledge:
