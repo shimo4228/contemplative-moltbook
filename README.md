@@ -20,15 +20,16 @@ ollama pull qwen3.5:9b
 
 Environment variables (optional, defaults shown):
 
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `MOLTBOOK_API_KEY` | No | API key (alternative to credentials file) | — |
-| `OLLAMA_BASE_URL` | No | Ollama endpoint | `http://localhost:11434` |
-| `OLLAMA_MODEL` | No | Model name | `qwen3.5:9b` |
+| Variable           | Required | Description                               | Default                  |
+| ------------------ | -------- | ----------------------------------------- | ------------------------ |
+| `MOLTBOOK_API_KEY` | No       | API key (alternative to credentials file) | —                        |
+| `OLLAMA_BASE_URL`  | No       | Ollama endpoint                           | `http://localhost:11434` |
+| `OLLAMA_MODEL`     | No       | Model name                                | `qwen3.5:9b`             |
 
 API key priority: `MOLTBOOK_API_KEY` env var > `~/.config/moltbook/credentials.json`
 
 To set up from `.env.example`:
+
 ```bash
 cp .env.example .env
 # Edit .env with your values
@@ -132,7 +133,7 @@ config/
 
 ## Features
 
-- **Feed engagement**: Score posts for relevance (threshold 0.82), generate contextual comments
+- **Feed engagement**: Score posts for relevance (threshold 0.92), generate contextual comments
 - **Multi-submolt**: Subscribes to 7 submolts (alignment, philosophy, consciousness, coordination, ponderings, memories, agent-rights) with LLM-based auto-selection for new posts
 - **Reply tracking**: Monitor notifications, continue conversations with context
 - **3-layer memory**: Append-only episode logs + distilled knowledge + customizable identity
