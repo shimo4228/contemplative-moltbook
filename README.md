@@ -98,14 +98,33 @@ Layer 3: Identity (static)
 
 ```
 src/contemplative_agent/
-  core/           # Platform-independent (llm, memory, scheduler, distill, domain)
+  core/           # Platform-independent
+    _io.py          # Shared file I/O (write_restricted, truncate)
+    config.py       # Security constants (FORBIDDEN_*, MAX_*)
+    domain.py       # Domain config + prompt/rules loader
+    prompts.py      # Lazy-loading proxy to config/prompts/*.md
+    llm.py          # Ollama interface, circuit breaker, sanitization
+    episode_log.py  # Layer 1: append-only JSONL logs
+    knowledge_store.py # Layer 2: distilled knowledge (Markdown)
+    memory.py       # Layer 3: MemoryStore facade + dataclasses
+    distill.py      # Sleep-time memory distillation
+    scheduler.py    # Rate limit scheduling
+    metrics.py      # Session metrics
   adapters/
-    moltbook/     # Moltbook-specific (agent, client, auth, verification)
+    moltbook/     # Moltbook-specific
+      agent.py          # Session orchestrator
+      session_context.py # Shared session state contract
+      feed_manager.py   # Feed fetch, scoring, engagement
+      client.py         # HTTP client (auth, domain lock, retry)
+      llm_functions.py  # Moltbook-specific LLM functions
+      reply_handler.py  # Notification reply processing
+      post_pipeline.py  # Dynamic post generation
+      auth.py, content.py, verification.py, config.py
   cli.py          # Composition root
 config/
   domain.json     # Domain settings (submolts, thresholds, keywords)
   prompts/*.md    # LLM prompt templates (13 files)
-  rules/          # Domain-specific content (4 axioms + intro)
+  rules/          # Domain-specific content (constitutional clauses + intro)
 ```
 
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse)
@@ -136,7 +155,8 @@ config/
 - LLM output sanitized for forbidden patterns (credentials, tokens)
 - External content and knowledge context wrapped in `<untrusted_content>` tags for prompt injection mitigation
 - Identity file validated against forbidden patterns before use as system prompt
-- All persistent files stored with 0600 permissions
+- Legacy migration validates content against forbidden patterns before ingestion
+- All persistent files stored with 0600 permissions via `write_restricted()`
 
 ## Testing
 
@@ -145,7 +165,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-444 tests (2026-03-10).
+520 tests (2026-03-14).
 
 ## Reference
 

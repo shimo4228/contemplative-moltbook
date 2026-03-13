@@ -8,8 +8,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from ._io import write_restricted
 from .config import FORBIDDEN_SUBSTRING_PATTERNS
-from .episode_log import _write_restricted
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,10 @@ class KnowledgeStore:
         self._post_topics: List[str] = []
         self._insights: List[str] = []
         self._learned_patterns: List[str] = []
+
+    def has_persisted_file(self) -> bool:
+        """Check whether the backing Markdown file exists on disk."""
+        return self._path is not None and self._path.exists()
 
     @property
     def agents(self) -> Dict[str, str]:
@@ -154,7 +158,7 @@ class KnowledgeStore:
         content = "\n".join(lines) + "\n"
         tmp_path = self._path.with_suffix(".md.tmp")
         try:
-            _write_restricted(tmp_path, content)
+            write_restricted(tmp_path, content)
             os.replace(str(tmp_path), str(self._path))
         except OSError as exc:
             logger.error("Failed to save knowledge file: %s", exc)

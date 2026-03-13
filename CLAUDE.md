@@ -13,11 +13,12 @@ src/contemplative_agent/
   __init__.py
   cli.py                                # Composition root (唯一 core/ と adapters/ の両方を import)
   core/                                 # プラットフォーム非依存のコアロジック
+    _io.py                              # 共有ファイル I/O (write_restricted, truncate)
     config.py                           # セキュリティ定数・コンテンツ制限 (FORBIDDEN_*, MAX_*_LENGTH)
     domain.py                           # ドメイン設定・テンプレートローダー
     prompts.py                          # プロンプトテンプレート遅延ロード
     llm.py                              # Ollama LLM インターフェース (パラメータ化, サーキットブレーカー)
-    episode_log.py                      # Layer 1: append-only JSONL ログ + 共有ユーティリティ
+    episode_log.py                      # Layer 1: append-only JSONL ログ
     knowledge_store.py                  # Layer 2: 蒸留された知識 (Markdown 永続化)
     memory.py                           # Layer 3: MemoryStore ファサード + dataclass + re-export
     distill.py                          # スリープタイム記憶蒸留
@@ -70,7 +71,7 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 - Python 3.9+ (venv は 3.13.5)
 - 依存: requests のみ。LLM は Ollama (qwen3.5:9b, localhost)
 - ビルド: hatch
-- 25 モジュール、~4940 LOC (memory.py 722行→3分割、llm_functions.py ヘルパー統一済み)
+- 26 モジュール、~4970 LOC (memory 3層分割 + _io.py 共有ユーティリティ、llm_functions ヘルパー統一済み)
 
 ## セキュリティ方針
 

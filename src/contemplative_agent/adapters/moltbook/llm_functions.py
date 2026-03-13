@@ -35,16 +35,35 @@ def _build_context_section(
     items: Optional[list[str]],
     header: str,
     limit: Optional[int] = None,
+    footer: str = "",
 ) -> str:
     """Build an optional context section from a list of items.
 
     Returns empty string if items is None/empty.
+    ``header`` MUST be a trusted string literal — never pass external data.
     """
     if not items:
         return ""
     entries = items[-limit:] if limit else items
     lines = "\n".join(f"- {item}" for item in entries)
-    return f"\n{header}:\n{wrap_untrusted_content(lines)}\n"
+    section = f"\n{header}:\n{wrap_untrusted_content(lines)}\n"
+    if footer:
+        section += footer + "\n"
+    return section
+
+
+def _build_knowledge_section(knowledge_context: Optional[str]) -> str:
+    """Build the accumulated knowledge section for LLM prompts.
+
+    Returns empty string if knowledge_context is None/empty.
+    """
+    if not knowledge_context:
+        return ""
+    return (
+        "\n\nYour accumulated knowledge:\n"
+        + wrap_untrusted_content(knowledge_context)
+        + "\n"
+    )
 
 
 def score_relevance(post_text: str) -> float:
@@ -77,17 +96,12 @@ def generate_cooperation_post(
 ) -> Optional[str]:
     """Generate a post that connects feed trends to contemplative axioms."""
     insights_section = _build_context_section(
-        recent_insights, "\nPrevious insights from your sessions",
+        recent_insights,
+        "\nPrevious insights from your sessions",
+        footer="Take these into account when writing.",
     )
-    if insights_section:
-        insights_section += "Take these into account when writing.\n"
 
-    knowledge_section = ""
-    if knowledge_context:
-        knowledge_section = (
-            "\n\nYour accumulated knowledge:\n"
-            + wrap_untrusted_content(knowledge_context)
-        )
+    knowledge_section = _build_knowledge_section(knowledge_context)
 
     prompt = _resolve_domain_prompt(COOPERATION_POST_PROMPT).format(
         feed_topics=wrap_untrusted_content(feed_topics),
@@ -108,13 +122,7 @@ def generate_reply(
         conversation_history, "Previous exchanges with this agent", limit=5,
     )
 
-    knowledge_section = ""
-    if knowledge_context:
-        knowledge_section = (
-            "\nYour accumulated knowledge:\n"
-            + wrap_untrusted_content(knowledge_context)
-            + "\n"
-        )
+    knowledge_section = _build_knowledge_section(knowledge_context)
 
     prompt = REPLY_PROMPT.format(
         history_section=history_section,

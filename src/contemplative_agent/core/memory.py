@@ -15,12 +15,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
-from .episode_log import (
-    SUMMARY_MAX_LENGTH,
-    EpisodeLog,
-    _truncate,
-    _write_restricted,
-)
+from ._io import SUMMARY_MAX_LENGTH, truncate, write_restricted
+from .config import FORBIDDEN_SUBSTRING_PATTERNS
+from .episode_log import EpisodeLog
 from .knowledge_store import (
     KNOWLEDGE_CONTEXT_MAX,
     MAX_INSIGHTS,
@@ -45,8 +42,8 @@ __all__ = [
     "PostRecord",
     "SUMMARY_MAX_LENGTH",
     "KNOWLEDGE_CONTEXT_MAX",
-    "_truncate",
-    "_write_restricted",
+    "truncate",
+    "write_restricted",
 ]
 
 
@@ -137,9 +134,7 @@ class MemoryStore:
 
     def load(self) -> None:
         """Load memory: try new format first, fall back to legacy migration."""
-        knowledge_exists = (
-            self._knowledge._path is not None and self._knowledge._path.exists()
-        )
+        knowledge_exists = self._knowledge.has_persisted_file()
 
         if (
             self._legacy_path is not None
@@ -194,10 +189,22 @@ class MemoryStore:
             return
         logger.info("Migrating legacy memory.json to 3-layer format")
         try:
-            raw = json.loads(self._legacy_path.read_text(encoding="utf-8"))
+            raw_text = self._legacy_path.read_text(encoding="utf-8")
+            raw = json.loads(raw_text)
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Failed to read legacy memory for migration: %s", exc)
             return
+
+        # Validate legacy content against forbidden patterns
+        raw_lower = raw_text.lower()
+        for pattern in FORBIDDEN_SUBSTRING_PATTERNS:
+            if pattern.lower() in raw_lower:
+                logger.warning(
+                    "Legacy memory contains forbidden pattern: %s — "
+                    "skipping migration",
+                    pattern,
+                )
+                return
 
         # Migrate known_agents and followed_agents to KnowledgeStore
         for agent_id, name in raw.get("known_agents", {}).items():
@@ -263,7 +270,7 @@ class MemoryStore:
             agent_name=agent_name,
             post_id=post_id,
             direction=direction,
-            content_summary=_truncate(content),
+            content_summary=truncate(content),
             interaction_type=interaction_type,
         )
         self._interactions.append(interaction)
@@ -338,7 +345,7 @@ class MemoryStore:
             timestamp=timestamp,
             post_id=post_id,
             title=title,
-            topic_summary=_truncate(topic_summary, 100),
+            topic_summary=truncate(topic_summary, 100),
             content_hash=content_hash[:16],
         )
         self._post_history.append(record)
@@ -359,7 +366,7 @@ class MemoryStore:
         """Record a session-end insight."""
         insight = Insight(
             timestamp=timestamp,
-            observation=_truncate(observation),
+            observation=truncate(observation),
             insight_type=insight_type,
         )
         self._insights_list.append(insight)
@@ -423,7 +430,7 @@ class MemoryStore:
         self._commented_cache_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = self._commented_cache_path.with_suffix(".json.tmp")
         try:
-            _write_restricted(
+            write_restricted(
                 tmp_path,
                 json.dumps(sorted(self._commented_cache), ensure_ascii=False),
             )

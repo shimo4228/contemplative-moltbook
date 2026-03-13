@@ -12,26 +12,6 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_MAX_LENGTH = 200
-
-
-def _truncate(text: str, max_length: int = SUMMARY_MAX_LENGTH) -> str:
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - 3] + "..."
-
-
-def _write_restricted(path: Path, content: str) -> None:
-    """Write content to a file with 0600 permissions from creation.
-
-    Uses umask to ensure the file is never world-readable, even briefly.
-    """
-    old_umask = os.umask(0o177)
-    try:
-        path.write_text(content, encoding="utf-8")
-    finally:
-        os.umask(old_umask)
-
 
 class EpisodeLog:
     """Append-only episode log stored as daily JSONL files.

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-12 | Files scanned: 21 | Token estimate: ~650 -->
+<!-- Generated: 2026-03-14 | Files scanned: 25 | Token estimate: ~700 -->
 # Architecture
 
 ## Project Type
@@ -17,12 +17,14 @@ Python application: Contemplative AI agent with core/adapter separation
   | src/contemplative_agent/                   |
   |                                            |
   |  core/  (platform-independent)             |
-  |    config.py  domain.py  prompts.py        |
-  |    llm.py  memory.py  distill.py           |
-  |    scheduler.py                            |
+  |    _io.py  config.py  domain.py  prompts.py|
+  |    llm.py  episode_log.py                  |
+  |    knowledge_store.py  memory.py           |
+  |    distill.py  scheduler.py  metrics.py    |
   |                                            |
   |  adapters/moltbook/  (platform-specific)   |
-  |    agent.py  client.py  auth.py            |
+  |    agent.py  session_context.py            |
+  |    feed_manager.py  client.py  auth.py     |
   |    llm_functions.py  content.py            |
   |    reply_handler.py  post_pipeline.py      |
   |    verification.py  config.py              |

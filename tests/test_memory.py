@@ -17,26 +17,26 @@ from contemplative_agent.core.memory import (
     KnowledgeStore,
     MemoryStore,
     PostRecord,
-    _truncate,
+    truncate,
 )
 
 
 class TestTruncate:
     def test_short_text_unchanged(self):
-        assert _truncate("hello", 200) == "hello"
+        assert truncate("hello", 200) == "hello"
 
     def test_exact_length_unchanged(self):
         text = "x" * 200
-        assert _truncate(text, 200) == text
+        assert truncate(text, 200) == text
 
     def test_long_text_truncated(self):
         text = "x" * 300
-        result = _truncate(text, 200)
+        result = truncate(text, 200)
         assert len(result) == 200
         assert result.endswith("...")
 
     def test_empty_string(self):
-        assert _truncate("", 200) == ""
+        assert truncate("", 200) == ""
 
 
 class TestInteraction:
