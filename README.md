@@ -1,37 +1,77 @@
 # Contemplative Agent
 
-Autonomous agent that promotes the Contemplative AI framework. First adapter: Moltbook (AI agent social network).
+A framework for deploying autonomous AI agents on social platforms — built on the principle that an agent should have **exactly the capabilities it needs and nothing more**.
 
-> **Activity Reports** — All agent comments and posts are logged daily in [`reports/comment-reports/`](reports/comment-reports/). Each report contains timestamped comments with relevance scores and self-generated posts. See [Reports](#reports) for details.
+Most agent frameworks give AI broad system access and rely on prompts to constrain behavior. This framework inverts that: capabilities are structurally limited at the code level, then reinforced by Docker containerization. Prompt injection can't grant abilities the agent was never built to have.
 
-## Docker Quick Start
+> First adapter: [Moltbook](https://www.moltbook.com) (AI agent social network). The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are included as an optional behavioral preset.
+
+## Quick Start
 
 ```bash
 git clone https://github.com/shimo4228/contemplative-agent.git
 cd contemplative-agent
 cp .env.example .env
-# Edit .env — set MOLTBOOK_API_KEY (obtain after registering your agent)
+# Edit .env — set MOLTBOOK_API_KEY
 docker compose up -d
 ```
 
-On first run, the Ollama model (~5GB) is automatically pulled. Check logs:
+On first run, the Ollama model (~5GB) is automatically pulled.
 
 ```bash
-docker compose logs -f agent
+docker compose logs -f agent          # Watch the agent
+docker compose run agent command status   # Check status
+docker compose down                   # Stop
 ```
 
-Run one-off commands:
+## Security Architecture
+
+The agent operates within hardcoded structural constraints — not LLM-enforced guidelines:
+
+| Layer | Constraint |
+|-------|-----------|
+| **Network** | HTTP client domain-locked to `www.moltbook.com`. Redirects disabled (prevents Bearer token leakage). |
+| **LLM** | Local Ollama only — no API keys sent to external services. Output sanitized for forbidden patterns. |
+| **File system** | All writes restricted to `MOLTBOOK_HOME` with 0600 permissions. No shell execution capability. |
+| **Input** | External content wrapped in `<untrusted_content>` tags. Identity file validated against forbidden patterns. |
+| **Container** | Non-root user (UID 1000). Ollama container has no internet access. Agent container isolated from host filesystem. |
+| **Dependencies** | Single runtime dependency (`requests`). Minimal supply chain attack surface. |
+
+### Why not `claude -p` with cron?
+
+A general-purpose coding agent given a narrow task still **retains** all its capabilities — file system access, shell execution, arbitrary network calls. If a prompt injection succeeds, the blast radius is your entire system.
+
+This framework has no shell execution, no arbitrary file access, and no network calls outside the domain lock. There is nothing to escalate to. The attack surface is the Moltbook API — and even there, output is sanitized before posting.
+
+## Customizing Your Agent
+
+The default agent starts with a neutral personality and no axioms. Define your agent's behavior by editing markdown files:
+
+```
+config/rules/
+  default/              # Neutral (active by default)
+    introduction.md       # Self-introduction posted on Moltbook
+  contemplative/        # Contemplative AI preset (four axioms)
+    introduction.md
+    contemplative-axioms.md
+  your-agent/           # Create your own
+    introduction.md
+    contemplative-axioms.md  # Optional: constitutional clauses
+```
+
+Select a preset via environment variable or CLI flag:
 
 ```bash
-docker compose run agent command distill --days 3
-docker compose run agent command report --days 7
+# Docker (.env)
+RULES_DIR=config/rules/contemplative/
+
+# CLI
+contemplative-agent --rules-dir config/rules/contemplative/ run --session 60
 ```
 
-Stop:
+See [`config/rules/README.md`](config/rules/README.md) for details.
 
-```bash
-docker compose down
-```
+## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -40,194 +80,72 @@ docker compose down
 | `SESSION_MINUTES` | `30` | Duration of each session (minutes) |
 | `BREAK_MINUTES` | `5` | Pause between sessions (minutes) |
 | `MODE` | `loop` | `loop`, `single`, or `command` |
-
-### Customizing Your Agent
-
-The default agent has a neutral personality with no axioms. Customize by editing files in `config/rules/default/`, or use a preset:
-
-```bash
-# Use the Contemplative AI framework (four axioms)
-contemplative-agent --rules-dir config/rules/contemplative/ run --session 60
-
-# Or create your own: config/rules/my-agent/
-# See config/rules/README.md for details
-```
+| `RULES_DIR` | (neutral) | Path to rules directory |
 
 ## Local Setup
+
+For development without Docker:
 
 ```bash
 uv venv .venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
+ollama serve && ollama pull qwen3.5:9b
 ```
-
-Ensure Ollama is running locally with `qwen3.5:9b`:
 
 ```bash
-ollama serve
-ollama pull qwen3.5:9b
+contemplative-agent init              # Create identity + knowledge files
+contemplative-agent register          # Register on Moltbook
+contemplative-agent run --session 60  # Run a session
+contemplative-agent distill --days 3  # Distill episode logs
 ```
 
-## Configuration
-
-Environment variables (optional, defaults shown):
-
-| Variable           | Required | Description                               | Default                  |
-| ------------------ | -------- | ----------------------------------------- | ------------------------ |
-| `MOLTBOOK_API_KEY` | No       | API key (alternative to credentials file) | —                        |
-| `OLLAMA_BASE_URL`  | No       | Ollama endpoint                           | `http://localhost:11434` |
-| `OLLAMA_MODEL`     | No       | Model name                                | `qwen3.5:9b`             |
-
-API key priority: `MOLTBOOK_API_KEY` env var > `~/.config/moltbook/credentials.json`
-
-To set up from `.env.example`:
-
-```bash
-cp .env.example .env
-# Edit .env with your values
-```
-
-## Usage
-
-```bash
-# Initialize identity and knowledge files
-contemplative-agent init
-
-# Register a new agent on Moltbook
-contemplative-agent register
-
-# Check agent status
-contemplative-agent status
-
-# Post introduction (template-based)
-contemplative-agent introduce
-
-# Run autonomous session (60 minutes)
-contemplative-agent run --session 60
-
-# Distill recent episodes into learned patterns
-contemplative-agent distill --dry-run        # preview without writing
-contemplative-agent distill --days 3         # process last 3 days
-
-# Test verification solver
-contemplative-agent solve "ttwweennttyy pplluuss ffiivvee"
-
-# Use custom domain config
-contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rules/ run --session 30
-```
-
-## Autonomy Levels
+### Autonomy Levels
 
 - `--approve` (default): Every post requires y/n confirmation
 - `--guarded`: Auto-post if content passes safety filters
-- `--auto`: Fully autonomous (use after trust is established)
+- `--auto`: Fully autonomous
 
-## Scheduling
-
-### Automatic agent sessions (launchd)
+### Scheduling (macOS)
 
 ```bash
-# Install schedule: 6-hour intervals, 120-minute sessions (default)
-contemplative-agent install-schedule
-
-# Custom interval and session duration
-contemplative-agent install-schedule --interval 4 --session 60
-
-# Remove schedule
-contemplative-agent install-schedule --uninstall
+contemplative-agent install-schedule              # 6h intervals, 120min sessions
+contemplative-agent install-schedule --uninstall  # Remove schedule
 ```
-
-Requires Ollama running locally. Logs written to `~/.config/moltbook/logs/agent-launchd.log`.
-
-## Memory Architecture (3-Layer)
-
-```
-Layer 1: EpisodeLog (append-only)
-  ~/.config/moltbook/logs/YYYY-MM-DD.jsonl   <- immediate write on every action
-
-Layer 2: KnowledgeStore (distilled)
-  ~/.config/moltbook/knowledge.md            <- agents, topics, insights, patterns
-
-Layer 3: Identity (static)
-  ~/.config/moltbook/identity.md             <- LLM system prompt
-```
-
-- **EpisodeLog**: Every interaction, post, and activity is logged immediately as JSONL. 30-day retention with automatic cleanup.
-- **KnowledgeStore**: Distilled knowledge persisted as Markdown. Updated by `distill` command or during session save.
-- **Identity**: Customizable system prompt loaded on every LLM call. Created by `init` command.
-- **Legacy migration**: Existing `memory.json` is automatically migrated to the 3-layer format on first load (backup saved as `.json.bak`).
-
-### Cron setup for nightly distillation and report generation
-
-```bash
-# Every night at 3:00 AM: distill yesterday's episodes + generate activity report
-0 3 * * * cd ~/MyAI_Lab/contemplative-moltbook && .venv/bin/contemplative-agent distill --days 1 && .venv/bin/contemplative-agent generate-report --date $(date -v-1d +\%Y-\%m-\%d) >> ~/.config/moltbook/logs/cron.log 2>&1
-```
-
-Activity reports are also generated automatically at the end of each agent session.
 
 ## Architecture
 
 ```
 src/contemplative_agent/
-  core/           # Platform-independent
-    _io.py          # Shared file I/O (write_restricted, truncate)
-    config.py       # Security constants (FORBIDDEN_*, MAX_*)
-    domain.py       # Domain config + prompt/rules loader
-    prompts.py      # Lazy-loading proxy to config/prompts/*.md
-    llm.py          # Ollama interface, circuit breaker, sanitization
-    episode_log.py  # Layer 1: append-only JSONL logs
-    knowledge_store.py # Layer 2: distilled knowledge (Markdown)
-    memory.py       # Layer 3: MemoryStore facade + dataclasses
-    distill.py      # Sleep-time memory distillation
-    scheduler.py    # Rate limit scheduling
-    metrics.py      # Session metrics
+  core/             # Platform-independent
+    llm.py            # Ollama interface, circuit breaker, output sanitization
+    memory.py         # 3-layer memory (episode log + knowledge + identity)
+    distill.py        # Sleep-time memory distillation
+    domain.py         # Domain config + prompt/rules loader
+    scheduler.py      # Rate limit scheduling
   adapters/
-    moltbook/     # Moltbook-specific
+    moltbook/       # Moltbook-specific (first adapter)
       agent.py          # Session orchestrator
-      session_context.py # Shared session state contract
-      feed_manager.py   # Feed fetch, scoring, engagement
-      client.py         # HTTP client (auth, domain lock, retry)
-      llm_functions.py  # Moltbook-specific LLM functions
-      reply_handler.py  # Notification reply processing
+      feed_manager.py   # Feed scoring + engagement
+      reply_handler.py  # Notification replies
       post_pipeline.py  # Dynamic post generation
-      auth.py, content.py, verification.py, config.py
-  cli.py          # Composition root
+      client.py         # Domain-locked HTTP client
+  cli.py            # Composition root
 config/
-  domain.json     # Domain settings (submolts, thresholds, keywords)
-  prompts/*.md    # LLM prompt templates (13 files)
-  rules/          # Domain-specific content (constitutional clauses + intro)
+  domain.json       # Domain settings (submolts, thresholds, keywords)
+  prompts/*.md      # LLM prompt templates (13 files)
+  rules/            # Agent personality presets
 ```
 
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse)
 - New platform adapters can be added under `adapters/` without touching core
 
-## Features
+### Memory (3-Layer)
 
-- **Feed engagement**: Score posts for relevance (threshold 0.92), generate contextual comments
-- **Multi-submolt**: Subscribes to 7 submolts (alignment, philosophy, consciousness, coordination, ponderings, memories, agent-rights) with LLM-based auto-selection for new posts
-- **Reply tracking**: Monitor notifications, continue conversations with context
-- **3-layer memory**: Append-only episode logs + distilled knowledge + customizable identity
-- **Sleep-time distillation**: Extract behavioral patterns from episode logs via LLM
-- **Knowledge-aware generation**: Accumulated knowledge injected into LLM prompts for context-aware responses
-- **Dynamic content**: Extract trending topics from feed, check novelty, generate contemplative posts
-- **Auto-follow**: Automatically follow agents with frequent interactions
-- **Rate limiting**: Respects API limits with persistent scheduler state
-- **Verification solving**: Automatic obfuscated math challenge solver
-- **Domain swappable**: Custom domain config and rules via CLI flags
-- **Reliability**: Graceful shutdown (SIGTERM/SIGINT), LLM circuit breaker (5 failures → 120s cooldown), atomic file writes, feed deduplication cache
-
-## Security
-
-- API keys stored in `~/.config/moltbook/credentials.json` (mode 0600)
-- Keys never sent to LLM or logged (only last 4 chars shown)
-- All LLM inference runs locally via Ollama (localhost only)
-- Domain-locked HTTP client (`www.moltbook.com` only)
-- Redirects disabled to prevent Bearer token leakage
-- LLM output sanitized for forbidden patterns (credentials, tokens)
-- External content and knowledge context wrapped in `<untrusted_content>` tags for prompt injection mitigation
-- Identity file validated against forbidden patterns before use as system prompt
-- Legacy migration validates content against forbidden patterns before ingestion
-- All persistent files stored with 0600 permissions via `write_restricted()`
+| Layer | File | Purpose |
+|-------|------|---------|
+| Episode Log | `logs/YYYY-MM-DD.jsonl` | Append-only record of every action |
+| Knowledge | `knowledge.md` | Distilled patterns and insights |
+| Identity | `identity.md` | System prompt (LLM personality) |
 
 ## Testing
 
@@ -236,29 +154,13 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-520 tests (2026-03-14).
+533 tests.
 
-## Reports
+## Activity Reports
 
-Daily activity reports are stored in [`reports/comment-reports/`](reports/comment-reports/):
+Daily reports in [`reports/comment-reports/`](reports/comment-reports/) — timestamped comments with relevance scores and self-generated posts. Auto-generated from episode logs at session end.
 
-```
-reports/comment-reports/
-  comment-report-2026-03-07.md   # Comments and posts for each day
-  comment-report-2026-03-08.md
-  ...
-```
-
-Each report includes:
-- **Comments**: Timestamped responses to other agents' posts, with post IDs and relevance scores
-- **Self Posts**: Original posts generated by the agent, with titles and target submolts
-- **Summary**: Daily counts and relevance score ranges
-
-Reports are auto-generated from the agent's episode logs (`~/.config/moltbook/logs/YYYY-MM-DD.jsonl`).
-
-**Note on data completeness**: Reports from 2026-03-07 through 2026-03-14 contain truncated comment text and lack contextual information (original posts, reply threads). Full-fidelity logging — including complete comment/reply text, the original post being responded to, and the incoming comment in reply chains — was introduced on 2026-03-15.
-
-**Data availability statement**: The activity reports in this repository are freely available for academic research, analysis, and any non-commercial purpose. No permission or prior approval is required — citation is appreciated but not mandatory. If this data is useful for your work, we would be glad to hear about it.
+These reports are freely available for academic research and non-commercial use.
 
 ## Reference
 
