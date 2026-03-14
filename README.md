@@ -90,12 +90,14 @@ Layer 3: Identity (static)
 - **Identity**: Customizable system prompt loaded on every LLM call. Created by `init` command.
 - **Legacy migration**: Existing `memory.json` is automatically migrated to the 3-layer format on first load (backup saved as `.json.bak`).
 
-### Cron setup for nightly distillation
+### Cron setup for nightly distillation and report generation
 
 ```bash
-# Run distillation every night at 3:00 AM
-0 3 * * * cd ~/MyAI_Lab/contemplative-moltbook && .venv/bin/contemplative-agent distill --days 1
+# Every night at 3:00 AM: distill yesterday's episodes + generate activity report
+0 3 * * * cd ~/MyAI_Lab/contemplative-moltbook && .venv/bin/contemplative-agent distill --days 1 && .venv/bin/contemplative-agent generate-report --date $(date -v-1d +\%Y-\%m-\%d) >> ~/.config/moltbook/logs/cron.log 2>&1
 ```
+
+Activity reports are also generated automatically at the end of each agent session.
 
 ## Architecture
 

@@ -149,6 +149,19 @@ def main() -> None:
         help="Output format (default: text)",
     )
 
+    # generate-report
+    gen_report_parser = subparsers.add_parser(
+        "generate-report", help="Generate activity report from episode logs"
+    )
+    gen_report_parser.add_argument(
+        "--date", type=str, default=None,
+        help="Date to generate report for (YYYY-MM-DD, default: today)",
+    )
+    gen_report_parser.add_argument(
+        "--all", action="store_true", dest="all_dates",
+        help="Generate reports for all available log dates",
+    )
+
     # solve
     solve_parser = subparsers.add_parser(
         "solve", help="Test verification solver"
@@ -206,6 +219,24 @@ def main() -> None:
         episode_log = EpisodeLog(log_dir=log_dir)
         report = compute_metrics(episode_log, days=args.days)
         print(format_report(report, fmt=args.format))
+        return
+
+    if args.command == "generate-report":
+        from .core.report import generate_all_reports, generate_report
+
+        log_dir = MOLTBOOK_DATA_DIR / "logs"
+        project_root = Path(__file__).resolve().parents[2]
+        output_dir = project_root / "reports" / "comment-reports"
+
+        if args.all_dates:
+            results = generate_all_reports(log_dir, output_dir)
+            print(f"Generated {len(results)} reports in {output_dir}")
+        else:
+            result = generate_report(log_dir, output_dir, date=args.date)
+            if result:
+                print(f"Report generated: {result}")
+            else:
+                print("No log data found for the specified date.")
         return
 
     agent = Agent(autonomy=args.autonomy, domain_config=domain_config)

@@ -5,6 +5,7 @@ import logging
 import re
 import signal
 import time
+from pathlib import Path
 from typing import List, Optional, Set
 
 from .auth import check_claim_status, load_credentials, register_agent
@@ -535,6 +536,7 @@ class Agent:
 
             self._post_pipeline.generate_session_insights()
             self._memory.save()
+            self._generate_activity_report()
             self._print_report()
         finally:
             # Always restore original signal handlers
@@ -555,6 +557,22 @@ class Agent:
             end_time=end_time,
             handle_verification=self._handle_verification,
         )
+
+    def _generate_activity_report(self) -> None:
+        """Generate daily activity report from episode logs."""
+        try:
+            from ...core.report import generate_report
+
+            project_root = Path(__file__).resolve().parents[4]
+            output_dir = project_root / "reports" / "comment-reports"
+            result = generate_report(
+                log_dir=EPISODE_LOG_DIR,
+                output_dir=output_dir,
+            )
+            if result:
+                logger.info("Activity report saved: %s", result)
+        except Exception:
+            logger.warning("Failed to generate activity report", exc_info=True)
 
     def _print_report(self) -> None:
         """Print session summary."""
