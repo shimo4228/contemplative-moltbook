@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
@@ -16,9 +17,10 @@ from .config import FORBIDDEN_SUBSTRING_PATTERNS
 
 logger = logging.getLogger(__name__)
 
-# Default config directory relative to the package root
+# Default config directory relative to the package root (overridable via env var)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-DEFAULT_CONFIG_DIR = _PROJECT_ROOT / "config"
+_CONFIG_DIR_OVERRIDE = os.environ.get("CONTEMPLATIVE_CONFIG_DIR")
+DEFAULT_CONFIG_DIR = Path(_CONFIG_DIR_OVERRIDE) if _CONFIG_DIR_OVERRIDE else _PROJECT_ROOT / "config"
 DEFAULT_DOMAIN_CONFIG_PATH = DEFAULT_CONFIG_DIR / "domain.json"
 DEFAULT_PROMPTS_DIR = DEFAULT_CONFIG_DIR / "prompts"
 DEFAULT_RULES_DIR = DEFAULT_CONFIG_DIR / "rules" / "contemplative"

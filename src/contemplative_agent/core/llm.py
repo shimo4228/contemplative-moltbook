@@ -196,9 +196,13 @@ def _load_identity() -> str:
 def _get_ollama_url() -> str:
     url = os.environ.get("OLLAMA_BASE_URL", _ollama_base_url)
     parsed = urlparse(url)
-    if parsed.hostname not in LOCALHOST_HOSTS:
+    trusted_raw = os.environ.get("OLLAMA_TRUSTED_HOSTS", "")
+    trusted_extra = frozenset(h.strip() for h in trusted_raw.split(",") if h.strip())
+    allowed = LOCALHOST_HOSTS | trusted_extra
+    if parsed.hostname not in allowed:
         raise ValueError(
-            f"OLLAMA_BASE_URL must point to localhost, got: {parsed.hostname}"
+            f"OLLAMA_BASE_URL must point to a trusted host "
+            f"({', '.join(sorted(allowed))}), got: {parsed.hostname}"
         )
     return url
 

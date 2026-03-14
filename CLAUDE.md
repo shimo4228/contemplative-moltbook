@@ -71,9 +71,22 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 ```
 
 - Python 3.9+ (venv は 3.13.5)
-- 依存: requests のみ。LLM は Ollama (qwen3.5:9b, localhost)
+- 依存: requests のみ。LLM は Ollama (qwen3.5:9b, localhost or Docker service)
 - ビルド: hatch
 - 26 モジュール、~4970 LOC (memory 3層分割 + _io.py 共有ユーティリティ、llm_functions ヘルパー統一済み)
+
+### Docker
+
+```bash
+docker compose up -d                                    # agent + ollama 起動
+docker compose logs -f agent                            # ログ確認
+docker compose run agent command distill --days 3       # CLI パススルー
+docker compose down                                     # 停止
+```
+
+- `CONTEMPLATIVE_CONFIG_DIR` env var で config/ パスをオーバーライド可能
+- `OLLAMA_TRUSTED_HOSTS` env var で Ollama ホスト名許可リストを拡張可能
+- `docker-compose.override.yml` で既存データディレクトリをバインドマウント可能
 
 ## セキュリティ方針
 

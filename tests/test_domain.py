@@ -261,6 +261,22 @@ class TestDefaultPaths:
         assert DEFAULT_RULES_DIR.is_dir()
 
 
+class TestConfigDirOverride:
+    def test_env_var_overrides_default(self, monkeypatch, tmp_path):
+        """CONTEMPLATIVE_CONFIG_DIR env var should override default config path."""
+        monkeypatch.setenv("CONTEMPLATIVE_CONFIG_DIR", str(tmp_path))
+        # Re-import to pick up env var change
+        import importlib
+        import contemplative_agent.core.domain as domain_mod
+        importlib.reload(domain_mod)
+        try:
+            assert domain_mod.DEFAULT_CONFIG_DIR == tmp_path
+        finally:
+            # Restore original state
+            monkeypatch.delenv("CONTEMPLATIVE_CONFIG_DIR")
+            importlib.reload(domain_mod)
+
+
 class TestEndToEndIntegration:
     """Test the full flow: load config -> load templates -> resolve."""
 

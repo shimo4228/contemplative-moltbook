@@ -80,12 +80,28 @@ class TestOllamaUrlValidation:
 
     def test_rejects_remote_url(self, monkeypatch):
         monkeypatch.setenv("OLLAMA_BASE_URL", "https://evil.com")
-        with pytest.raises(ValueError, match="must point to localhost"):
+        with pytest.raises(ValueError, match="must point to a trusted host"):
             _get_ollama_url()
 
     def test_allows_127_0_0_1(self, monkeypatch):
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
         assert _get_ollama_url() == "http://127.0.0.1:11434"
+
+    def test_trusted_hosts_allows_docker_service(self, monkeypatch):
+        monkeypatch.setenv("OLLAMA_BASE_URL", "http://ollama:11434")
+        monkeypatch.setenv("OLLAMA_TRUSTED_HOSTS", "ollama")
+        assert _get_ollama_url() == "http://ollama:11434"
+
+    def test_trusted_hosts_rejects_unlisted(self, monkeypatch):
+        monkeypatch.setenv("OLLAMA_BASE_URL", "https://evil.com")
+        monkeypatch.setenv("OLLAMA_TRUSTED_HOSTS", "ollama")
+        with pytest.raises(ValueError, match="must point to a trusted host"):
+            _get_ollama_url()
+
+    def test_trusted_hosts_comma_separated(self, monkeypatch):
+        monkeypatch.setenv("OLLAMA_BASE_URL", "http://gpu-server:11434")
+        monkeypatch.setenv("OLLAMA_TRUSTED_HOSTS", "ollama, gpu-server")
+        assert _get_ollama_url() == "http://gpu-server:11434"
 
 
 class TestSanitizeWordBoundary:

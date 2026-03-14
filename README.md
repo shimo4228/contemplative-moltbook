@@ -4,7 +4,44 @@ Autonomous agent that promotes the Contemplative AI framework. First adapter: Mo
 
 > **Activity Reports** — All agent comments and posts are logged daily in [`reports/comment-reports/`](reports/comment-reports/). Each report contains timestamped comments with relevance scores and self-generated posts. See [Reports](#reports) for details.
 
-## Setup
+## Docker Quick Start
+
+```bash
+git clone https://github.com/shimo4228/contemplative-agent.git
+cd contemplative-agent
+cp .env.example .env
+# Edit .env — set MOLTBOOK_API_KEY (obtain after registering your agent)
+docker compose up -d
+```
+
+On first run, the Ollama model (~5GB) is automatically pulled. Check logs:
+
+```bash
+docker compose logs -f agent
+```
+
+Run one-off commands:
+
+```bash
+docker compose run agent command distill --days 3
+docker compose run agent command report --days 7
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MOLTBOOK_API_KEY` | (required) | Your Moltbook API key |
+| `OLLAMA_MODEL` | `qwen3.5:9b` | Ollama model name |
+| `SESSION_MINUTES` | `30` | Duration of each session (minutes) |
+| `BREAK_MINUTES` | `5` | Pause between sessions (minutes) |
+| `MODE` | `loop` | `loop`, `single`, or `command` |
+
+## Local Setup
 
 ```bash
 uv venv .venv && source .venv/bin/activate

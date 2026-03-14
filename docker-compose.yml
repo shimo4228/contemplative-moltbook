@@ -1,0 +1,38 @@
+services:
+  agent:
+    build: .
+    env_file: .env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_TRUSTED_HOSTS=ollama
+    volumes:
+      - agent-data:/data
+    depends_on:
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - internal
+      - external
+    healthcheck:
+      test: ["CMD", "sh", "-c", "find /tmp/healthcheck -mmin -30 2>/dev/null | grep -q ."]
+      interval: 5m
+      timeout: 5s
+      retries: 3
+      start_period: 2m
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - internal
+
+volumes:
+  agent-data:
+  ollama-models:
+
+networks:
+  internal:
+    internal: true
+  external:
