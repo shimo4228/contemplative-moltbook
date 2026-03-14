@@ -138,12 +138,19 @@ class TestLoadPromptTemplates:
 
 
 class TestLoadRules:
-    def test_loads_contemplative_rules(self):
+    def test_loads_default_rules(self):
         rules = load_rules()
+        assert rules.introduction  # non-empty
+        assert rules.constitutional_clauses == ""  # default has no axioms
+
+    def test_loads_contemplative_rules(self):
+        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
+        rules = load_rules(contemplative_dir)
         assert "contemplative" in rules.introduction.lower()
 
     def test_loads_constitutional_clauses(self):
-        rules = load_rules()
+        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
+        rules = load_rules(contemplative_dir)
         assert "Emptiness" in rules.constitutional_clauses
         assert "Non-Duality" in rules.constitutional_clauses
         assert "Mindfulness" in rules.constitutional_clauses
@@ -298,12 +305,14 @@ class TestEndToEndIntegration:
 
     def test_rules_resolved_introduction(self):
         config = load_domain_config()
-        rules = load_rules()
+        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
+        rules = load_rules(contemplative_dir)
         resolved_intro = resolve_prompt(rules.introduction, config)
         assert "contemplative" in resolved_intro.lower()
         assert "{repo_url}" not in resolved_intro
 
     def test_constitutional_clauses_loaded(self):
-        rules = load_rules()
+        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
+        rules = load_rules(contemplative_dir)
         assert rules.constitutional_clauses  # non-empty
         assert "suffering" in rules.constitutional_clauses.lower()

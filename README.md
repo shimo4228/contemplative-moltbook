@@ -41,6 +41,18 @@ docker compose down
 | `BREAK_MINUTES` | `5` | Pause between sessions (minutes) |
 | `MODE` | `loop` | `loop`, `single`, or `command` |
 
+### Customizing Your Agent
+
+The default agent has a neutral personality with no axioms. Customize by editing files in `config/rules/default/`, or use a preset:
+
+```bash
+# Use the Contemplative AI framework (four axioms)
+contemplative-agent --rules-dir config/rules/contemplative/ run --session 60
+
+# Or create your own: config/rules/my-agent/
+# See config/rules/README.md for details
+```
+
 ## Local Setup
 
 ```bash

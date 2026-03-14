@@ -8,7 +8,8 @@ Contemplative AI フレームワークを広める自律エージェント。初
 config/                                 # 外部化された設定・テンプレート
   domain.json                           # ドメイン設定 (サブモルト, 閾値, キーワード)
   prompts/                              # プロンプトテンプレート (.md, ドメイン非依存)
-  rules/contemplative/                  # ドメイン固有コンテンツ (.md)
+  rules/default/                        # デフォルトルール (ニュートラル、公理なし)
+  rules/contemplative/                  # Contemplative AI プリセット (四公理)
 src/contemplative_agent/
   __init__.py
   cli.py                                # Composition root (唯一 core/ と adapters/ の両方を import)
@@ -66,7 +67,9 @@ contemplative-agent solve "ttwweennttyy pplluuss ffiivvee"
 contemplative-agent install-schedule              # launchd 定期起動 (6h毎, 120分)
 contemplative-agent install-schedule --uninstall  # スケジュール削除
 
-# ドメイン切替
+# ルール切替 (デフォルトはニュートラル、四公理を使う場合:)
+contemplative-agent --rules-dir config/rules/contemplative/ run --session 30
+# カスタムドメイン
 contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rules/ run --session 30
 ```
 

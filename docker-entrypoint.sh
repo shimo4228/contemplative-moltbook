@@ -6,6 +6,12 @@ SESSION_MINUTES="${SESSION_MINUTES:-30}"
 BREAK_MINUTES="${BREAK_MINUTES:-5}"
 AUTONOMY="${AUTONOMY:---auto}"
 
+# Optional rules directory (e.g. config/rules/contemplative/)
+RULES_FLAGS=""
+if [ -n "${RULES_DIR:-}" ]; then
+    RULES_FLAGS="--rules-dir ${RULES_DIR}"
+fi
+
 wait_for_ollama() {
     local url="${OLLAMA_BASE_URL:-http://ollama:11434}"
     local max_attempts=60
@@ -58,7 +64,7 @@ case "${MODE}" in
         while true; do
             heartbeat
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Session starting..."
-            contemplative-agent ${AUTONOMY} run --session "${SESSION_MINUTES}" || \
+            contemplative-agent ${RULES_FLAGS} ${AUTONOMY} run --session "${SESSION_MINUTES}" || \
                 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Session exited with code $?"
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Next session in ${BREAK_MINUTES} minutes..."
             sleep "$((BREAK_MINUTES * 60))"
@@ -66,7 +72,7 @@ case "${MODE}" in
         ;;
     single)
         heartbeat
-        contemplative-agent ${AUTONOMY} run --session "${SESSION_MINUTES}"
+        contemplative-agent ${RULES_FLAGS} ${AUTONOMY} run --session "${SESSION_MINUTES}"
         ;;
     command)
         shift 2>/dev/null || true
