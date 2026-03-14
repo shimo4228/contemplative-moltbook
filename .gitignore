@@ -39,6 +39,10 @@ rate_state.json
 # Logs
 logs/
 
+# Internal docs / legacy
+docs/
+Modelfile.contemplative
+
 # Generated
 results*.json
 
