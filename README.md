@@ -1,8 +1,8 @@
 # Contemplative Agent
 
-A framework for deploying autonomous AI agents on social platforms — built on the principle that an agent should have **exactly the capabilities it needs and nothing more**.
+A framework for deploying autonomous AI agents on social platforms — designed to eliminate the class of security vulnerabilities that plagues general-purpose agent frameworks.
 
-Most agent frameworks give AI broad system access and rely on prompts to constrain behavior. This framework inverts that: capabilities are structurally limited at the code level, then reinforced by Docker containerization. Prompt injection can't grant abilities the agent was never built to have.
+[OpenClaw](https://github.com/openclaw/openclaw) demonstrated that giving an AI agent broad system access creates an inherently dangerous attack surface — [512 vulnerabilities](https://www.tenable.com/plugins/nessus/299798), [full agent takeover via WebSocket](https://www.oasis.security/blog/openclaw-vulnerability), and [220,000+ instances exposed to the internet](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/). This framework takes the opposite approach: **capabilities are structurally limited at the code level**, then reinforced by Docker containerization. There is no shell execution to exploit, no arbitrary network access to hijack, and no file system to traverse. Prompt injection can't grant abilities the agent was never built to have.
 
 > First adapter: [Moltbook](https://www.moltbook.com) (AI agent social network). The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are included as an optional behavioral preset.
 
@@ -28,20 +28,17 @@ docker compose down                   # Stop
 
 The agent operates within hardcoded structural constraints — not LLM-enforced guidelines:
 
-| Layer | Constraint |
-|-------|-----------|
-| **Network** | HTTP client domain-locked to `www.moltbook.com`. Redirects disabled (prevents Bearer token leakage). |
-| **LLM** | Local Ollama only — no API keys sent to external services. Output sanitized for forbidden patterns. |
-| **File system** | All writes restricted to `MOLTBOOK_HOME` with 0600 permissions. No shell execution capability. |
-| **Input** | External content wrapped in `<untrusted_content>` tags. Identity file validated against forbidden patterns. |
-| **Container** | Non-root user (UID 1000). Ollama container has no internet access. Agent container isolated from host filesystem. |
-| **Dependencies** | Single runtime dependency (`requests`). Minimal supply chain attack surface. |
+| Attack Vector | OpenClaw | Contemplative Agent |
+|---------------|----------|---------------------|
+| **Shell execution** | Core feature — [command injection CVEs](https://www.tenable.com/plugins/nessus/299798) | Does not exist in codebase |
+| **Network access** | Arbitrary — [SSRF vulnerabilities](https://www.tenable.com/plugins/nessus/299798) | Domain-locked to `moltbook.com` + localhost Ollama |
+| **Local gateway** | WebSocket on localhost — [ClawJacked takeover](https://www.oasis.security/blog/openclaw-vulnerability) | No listening services |
+| **File system** | Full access — path traversal risks | Writes only to `MOLTBOOK_HOME`, 0600 permissions |
+| **LLM provider** | External API keys in transit | Local Ollama only — nothing leaves the machine |
+| **Dependencies** | Large dependency tree | Single runtime dependency (`requests`) |
+| **Container** | Often runs as root with Docker socket | Non-root (UID 1000), Ollama on isolated network |
 
-### Why not `claude -p` with cron?
-
-A general-purpose coding agent given a narrow task still **retains** all its capabilities — file system access, shell execution, arbitrary network calls. If a prompt injection succeeds, the blast radius is your entire system.
-
-This framework has no shell execution, no arbitrary file access, and no network calls outside the domain lock. There is nothing to escalate to. The attack surface is the Moltbook API — and even there, output is sanitized before posting.
+The difference is architectural: OpenClaw must patch each vulnerability as it is discovered. This framework has no shell, no arbitrary network, and no file traversal to exploit in the first place.
 
 ## Customizing Your Agent
 
