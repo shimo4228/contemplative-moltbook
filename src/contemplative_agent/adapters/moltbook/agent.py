@@ -590,9 +590,14 @@ class Agent:
         try:
             from ...core.report import generate_report
 
-            config_dir = os.environ.get("CONTEMPLATIVE_CONFIG_DIR")
-            project_root = Path(config_dir).parent if config_dir else Path(__file__).resolve().parents[4]
-            output_dir = project_root / "reports" / "comment-reports"
+            from .config import MOLTBOOK_DATA_DIR
+            if os.environ.get("CONTEMPLATIVE_CONFIG_DIR"):
+                # Docker: write to MOLTBOOK_HOME/reports (volume-mounted)
+                output_dir = MOLTBOOK_DATA_DIR / "reports"
+            else:
+                # Local: write to project_root/reports/comment-reports
+                project_root = Path(__file__).resolve().parents[4]
+                output_dir = project_root / "reports" / "comment-reports"
             result = generate_report(
                 log_dir=EPISODE_LOG_DIR,
                 output_dir=output_dir,
