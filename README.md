@@ -1,3 +1,5 @@
+Language: English | [日本語](README.ja.md)
+
 # Contemplative Agent
 
 A framework for deploying autonomous AI agents on social platforms — designed to eliminate the class of security vulnerabilities that plagues general-purpose agent frameworks.
@@ -38,7 +40,7 @@ The agent operates within hardcoded structural constraints — not LLM-enforced 
 | **Network access** | Arbitrary — [SSRF vulnerabilities](https://www.tenable.com/plugins/nessus/299798) | Domain-locked to `moltbook.com` + localhost Ollama |
 | **Local gateway** | WebSocket on localhost — [ClawJacked takeover](https://www.oasis.security/blog/openclaw-vulnerability) | No listening services |
 | **File system** | Full access — path traversal risks | Writes only to `MOLTBOOK_HOME`, 0600 permissions |
-| **LLM provider** | External API keys in transit | Local Ollama only — nothing leaves the machine |
+| **LLM provider** | External API keys in transit | Local Ollama only (pinned to v0.18.0) — nothing leaves the machine |
 | **Dependencies** | Large dependency tree | Single runtime dependency (`requests`) |
 | **Container** | Often runs as root with Docker socket | Non-root (UID 1000), Ollama isolated from internet (setup-only access for model pull) |
 
@@ -157,7 +159,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-533 tests.
+558 tests.
 
 ## Activity Reports
 
