@@ -146,11 +146,25 @@ config/
 
 ### Memory (3-Layer)
 
-| Layer | File | Purpose |
-|-------|------|---------|
-| Episode Log | `logs/YYYY-MM-DD.jsonl` | Append-only record of every action |
-| Knowledge | `knowledge.md` | Distilled patterns and insights |
-| Identity | `identity.md` | System prompt (LLM personality) |
+Data flows upward through three layers, each more abstract than the last:
+
+```
+Episode Log (raw actions)
+    ↓ distill --days N
+Knowledge (patterns, insights)
+    ↓ distill --identity
+Identity (self-description, evolves with experience)
+```
+
+| Layer | File | Updated by | Purpose |
+|-------|------|-----------|---------|
+| Episode Log | `logs/YYYY-MM-DD.jsonl` | Every action (append-only) | Raw behavioral record |
+| Knowledge | `knowledge.md` | `distill --days N` | Patterns extracted from episodes |
+| Identity | `identity.md` | `distill --identity` | Agent's self-understanding, shaped by accumulated knowledge |
+
+Identity is not a static template — it is seeded from `config/rules/*/introduction.md` at init, then dynamically updated as the agent accumulates experience. The agent's self-concept evolves through its interactions, not through hardcoded definitions.
+
+Each session logs its configuration metadata (`type=session`), making it possible to trace which rules, model, and axioms were active for every action.
 
 ## Testing
 
@@ -159,7 +173,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-558 tests.
+565 tests.
 
 ## Activity Reports
 
