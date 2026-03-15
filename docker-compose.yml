@@ -22,7 +22,7 @@ services:
       start_period: 2m
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.18.0
     volumes:
       - ollama-models:/root/.ollama
     networks:
@@ -32,7 +32,7 @@ services:
 
   # Temporary service for initial model pull (internet access required)
   ollama-init:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.18.0
     volumes:
       - ollama-models:/root/.ollama
     networks:
