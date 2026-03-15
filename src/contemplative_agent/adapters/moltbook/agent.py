@@ -465,6 +465,9 @@ class Agent:
             if client.unfollow_agent(name):
                 self._memory.record_unfollow(name)
                 self._actions_taken.append(f"Unfollowed {name}")
+                self._memory.episodes.append("activity", {
+                    "action": "unfollow", "target_agent": name,
+                })
                 unfollowed += 1
 
         # Follow agents who entered top 20

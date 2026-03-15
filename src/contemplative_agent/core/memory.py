@@ -329,10 +329,17 @@ class MemoryStore:
         """Return set of followed agent names."""
         return self._knowledge.followed_agents
 
+    _TEST_AGENT_NAMES = frozenset({
+        "Agent0", "Agent1", "Agent2", "Agent3", "Agent4",
+        "Bob", "TestAgent", "unknown", "Agent1 Updated",
+    })
+
     def get_top_interacted_agents(self, limit: int = 20) -> List[Tuple[str, str]]:
         """Return top N (agent_id, agent_name) pairs by interaction count."""
         ranked = []
         for agent_id, agent_name in self._knowledge.agents.items():
+            if agent_name in self._TEST_AGENT_NAMES:
+                continue
             count = self.interaction_count_with(agent_id)
             if count > 0:
                 ranked.append((agent_id, agent_name, count))

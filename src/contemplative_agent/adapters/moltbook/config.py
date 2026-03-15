@@ -77,6 +77,7 @@ class AdaptiveBackoffConfig:
     remaining_threshold: int = 10         # Start slowing when <= 10 remaining
     read_budget_reserve: int = 5          # In-cycle: stop GET when <= 5 remaining
     write_budget_reserve: int = 3         # In-cycle: stop POST when <= 3 remaining
+    upvote_only_threshold: float = 0.85   # Upvote without comment if relevance >= this
     proactive_wait_seconds: float = 120.0  # Default wait when reset time unknown
 
 

@@ -199,10 +199,9 @@ class FeedManager:
             else self._domain.relevance_threshold
         )
         if score < threshold:
-            # Upvote-only for near-threshold posts (0.85+)
-            UPVOTE_ONLY_THRESHOLD = 0.85
+            # Upvote-only for near-threshold posts
             if (
-                score >= UPVOTE_ONLY_THRESHOLD
+                score >= ADAPTIVE_BACKOFF.upvote_only_threshold
                 and post_id not in self._upvoted_posts
                 and client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve)
             ):
