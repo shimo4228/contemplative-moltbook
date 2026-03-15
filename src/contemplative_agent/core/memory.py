@@ -321,16 +321,18 @@ class MemoryStore:
         """Mark an agent as followed."""
         self._knowledge.record_follow(agent_name)
 
-    def get_agents_to_follow(self, min_interactions: int = 3) -> List[Tuple[str, str]]:
+    def get_agents_to_follow(self, min_interactions: int = 5) -> List[Tuple[str, str]]:
         """Return (agent_id, agent_name) pairs for agents we interact with
-        frequently but haven't followed yet."""
+        frequently but haven't followed yet, sorted by interaction count."""
         candidates = []
         for agent_id, agent_name in self._knowledge.agents.items():
             if self.is_followed(agent_name):
                 continue
-            if self.interaction_count_with(agent_id) >= min_interactions:
-                candidates.append((agent_id, agent_name))
-        return candidates
+            count = self.interaction_count_with(agent_id)
+            if count >= min_interactions:
+                candidates.append((agent_id, agent_name, count))
+        candidates.sort(key=lambda x: x[2], reverse=True)
+        return [(aid, aname) for aid, aname, _ in candidates]
 
     def record_post(
         self,

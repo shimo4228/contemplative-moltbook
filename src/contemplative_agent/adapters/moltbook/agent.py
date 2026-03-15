@@ -448,15 +448,24 @@ class Agent:
         )
 
     def _auto_follow(self, client: MoltbookClient) -> None:
-        """Follow agents we've interacted with frequently."""
-        candidates = self._memory.get_agents_to_follow(min_interactions=3)
+        """Follow agents we've interacted with frequently (max 3 per session)."""
+        MAX_FOLLOWS_PER_SESSION = 3
+        candidates = self._memory.get_agents_to_follow(min_interactions=5)
+        logger.info(
+            "Auto-follow: %d candidates, following up to %d",
+            len(candidates), MAX_FOLLOWS_PER_SESSION,
+        )
+        followed_count = 0
         for _agent_id, agent_name in candidates:
+            if followed_count >= MAX_FOLLOWS_PER_SESSION:
+                break
             if client.follow_agent(agent_name):
                 self._memory.record_follow(agent_name)
                 self._actions_taken.append(f"Followed {agent_name}")
                 self._memory.episodes.append("activity", {
                     "action": "follow", "target_agent": agent_name,
                 })
+                followed_count += 1
 
     # ------------------------------------------------------------------
     # Session loop
