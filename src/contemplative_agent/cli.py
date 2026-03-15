@@ -138,9 +138,9 @@ def _do_init(rules_dir: Optional[Path] = None) -> None:
     if IDENTITY_PATH.exists():
         print(f"Identity file already exists: {IDENTITY_PATH}")
     else:
-        # Use identity from rules preset, fall back to empty
+        # Use introduction as identity seed
         rules = get_rules(rules_dir)
-        identity_content = rules.identity or ""
+        identity_content = rules.introduction or ""
         IDENTITY_PATH.write_text(identity_content + "\n", encoding="utf-8")
         os.chmod(IDENTITY_PATH, stat.S_IRUSR | stat.S_IWUSR)
         print(f"Created identity file: {IDENTITY_PATH}")

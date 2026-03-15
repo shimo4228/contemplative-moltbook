@@ -71,7 +71,6 @@ class RulesContent:
 
     introduction: str
     constitutional_clauses: str = ""
-    identity: str = ""
 
 
 def load_domain_config(path: Optional[Path] = None) -> DomainConfig:
@@ -209,16 +208,9 @@ def load_rules(rules_dir: Optional[Path] = None) -> RulesContent:
                     )
             clauses = raw
 
-    # Load rule-specific initial identity
-    identity = ""
-    identity_path = directory / "identity.md"
-    if identity_path.exists():
-        identity = identity_path.read_text(encoding="utf-8").strip()
-
     return RulesContent(
         introduction=introduction,
         constitutional_clauses=clauses,
-        identity=identity,
     )
 
 
