@@ -142,7 +142,7 @@ def get_default_system_prompt() -> str:
     return _get_default_system_prompt()
 
 
-def _validate_identity_content(content: str) -> bool:
+def validate_identity_content(content: str) -> bool:
     """Return True if content passes all forbidden pattern checks."""
     content_lower = content.lower()
     for pattern in FORBIDDEN_SUBSTRING_PATTERNS:
@@ -181,7 +181,7 @@ def _load_identity() -> str:
     if identity is not None and identity.exists():
         try:
             content = identity.read_text(encoding="utf-8").strip()
-            if content and _validate_identity_content(content):
+            if content and validate_identity_content(content):
                 base_prompt = content
         except OSError as exc:
             logger.warning("Failed to read identity file: %s", exc)

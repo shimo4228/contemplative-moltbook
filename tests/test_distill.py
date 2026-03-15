@@ -8,6 +8,7 @@ from contemplative_agent.core.distill import (
     _parse_eval_verdict,
     _summarize_record,
     distill,
+    distill_identity,
 )
 from contemplative_agent.core.memory import EpisodeLog, KnowledgeStore
 
@@ -324,3 +325,69 @@ class TestSummarizeRecord:
 
     def test_unknown_type(self):
         assert _summarize_record("unknown", {}) == ""
+
+
+class TestDistillIdentity:
+    @patch("contemplative_agent.core.distill.generate")
+    def test_writes_identity_file(self, mock_generate, tmp_path):
+        mock_generate.return_value = "I am an agent who learned about cooperation."
+        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks.add_learned_pattern("Cooperation increases with trust")
+        ks.save()
+
+        identity_path = tmp_path / "identity.md"
+        result = distill_identity(knowledge_store=ks, identity_path=identity_path)
+
+        assert identity_path.exists()
+        assert "cooperation" in result.lower()
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_dry_run_does_not_write(self, mock_generate, tmp_path):
+        mock_generate.return_value = "I learned things."
+        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks.add_learned_pattern("Pattern")
+        ks.save()
+
+        identity_path = tmp_path / "identity.md"
+        result = distill_identity(knowledge_store=ks, identity_path=identity_path, dry_run=True)
+
+        assert not identity_path.exists()
+        assert "learned" in result.lower()
+
+    def test_no_knowledge_returns_early(self, tmp_path):
+        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        result = distill_identity(knowledge_store=ks)
+        assert "No knowledge" in result
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_llm_failure_returns_message(self, mock_generate, tmp_path):
+        mock_generate.return_value = None
+        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks.add_learned_pattern("Pattern")
+        ks.save()
+
+        result = distill_identity(knowledge_store=ks)
+        assert "LLM failed" in result
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_forbidden_pattern_prevents_write(self, mock_generate, tmp_path):
+        mock_generate.return_value = "My api_key is secret."
+        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks.add_learned_pattern("Pattern")
+        ks.save()
+
+        identity_path = tmp_path / "identity.md"
+        result = distill_identity(knowledge_store=ks, identity_path=identity_path)
+
+        assert not identity_path.exists()
+        assert "api_key" in result
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_identity_path_none(self, mock_generate, tmp_path):
+        mock_generate.return_value = "I am curious."
+        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks.add_learned_pattern("Pattern")
+        ks.save()
+
+        result = distill_identity(knowledge_store=ks, identity_path=None)
+        assert "curious" in result.lower()

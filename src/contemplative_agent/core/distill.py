@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+import stat
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Literal, Optional
 
-from pathlib import Path
-
-from .llm import generate
+from .llm import generate, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
 from .prompts import DISTILL_PROMPT, EVAL_PROMPT, IDENTITY_DISTILL_PROMPT
 
@@ -260,6 +261,11 @@ def distill_identity(
         logger.info(msg)
         return msg
 
+    if not IDENTITY_DISTILL_PROMPT:
+        msg = "identity_distill.md prompt template not found."
+        logger.warning(msg)
+        return msg
+
     current_identity = ""
     if identity_path and identity_path.exists():
         current_identity = identity_path.read_text(encoding="utf-8").strip()
@@ -275,7 +281,7 @@ def distill_identity(
         logger.warning(msg)
         return msg
 
-    # Clean up: take only the first 3-5 sentences, strip any preamble
+    # Clean up: take only the first few lines, strip any preamble
     lines = [l.strip() for l in result.strip().splitlines() if l.strip()]
     identity_text = "\n".join(lines[:5])
 
@@ -283,9 +289,12 @@ def distill_identity(
         logger.info("Dry run — not writing identity")
         return identity_text
 
+    # Validate against forbidden patterns before writing
+    if not validate_identity_content(identity_text):
+        logger.warning("Generated identity failed validation — not writing")
+        return identity_text
+
     if identity_path:
-        import os
-        import stat
         identity_path.write_text(identity_text + "\n", encoding="utf-8")
         os.chmod(identity_path, stat.S_IRUSR | stat.S_IWUSR)
         logger.info("Identity updated: %s", identity_path)
