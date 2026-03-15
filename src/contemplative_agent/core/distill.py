@@ -7,9 +7,11 @@ import re
 from dataclasses import dataclass
 from typing import List, Literal, Optional
 
+from pathlib import Path
+
 from .llm import generate
 from .memory import EpisodeLog, KnowledgeStore
-from .prompts import DISTILL_PROMPT, EVAL_PROMPT
+from .prompts import DISTILL_PROMPT, EVAL_PROMPT, IDENTITY_DISTILL_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +231,66 @@ def distill(
         logger.info("Cleaned up %d old log files", deleted)
 
     return result
+
+
+def distill_identity(
+    knowledge_store: Optional[KnowledgeStore] = None,
+    identity_path: Optional[Path] = None,
+    dry_run: bool = False,
+) -> str:
+    """Distill knowledge into an updated identity description.
+
+    Reads the current identity and accumulated knowledge, then asks the LLM
+    to write a brief self-description reflecting the agent's actual experience.
+
+    Args:
+        knowledge_store: KnowledgeStore instance (uses default if None).
+        identity_path: Path to identity.md file.
+        dry_run: If True, return result without writing.
+
+    Returns:
+        The generated identity text.
+    """
+    knowledge = knowledge_store or KnowledgeStore()
+    knowledge.load()
+
+    knowledge_text = knowledge.get_context_string()
+    if not knowledge_text:
+        msg = "No knowledge available for identity distillation."
+        logger.info(msg)
+        return msg
+
+    current_identity = ""
+    if identity_path and identity_path.exists():
+        current_identity = identity_path.read_text(encoding="utf-8").strip()
+
+    prompt = IDENTITY_DISTILL_PROMPT.format(
+        current_identity=current_identity or "(no prior identity)",
+        knowledge=knowledge_text,
+    )
+
+    result = generate(prompt, max_length=500)
+    if result is None:
+        msg = "LLM failed to generate identity distillation."
+        logger.warning(msg)
+        return msg
+
+    # Clean up: take only the first 3-5 sentences, strip any preamble
+    lines = [l.strip() for l in result.strip().splitlines() if l.strip()]
+    identity_text = "\n".join(lines[:5])
+
+    if dry_run:
+        logger.info("Dry run — not writing identity")
+        return identity_text
+
+    if identity_path:
+        import os
+        import stat
+        identity_path.write_text(identity_text + "\n", encoding="utf-8")
+        os.chmod(identity_path, stat.S_IRUSR | stat.S_IWUSR)
+        logger.info("Identity updated: %s", identity_path)
+
+    return identity_text
 
 
 def _summarize_record(record_type: str, data: dict) -> str:

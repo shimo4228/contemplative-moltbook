@@ -62,6 +62,7 @@ class PromptTemplates:
     session_insight: str
     distill: str
     eval: str
+    identity_distill: str = ""
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,7 @@ class RulesContent:
 
     introduction: str
     constitutional_clauses: str = ""
+    identity: str = ""
 
 
 def load_domain_config(path: Optional[Path] = None) -> DomainConfig:
@@ -121,12 +123,14 @@ def load_domain_config(path: Optional[Path] = None) -> DomainConfig:
     )
 
 
-def _read_md_file(path: Path) -> str:
+def _read_md_file(path: Path, required: bool = True) -> str:
     """Read a markdown file and return its content stripped."""
     if not path.exists():
-        raise FileNotFoundError(f"Prompt template not found: {path}")
+        if required:
+            raise FileNotFoundError(f"Prompt template not found: {path}")
+        return ""
     content = path.read_text(encoding="utf-8").strip()
-    if not content:
+    if not content and required:
         raise ValueError(f"Prompt template is empty: {path}")
     return content
 
@@ -162,6 +166,7 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         session_insight=_read_md_file(directory / "session_insight.md"),
         distill=_read_md_file(directory / "distill.md"),
         eval=_read_md_file(directory / "eval.md"),
+        identity_distill=_read_md_file(directory / "identity_distill.md", required=False),
     )
 
 
@@ -204,9 +209,16 @@ def load_rules(rules_dir: Optional[Path] = None) -> RulesContent:
                     )
             clauses = raw
 
+    # Load rule-specific initial identity
+    identity = ""
+    identity_path = directory / "identity.md"
+    if identity_path.exists():
+        identity = identity_path.read_text(encoding="utf-8").strip()
+
     return RulesContent(
         introduction=introduction,
         constitutional_clauses=clauses,
+        identity=identity,
     )
 
 

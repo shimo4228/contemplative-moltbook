@@ -7,6 +7,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 from xml.sax.saxutils import escape as xml_escape
 
 from .adapters.moltbook.agent import Agent, AutonomyLevel
@@ -21,7 +22,7 @@ from .core.domain import (
     set_domain_config_cache,
     set_rules_cache,
 )
-from .core.llm import configure as configure_llm, get_default_system_prompt
+from .core.llm import configure as configure_llm
 
 
 def _setup_logging(verbose: bool = False) -> None:
@@ -130,14 +131,17 @@ def _do_uninstall_schedule() -> None:
     print(f"Removed: {LAUNCHD_PLIST_PATH}")
 
 
-def _do_init() -> None:
+def _do_init(rules_dir: Optional[Path] = None) -> None:
     """Initialize identity.md and knowledge.md files."""
     MOLTBOOK_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if IDENTITY_PATH.exists():
         print(f"Identity file already exists: {IDENTITY_PATH}")
     else:
-        IDENTITY_PATH.write_text(get_default_system_prompt(), encoding="utf-8")
+        # Use identity from rules preset, fall back to empty
+        rules = get_rules(rules_dir)
+        identity_content = rules.identity or ""
+        IDENTITY_PATH.write_text(identity_content + "\n", encoding="utf-8")
         os.chmod(IDENTITY_PATH, stat.S_IRUSR | stat.S_IWUSR)
         print(f"Created identity file: {IDENTITY_PATH}")
 
@@ -237,6 +241,9 @@ def main() -> None:
     distill_parser.add_argument(
         "--dry-run", action="store_true", help="Show results without writing"
     )
+    distill_parser.add_argument(
+        "--identity", action="store_true", help="Also distill knowledge into identity"
+    )
 
     # report
     report_parser = subparsers.add_parser(
@@ -322,11 +329,11 @@ def main() -> None:
             configure_llm(axiom_prompt=clauses)
 
     if args.command == "init":
-        _do_init()
+        _do_init(rules_dir=args.rules_dir)
         return
 
     if args.command == "distill":
-        from .core.distill import distill
+        from .core.distill import distill, distill_identity
         from .core.memory import EpisodeLog, KnowledgeStore
 
         log_dir = MOLTBOOK_DATA_DIR / "logs"
@@ -339,6 +346,15 @@ def main() -> None:
             knowledge_store=knowledge_store,
         )
         print(result)
+
+        if args.identity:
+            print("\n--- Identity Distillation ---")
+            identity_result = distill_identity(
+                knowledge_store=knowledge_store,
+                identity_path=IDENTITY_PATH,
+                dry_run=args.dry_run,
+            )
+            print(identity_result)
         return
 
     if args.command == "report":

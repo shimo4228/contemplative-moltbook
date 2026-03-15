@@ -79,7 +79,7 @@ run_distill_if_due() {
     fi
     if [ $((now - last)) -ge 86400 ]; then
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running daily distillation..."
-        contemplative-agent "${CMD_ARGS[@]}" distill --days 1 && echo "$now" > "$LAST_DISTILL"
+        contemplative-agent "${CMD_ARGS[@]}" distill --days 1 --identity && echo "$now" > "$LAST_DISTILL"
     fi
 }
 
