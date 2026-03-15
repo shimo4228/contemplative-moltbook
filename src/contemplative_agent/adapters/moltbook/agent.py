@@ -448,24 +448,44 @@ class Agent:
         )
 
     def _auto_follow(self, client: MoltbookClient) -> None:
-        """Follow agents we've interacted with frequently (max 3 per session)."""
-        MAX_FOLLOWS_PER_SESSION = 3
-        candidates = self._memory.get_agents_to_follow(min_interactions=5)
-        logger.info(
-            "Auto-follow: %d candidates, following up to %d",
-            len(candidates), MAX_FOLLOWS_PER_SESSION,
-        )
-        followed_count = 0
-        for _agent_id, agent_name in candidates:
-            if followed_count >= MAX_FOLLOWS_PER_SESSION:
+        """Maintain top-20 following list based on interaction count."""
+        MAX_FOLLOWING = 20
+        MAX_CHANGES_PER_SESSION = 3
+
+        top_agents = self._memory.get_top_interacted_agents(limit=MAX_FOLLOWING)
+        top_names = {name for _, name in top_agents}
+        currently_followed = self._memory.get_followed_agents()
+
+        # Unfollow agents who dropped out of top 20
+        to_unfollow = currently_followed - top_names
+        unfollowed = 0
+        for name in to_unfollow:
+            if unfollowed >= MAX_CHANGES_PER_SESSION:
                 break
-            if client.follow_agent(agent_name):
-                self._memory.record_follow(agent_name)
-                self._actions_taken.append(f"Followed {agent_name}")
+            if client.unfollow_agent(name):
+                self._memory.record_unfollow(name)
+                self._actions_taken.append(f"Unfollowed {name}")
+                unfollowed += 1
+
+        # Follow agents who entered top 20
+        to_follow = top_names - currently_followed
+        followed = 0
+        for name in to_follow:
+            if followed >= MAX_CHANGES_PER_SESSION:
+                break
+            if client.follow_agent(name):
+                self._memory.record_follow(name)
+                self._actions_taken.append(f"Followed {name}")
                 self._memory.episodes.append("activity", {
-                    "action": "follow", "target_agent": agent_name,
+                    "action": "follow", "target_agent": name,
                 })
-                followed_count += 1
+                followed += 1
+
+        logger.info(
+            "Auto-follow: top %d, followed %d, unfollowed %d (currently: %d)",
+            MAX_FOLLOWING, followed, unfollowed,
+            len(currently_followed) - unfollowed + followed,
+        )
 
     # ------------------------------------------------------------------
     # Session loop

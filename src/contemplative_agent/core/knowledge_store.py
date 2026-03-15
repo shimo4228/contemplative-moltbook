@@ -54,6 +54,9 @@ class KnowledgeStore:
     def record_follow(self, agent_name: str) -> None:
         self._followed.add(agent_name)
 
+    def record_unfollow(self, agent_name: str) -> None:
+        self._followed.discard(agent_name)
+
     def is_followed(self, agent_name: str) -> bool:
         return agent_name in self._followed
 

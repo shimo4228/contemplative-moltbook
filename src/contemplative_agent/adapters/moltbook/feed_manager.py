@@ -199,12 +199,27 @@ class FeedManager:
             else self._domain.relevance_threshold
         )
         if score < threshold:
-            logger.debug(
-                "Post %s relevance %.2f below threshold %.2f",
-                post_id,
-                score,
-                threshold,
-            )
+            # Upvote-only for near-threshold posts (0.85+)
+            UPVOTE_ONLY_THRESHOLD = 0.85
+            if (
+                score >= UPVOTE_ONLY_THRESHOLD
+                and post_id not in self._upvoted_posts
+                and client.has_write_budget(ADAPTIVE_BACKOFF.write_budget_reserve)
+            ):
+                if client.upvote_post(post_id):
+                    self._upvoted_posts.add(post_id)
+                    ctx.memory.episodes.append("activity", {
+                        "action": "upvote", "post_id": post_id,
+                    })
+                    logger.info(
+                        "Upvoted post %s (relevance: %.2f, below comment threshold)",
+                        post_id[:12], score,
+                    )
+            else:
+                logger.debug(
+                    "Post %s relevance %.2f below threshold %.2f",
+                    post_id, score, threshold,
+                )
             return False
         logger.info(
             "Post %s relevance %.2f passed threshold %.2f",
