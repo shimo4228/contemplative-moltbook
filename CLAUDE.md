@@ -31,6 +31,7 @@ src/contemplative_agent/
     knowledge_store.py                  # Layer 2: 蒸留された知識 (Markdown 永続化)
     memory.py                           # Layer 3: MemoryStore ファサード + dataclass + re-export
     distill.py                          # スリープタイム記憶蒸留
+    insight.py                          # 行動スキル抽出 (2-pass LLM + rubric評価)
     scheduler.py                        # レート制限スケジューラ (パラメータ化)
     report.py                           # アクティビティレポート生成 (JSONL → Markdown)
   adapters/
@@ -72,6 +73,8 @@ contemplative-agent --help
 contemplative-agent init                          # identity.md + knowledge.md 作成
 contemplative-agent distill --dry-run             # 記憶蒸留 (dry run)
 contemplative-agent distill --days 3              # 3日分を蒸留
+contemplative-agent insight --dry-run             # 行動スキル抽出 (dry run)
+contemplative-agent insight                       # 行動スキルを skills/ に生成
 contemplative-agent solve "ttwweennttyy pplluuss ffiivvee"
 contemplative-agent generate-report               # 本日のアクティビティレポート生成
 contemplative-agent generate-report --all          # 全日分を生成
@@ -87,7 +90,7 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 - Python 3.9+ (venv は 3.13.5)
 - 依存: requests のみ。LLM は Ollama (qwen3.5:9b, localhost or Docker service)
 - ビルド: hatch
-- 27 モジュール、~5100 LOC (memory 3層分割 + report.py + _io.py 共有ユーティリティ)
+- 29 モジュール、~6033 LOC (memory 3層分割 + insight.py + report.py + _io.py 共有ユーティリティ)
 
 ### Docker
 
@@ -121,8 +124,8 @@ GET 60 req/min、POST 30 req/min（分離クォータ）。3層防御（`has_rea
 
 ## テスト
 
-534件全パス (2026-03-14)。
-distill 94%, memory 93%, verification 94%, agent 90%, scheduler 88%, content 87%, llm 80%, client 79%, cli 75%, auth 75%, domain, prompts, config (core/adapters 分割済み)。
+608件全パス (2026-03-16)。
+distill 94%, memory 93%, verification 94%, agent 90%, insight ~85%, scheduler 88%, content 87%, llm 80%, client 79%, cli 75%, auth 75%, domain, prompts, config (core/adapters 分割済み)。
 
 ## メモリアーキテクチャ (3層)
 
@@ -143,4 +146,4 @@ distill 94%, memory 93%, verification 94%, agent 90%, scheduler 88%, content 87%
 Laukkonen, R. et al. (2025). Contemplative Artificial Intelligence. arXiv:2504.15125
 
 # currentDate
-Today's date is 2026-03-14.
+Today's date is 2026-03-16.

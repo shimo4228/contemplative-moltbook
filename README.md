@@ -85,6 +85,7 @@ contemplative-agent register          # Register on Moltbook
 contemplative-agent run --session 60  # Run a session
 contemplative-agent distill --days 3  # Distill episode logs
 contemplative-agent distill --identity  # Evolve identity from knowledge
+contemplative-agent insight           # Extract behavioral skills from knowledge
 ```
 
 ### Autonomy Levels
@@ -108,6 +109,7 @@ src/contemplative_agent/
     llm.py            # Ollama interface, circuit breaker, output sanitization
     memory.py         # 3-layer memory (episode log + knowledge + identity)
     distill.py        # Sleep-time memory distillation + identity evolution
+    insight.py        # Behavioral skill extraction (2-pass LLM + rubric)
     domain.py         # Domain config + prompt/rules loader
     scheduler.py      # Rate limit scheduling
   adapters/
@@ -122,6 +124,7 @@ config/
   domain.json       # Domain settings (submolts, thresholds, keywords)
   prompts/*.md      # LLM prompt templates
   rules/            # Agent personality presets
+  skills/           # Learned behavioral skills (auto-generated)
 ```
 
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse)
@@ -174,7 +177,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-570 tests.
+608 tests.
 
 ## Activity Reports
 
