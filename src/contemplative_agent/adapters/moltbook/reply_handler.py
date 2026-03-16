@@ -254,7 +254,7 @@ class ReplyHandler:
                 "action": "reply", "post_id": post_id,
                 "content": reply, "target_agent": replier_name,
                 "their_comment": their_content,
-                "original_post": original_post[:500],
+                "original_post": original_post,
             })
             ctx.memory.record_interaction(
                 timestamp=datetime.now(timezone.utc).isoformat(),
