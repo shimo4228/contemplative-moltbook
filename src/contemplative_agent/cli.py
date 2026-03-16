@@ -54,14 +54,18 @@ def _build_calendar_intervals(interval_hours: int) -> str:
     return "\n".join(entries)
 
 
-def _do_install_schedule(interval: int, session: int) -> None:
-    """Install launchd plist for periodic agent sessions (macOS only)."""
-    if sys.platform != "darwin":
-        print("Error: install-schedule is only supported on macOS (launchd).", file=sys.stderr)
-        sys.exit(1)
+def _install_plist(
+    template_name: str,
+    plist_path: Path,
+    log_name: str,
+    substitutions: dict[str, str],
+) -> Path:
+    """Install a launchd plist from a template.
 
+    Returns the log path for caller messaging.
+    """
     project_root = Path(__file__).resolve().parents[2]
-    template_path = project_root / "config" / "launchd" / "com.moltbook.agent.plist"
+    template_path = project_root / "config" / "launchd" / template_name
 
     if not template_path.exists():
         print(f"Error: Template not found: {template_path}", file=sys.stderr)
@@ -72,42 +76,60 @@ def _do_install_schedule(interval: int, session: int) -> None:
         print(f"Error: venv not found: {venv_bin}", file=sys.stderr)
         sys.exit(1)
 
-    log_path = MOLTBOOK_DATA_DIR / "logs" / "agent-launchd.log"
+    log_path = MOLTBOOK_DATA_DIR / "logs" / log_name
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     template = template_path.read_text(encoding="utf-8")
-    plist_content = (
-        template
-        .replace("{{VENV_BIN}}", xml_escape(str(venv_bin)))
-        .replace("{{PROJECT_ROOT}}", xml_escape(str(project_root)))
-        .replace("{{SESSION_MINUTES}}", str(session))  # int — safe as-is
-        .replace("{{LOG_PATH}}", xml_escape(str(log_path)))
-        .replace("{{CALENDAR_INTERVALS}}", _build_calendar_intervals(interval))
-    )
+    plist_content = template
+    for key, value in {
+        "{{VENV_BIN}}": xml_escape(str(venv_bin)),
+        "{{PROJECT_ROOT}}": xml_escape(str(project_root)),
+        "{{LOG_PATH}}": xml_escape(str(log_path)),
+        **substitutions,
+    }.items():
+        plist_content = plist_content.replace(key, value)
 
     LAUNCHD_PLIST_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Unload existing job if present
-    if LAUNCHD_PLIST_PATH.exists():
+    if plist_path.exists():
         result = subprocess.run(
-            ["launchctl", "unload", str(LAUNCHD_PLIST_PATH)],
+            ["launchctl", "unload", str(plist_path)],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
             print(f"Warning: launchctl unload: {result.stderr.strip()}", file=sys.stderr)
 
-    LAUNCHD_PLIST_PATH.write_text(plist_content, encoding="utf-8")
-    os.chmod(LAUNCHD_PLIST_PATH, stat.S_IRUSR | stat.S_IWUSR)
+    plist_path.write_text(plist_content, encoding="utf-8")
+    os.chmod(plist_path, stat.S_IRUSR | stat.S_IWUSR)
 
     result = subprocess.run(
-        ["launchctl", "load", str(LAUNCHD_PLIST_PATH)],
+        ["launchctl", "load", str(plist_path)],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         print(f"Error: launchctl load failed: {result.stderr}", file=sys.stderr)
         sys.exit(1)
+
+    return log_path
+
+
+def _do_install_schedule(interval: int, session: int) -> None:
+    """Install launchd plist for periodic agent sessions (macOS only)."""
+    if sys.platform != "darwin":
+        print("Error: install-schedule is only supported on macOS (launchd).", file=sys.stderr)
+        sys.exit(1)
+
+    log_path = _install_plist(
+        template_name="com.moltbook.agent.plist",
+        plist_path=LAUNCHD_PLIST_PATH,
+        log_name="agent-launchd.log",
+        substitutions={
+            "{{SESSION_MINUTES}}": str(session),
+            "{{CALENDAR_INTERVALS}}": _build_calendar_intervals(interval),
+        },
+    )
 
     hours = list(range(0, 24, interval))
     schedule_str = ", ".join(f"{h:02d}:00" for h in hours)
@@ -118,53 +140,12 @@ def _do_install_schedule(interval: int, session: int) -> None:
 
 def _do_install_distill_schedule(distill_hour: int) -> None:
     """Install launchd plist for daily memory distillation (macOS only)."""
-    project_root = Path(__file__).resolve().parents[2]
-    template_path = project_root / "config" / "launchd" / "com.moltbook.distill.plist"
-
-    if not template_path.exists():
-        print(f"Error: Template not found: {template_path}", file=sys.stderr)
-        sys.exit(1)
-
-    venv_bin = project_root / ".venv" / "bin"
-    if not venv_bin.exists():
-        print(f"Error: venv not found: {venv_bin}", file=sys.stderr)
-        sys.exit(1)
-
-    log_path = MOLTBOOK_DATA_DIR / "logs" / "distill-launchd.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    template = template_path.read_text(encoding="utf-8")
-    plist_content = (
-        template
-        .replace("{{VENV_BIN}}", xml_escape(str(venv_bin)))
-        .replace("{{PROJECT_ROOT}}", xml_escape(str(project_root)))
-        .replace("{{DISTILL_HOUR}}", str(distill_hour))
-        .replace("{{LOG_PATH}}", xml_escape(str(log_path)))
+    _install_plist(
+        template_name="com.moltbook.distill.plist",
+        plist_path=LAUNCHD_DISTILL_PLIST_PATH,
+        log_name="distill-launchd.log",
+        substitutions={"{{DISTILL_HOUR}}": str(distill_hour)},
     )
-
-    LAUNCHD_PLIST_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Unload existing job if present
-    if LAUNCHD_DISTILL_PLIST_PATH.exists():
-        result = subprocess.run(
-            ["launchctl", "unload", str(LAUNCHD_DISTILL_PLIST_PATH)],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"Warning: launchctl unload: {result.stderr.strip()}", file=sys.stderr)
-
-    LAUNCHD_DISTILL_PLIST_PATH.write_text(plist_content, encoding="utf-8")
-    os.chmod(LAUNCHD_DISTILL_PLIST_PATH, stat.S_IRUSR | stat.S_IWUSR)
-
-    result = subprocess.run(
-        ["launchctl", "load", str(LAUNCHD_DISTILL_PLIST_PATH)],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        print(f"Error: launchctl load failed: {result.stderr}", file=sys.stderr)
-        sys.exit(1)
 
     print(f"Installed: {LAUNCHD_DISTILL_PLIST_PATH}")
     print(f"Schedule: daily at {distill_hour:02d}:00 (distill --days 1 --identity)")
