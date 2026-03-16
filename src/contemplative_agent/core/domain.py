@@ -63,6 +63,8 @@ class PromptTemplates:
     distill: str
     eval: str
     identity_distill: str = ""
+    insight_extraction: str = ""
+    insight_eval: str = ""
 
 
 @dataclass(frozen=True)
@@ -166,6 +168,8 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         distill=_read_md_file(directory / "distill.md"),
         eval=_read_md_file(directory / "eval.md"),
         identity_distill=_read_md_file(directory / "identity_distill.md", required=False),
+        insight_extraction=_read_md_file(directory / "insight_extraction.md", required=False),
+        insight_eval=_read_md_file(directory / "insight_eval.md", required=False),
     )
 
 

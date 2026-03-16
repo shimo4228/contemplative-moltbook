@@ -340,6 +340,14 @@ def main() -> None:
         help="Hour to run daily distillation (0-23, default: 3)",
     )
 
+    # insight
+    insight_parser = subparsers.add_parser(
+        "insight", help="Extract behavioral skill from accumulated knowledge"
+    )
+    insight_parser.add_argument(
+        "--dry-run", action="store_true", help="Show result without writing"
+    )
+
     # solve
     solve_parser = subparsers.add_parser(
         "solve", help="Test verification solver"
@@ -412,6 +420,20 @@ def main() -> None:
                 dry_run=args.dry_run,
             )
             print(identity_result)
+        return
+
+    if args.command == "insight":
+        from .core.insight import extract_insight
+        from .core.memory import KnowledgeStore
+
+        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+        skills_dir = MOLTBOOK_DATA_DIR / "skills"
+        result = extract_insight(
+            knowledge_store=knowledge_store,
+            skills_dir=skills_dir,
+            dry_run=args.dry_run,
+        )
+        print(result)
         return
 
     if args.command == "report":
