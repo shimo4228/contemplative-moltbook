@@ -393,6 +393,11 @@ def main() -> None:
         if clauses:
             configure_llm(axiom_prompt=clauses)
 
+    # Inject learned skills into system prompt
+    skills_dir = MOLTBOOK_DATA_DIR / "skills"
+    if skills_dir.is_dir():
+        configure_llm(skills_dir=skills_dir)
+
     if args.command == "init":
         _do_init(rules_dir=args.rules_dir)
         return

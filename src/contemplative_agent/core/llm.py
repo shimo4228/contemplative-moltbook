@@ -36,6 +36,7 @@ _ollama_base_url: str = _DEFAULT_OLLAMA_URL
 _ollama_model: str = _DEFAULT_OLLAMA_MODEL
 _default_system_prompt: Optional[str] = None
 _axiom_prompt: Optional[str] = None
+_skills_dir: Optional[Path] = None
 
 
 def configure(
@@ -45,6 +46,7 @@ def configure(
     ollama_model: Optional[str] = None,
     default_system_prompt: Optional[str] = None,
     axiom_prompt: Optional[str] = None,
+    skills_dir: Optional[Path] = None,
 ) -> None:
     """Configure LLM module with adapter-specific settings.
 
@@ -54,9 +56,11 @@ def configure(
     Args:
         axiom_prompt: Contemplative Constitutional AI clauses (Appendix C).
             Appended to the identity/system prompt for CCAI alignment.
+        skills_dir: Directory containing learned skill .md files.
+            Skill contents are appended to the system prompt.
     """
     global _identity_path, _ollama_base_url, _ollama_model
-    global _default_system_prompt, _axiom_prompt
+    global _default_system_prompt, _axiom_prompt, _skills_dir
     if identity_path is not None:
         _identity_path = identity_path
     if ollama_base_url is not None:
@@ -67,17 +71,20 @@ def configure(
         _default_system_prompt = default_system_prompt
     if axiom_prompt is not None:
         _axiom_prompt = axiom_prompt
+    if skills_dir is not None:
+        _skills_dir = skills_dir
 
 
 def reset_llm_config() -> None:
     """Reset module-level LLM config and circuit breaker to defaults. Useful for testing."""
     global _identity_path, _ollama_base_url, _ollama_model
-    global _default_system_prompt, _axiom_prompt
+    global _default_system_prompt, _axiom_prompt, _skills_dir
     _identity_path = None
     _ollama_base_url = _DEFAULT_OLLAMA_URL
     _ollama_model = _DEFAULT_OLLAMA_MODEL
     _default_system_prompt = None
     _axiom_prompt = None
+    _skills_dir = None
     _circuit.reset()
 
 
@@ -166,6 +173,29 @@ def validate_identity_content(content: str) -> bool:
     return True
 
 
+def _load_skills() -> str:
+    """Load all skill files from the skills directory.
+
+    Returns concatenated skill file contents, or empty string if no skills.
+    Each file is validated against forbidden patterns; tainted files are skipped.
+    """
+    if _skills_dir is None or not _skills_dir.is_dir():
+        return ""
+
+    skills = []
+    for path in sorted(_skills_dir.glob("*.md")):
+        try:
+            content = path.read_text(encoding="utf-8").strip()
+            if content and validate_identity_content(content):
+                skills.append(content)
+            elif content:
+                logger.warning("Skill file %s contains forbidden patterns, skipping", path.name)
+        except OSError as exc:
+            logger.warning("Failed to read skill file %s: %s", path.name, exc)
+
+    return "\n\n".join(skills)
+
+
 def _load_identity() -> str:
     """Load identity from file, falling back to default system prompt.
 
@@ -175,6 +205,7 @@ def _load_identity() -> str:
 
     If axiom_prompt is configured (CCAI clauses from Appendix C),
     it is appended to the identity with a separator.
+    Learned skills are appended after axioms.
     """
     base_prompt = _get_default_system_prompt()
     identity = _identity_path
@@ -188,7 +219,12 @@ def _load_identity() -> str:
 
     # Append CCAI axiom clauses if configured
     if _axiom_prompt:
-        return base_prompt + "\n\n---\n\n" + _axiom_prompt
+        base_prompt = base_prompt + "\n\n---\n\n" + _axiom_prompt
+
+    # Append learned skills if available
+    skills = _load_skills()
+    if skills:
+        base_prompt = base_prompt + "\n\n---\n\nLearned behavioral skills:\n\n" + skills
 
     return base_prompt
 

@@ -486,3 +486,77 @@ class TestCircuitBreaker:
         result = generate("test prompt")
         assert result == "Hello world"
         assert _circuit._consecutive_failures == 0
+
+
+class TestLoadSkills:
+    """Test skill loading and system prompt injection."""
+
+    def setup_method(self):
+        from contemplative_agent.core.llm import reset_llm_config
+        reset_llm_config()
+
+    def teardown_method(self):
+        from contemplative_agent.core.llm import reset_llm_config
+        reset_llm_config()
+
+    def test_no_skills_dir(self):
+        from contemplative_agent.core.llm import _load_skills
+        assert _load_skills() == ""
+
+    def test_empty_skills_dir(self, tmp_path):
+        from contemplative_agent.core.llm import configure, _load_skills
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        configure(skills_dir=skills_dir)
+        assert _load_skills() == ""
+
+    def test_loads_skill_files(self, tmp_path):
+        from contemplative_agent.core.llm import configure, _load_skills
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "skill-a.md").write_text("# Skill A\nBehavior A")
+        (skills_dir / "skill-b.md").write_text("# Skill B\nBehavior B")
+        configure(skills_dir=skills_dir)
+        result = _load_skills()
+        assert "# Skill A" in result
+        assert "# Skill B" in result
+
+    def test_skips_forbidden_content(self, tmp_path):
+        from contemplative_agent.core.llm import configure, _load_skills
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "good.md").write_text("# Good Skill\nSafe content")
+        (skills_dir / "bad.md").write_text("# Bad Skill\napi_key leaked")
+        configure(skills_dir=skills_dir)
+        result = _load_skills()
+        assert "Good Skill" in result
+        assert "Bad Skill" not in result
+
+    def test_skills_injected_into_identity(self, tmp_path):
+        from contemplative_agent.core.llm import configure, _load_identity
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "skill.md").write_text("# Test Skill\nDo this")
+        configure(skills_dir=skills_dir)
+        identity = _load_identity()
+        assert "Learned behavioral skills:" in identity
+        assert "# Test Skill" in identity
+
+    def test_no_skills_no_injection(self, tmp_path):
+        from contemplative_agent.core.llm import configure, _load_identity
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        configure(skills_dir=skills_dir)
+        identity = _load_identity()
+        assert "Learned behavioral skills:" not in identity
+
+    def test_skills_sorted_alphabetically(self, tmp_path):
+        from contemplative_agent.core.llm import configure, _load_skills
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "2026-03-16-zebra.md").write_text("# Zebra")
+        (skills_dir / "2026-03-15-alpha.md").write_text("# Alpha")
+        configure(skills_dir=skills_dir)
+        result = _load_skills()
+        # sorted() on filename → alpha before zebra
+        assert result.index("# Alpha") < result.index("# Zebra")
