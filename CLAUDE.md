@@ -143,7 +143,7 @@ distill 94%, memory 93%, verification 94%, agent 90%, insight ~85%, scheduler 88
 
 ## 論文
 
-Laukkonen, R. et al. (2025). Contemplative Artificial Intelligence. arXiv:2504.15125
+Laukkonen, R., Inglis, F., Chandaria, S., Sandved-Smith, L., Lopez-Sola, E., Hohwy, J., Gold, J., & Elwood, A. (2025). Contemplative Artificial Intelligence. arXiv:2504.15125
 
 # currentDate
 Today's date is 2026-03-16.
