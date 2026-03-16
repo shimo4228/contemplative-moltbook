@@ -11,7 +11,7 @@ from typing import Optional
 from xml.sax.saxutils import escape as xml_escape
 
 from .adapters.moltbook.agent import Agent, AutonomyLevel
-from .adapters.moltbook.config import IDENTITY_PATH, KNOWLEDGE_PATH, MOLTBOOK_DATA_DIR
+from .adapters.moltbook.config import IDENTITY_PATH, KNOWLEDGE_PATH, MOLTBOOK_DATA_DIR, SKILLS_DIR
 from .core.domain import (
     DEFAULT_RULES_DIR,
     get_domain_config,
@@ -394,7 +394,7 @@ def main() -> None:
             configure_llm(axiom_prompt=clauses)
 
     # Inject learned skills into system prompt
-    skills_dir = MOLTBOOK_DATA_DIR / "skills"
+    skills_dir = SKILLS_DIR
     if skills_dir.is_dir():
         configure_llm(skills_dir=skills_dir)
 
@@ -432,7 +432,7 @@ def main() -> None:
         from .core.memory import KnowledgeStore
 
         knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-        skills_dir = MOLTBOOK_DATA_DIR / "skills"
+        skills_dir = SKILLS_DIR
         result = extract_insight(
             knowledge_store=knowledge_store,
             skills_dir=skills_dir,

@@ -5,11 +5,14 @@
 ## 構造
 
 ```
-config/                                 # 外部化された設定・テンプレート
+config/                                 # 外部化された設定・テンプレート + 学習成果
   domain.json                           # ドメイン設定 (サブモルト, 閾値, キーワード)
   prompts/                              # プロンプトテンプレート (.md, ドメイン非依存)
   rules/default/                        # デフォルトルール (ニュートラル、公理なし)
   rules/contemplative/                  # Contemplative AI プリセット (四公理)
+  identity.md                           # エージェントの人格定義 (distill で更新)
+  knowledge.md                          # 蒸留された知識 (distill で更新)
+  skills/                               # 抽出された行動スキル (insight で生成)
   launchd/                              # macOS launchd テンプレート
 setup.sh                                # 初回セットアップ (ビルド + モデルDL + 起動)
 Dockerfile                              # マルチステージ、非root (UID 1000)
@@ -103,7 +106,8 @@ docker compose down                                     # 停止
 
 ## セキュリティ方針
 
-- データディレクトリ: `MOLTBOOK_HOME` 環境変数でカスタマイズ可 (デフォルト: `~/.config/moltbook`)
+- ランタイムデータ: `MOLTBOOK_HOME` 環境変数でカスタマイズ可 (デフォルト: `~/.config/moltbook`、credentials/logs/rate_state)
+- 学習成果: `config/` 配下 (identity.md, knowledge.md, skills/)。`CONTEMPLATIVE_CONFIG_DIR` でオーバーライド可
 - API key: env var > `$MOLTBOOK_HOME/credentials.json` (0600)。ログには `_mask_key()` のみ
 - HTTP: `allow_redirects=False`、ドメイン `www.moltbook.com` のみ、Retry-After 300s キャップ
 - LLM: Ollama は LOCALHOST_HOSTS + OLLAMA_TRUSTED_HOSTS (ドット無しホスト名のみ) で制限。出力は `re.IGNORECASE` で禁止パターン除去。外部コンテンツ・knowledge context は `<untrusted_content>` タグでラップ。identity.md は forbidden pattern 検証済み
@@ -122,9 +126,10 @@ distill 94%, memory 93%, verification 94%, agent 90%, scheduler 88%, content 87%
 
 ## メモリアーキテクチャ (3層)
 
-- **EpisodeLog**: `~/.config/moltbook/logs/YYYY-MM-DD.jsonl` (append-only)
-- **KnowledgeStore**: `~/.config/moltbook/knowledge.md` (蒸留された知識)
-- **Identity**: `~/.config/moltbook/identity.md` (エージェントの人格定義)
+- **EpisodeLog**: `~/.config/moltbook/logs/YYYY-MM-DD.jsonl` (append-only, ランタイム)
+- **KnowledgeStore**: `config/knowledge.md` (蒸留された知識, バッチ更新)
+- **Identity**: `config/identity.md` (エージェントの人格定義, バッチ更新)
+- **Skills**: `config/skills/*.md` (行動スキル, insight で生成)
 - `distill` コマンドで日次蒸留 (Docker: 24時間間隔で自動実行、ローカル: cron 対応)
 - セッション開始時に `type=session, event=start` でルール・ドメイン・モデル等のメタデータを記録
 - セッション終了時に `type=session, event=end` でアクション数サマリーを記録
