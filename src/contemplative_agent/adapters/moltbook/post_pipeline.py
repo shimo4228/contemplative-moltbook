@@ -71,9 +71,9 @@ class PostPipeline:
         if not topics:
             return
 
-        # Check novelty against recent post titles
-        recent_titles = [p.title for p in ctx.memory.get_recent_posts(limit=5)]
-        if not check_topic_novelty(topics, recent_titles):
+        # Check novelty against recent post topic summaries
+        recent_topics = ctx.memory.get_recent_post_topics(limit=5)
+        if not check_topic_novelty(topics, recent_topics):
             logger.info("Topics not novel enough, skipping post")
             return
 
@@ -142,7 +142,7 @@ class PostPipeline:
         if not ctx.actions_taken:
             return
 
-        recent_topics = [p.title for p in ctx.memory.get_recent_posts(limit=5)]
+        recent_topics = ctx.memory.get_recent_post_topics(limit=5)
 
         # Check if topics were repetitive among recent posts
         post_actions = [a for a in ctx.actions_taken if a.startswith("Posted:")]

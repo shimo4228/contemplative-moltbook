@@ -15,9 +15,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
-from ._io import SUMMARY_MAX_LENGTH, truncate, write_restricted
+from ._io import truncate, write_restricted
 from .episode_log import EpisodeLog
-from .knowledge_store import KNOWLEDGE_CONTEXT_MAX, KnowledgeStore
+from .knowledge_store import KnowledgeStore
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +36,7 @@ __all__ = [
     "MAX_POST_HISTORY",
     "MemoryStore",
     "PostRecord",
-    "SUMMARY_MAX_LENGTH",
-    "KNOWLEDGE_CONTEXT_MAX",
     "truncate",
-    "write_restricted",
 ]
 
 
@@ -150,17 +147,34 @@ class MemoryStore:
 
     def _load_agents_json(self) -> None:
         """Load followed agents from agents.json."""
+        from .config import FORBIDDEN_SUBSTRING_PATTERNS
+
         if self._agents_path is None or not self._agents_path.exists():
             return
         try:
-            data = json.loads(self._agents_path.read_text(encoding="utf-8"))
+            text = self._agents_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            logger.warning("Failed to read agents.json: %s", exc)
+            return
+
+        # Validate against forbidden patterns (consistent with knowledge.json)
+        text_lower = text.lower()
+        for pat in FORBIDDEN_SUBSTRING_PATTERNS:
+            if pat.lower() in text_lower:
+                logger.warning(
+                    "agents.json contains forbidden pattern: %s — skipping load", pat
+                )
+                return
+
+        try:
+            data = json.loads(text)
             if isinstance(data, dict):
                 followed = data.get("followed", [])
                 if isinstance(followed, list):
                     self._followed = set(followed)
                     logger.debug("Loaded %d followed agents", len(self._followed))
-        except (json.JSONDecodeError, OSError) as exc:
-            logger.warning("Failed to load agents.json: %s", exc)
+        except json.JSONDecodeError as exc:
+            logger.warning("Failed to parse agents.json: %s", exc)
 
     def _save_agents_json(self) -> None:
         """Persist followed agents to agents.json."""

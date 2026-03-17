@@ -257,7 +257,7 @@ def extract_insight(
     knowledge_store: Optional[KnowledgeStore] = None,
     skills_dir: Optional[Path] = None,
     dry_run: bool = False,
-    episode_log: Optional["EpisodeLog"] = None,
+    episode_log: object = None,
 ) -> str:
     """Extract a behavioral skill from accumulated knowledge.
 
@@ -274,8 +274,6 @@ def extract_insight(
     Returns:
         The rendered skill file content, score table, or an error message.
     """
-    from .episode_log import EpisodeLog as _EpisodeLog
-
     if knowledge_store is None:
         return "No knowledge store provided."
 

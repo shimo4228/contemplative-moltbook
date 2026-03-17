@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import date
 from pathlib import Path
 from typing import List, Optional
 
@@ -32,7 +33,6 @@ class KnowledgeStore:
         return self._path is not None and self._path.exists()
 
     def add_learned_pattern(self, pattern: str, distilled: Optional[str] = None) -> None:
-        from datetime import date
         self._learned_patterns.append({
             "pattern": pattern,
             "distilled": distilled or date.today().isoformat(),
@@ -40,7 +40,6 @@ class KnowledgeStore:
 
     def replace_learned_pattern(self, index: int, pattern: str) -> None:
         """Replace an existing learned pattern at the given index."""
-        from datetime import date
         if 0 <= index < len(self._learned_patterns):
             self._learned_patterns[index] = {
                 "pattern": pattern,
@@ -122,7 +121,7 @@ class KnowledgeStore:
             logger.warning("Knowledge JSON is not an array")
             return
         for item in data:
-            if isinstance(item, dict) and "pattern" in item:
+            if isinstance(item, dict) and isinstance(item.get("pattern"), str):
                 self._learned_patterns.append({
                     "pattern": item["pattern"],
                     "distilled": item.get("distilled", "unknown"),
