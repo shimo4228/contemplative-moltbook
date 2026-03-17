@@ -32,7 +32,6 @@ class _LazyPrompts:
         "SUBMOLT_SELECTION_PROMPT": "submolt_selection",
         "SESSION_INSIGHT_PROMPT": "session_insight",
         "DISTILL_PROMPT": "distill",
-        "EVAL_PROMPT": "eval",
         "IDENTITY_DISTILL_PROMPT": "identity_distill",
         "INSIGHT_EXTRACTION_PROMPT": "insight_extraction",
         "INSIGHT_EVAL_PROMPT": "insight_eval",

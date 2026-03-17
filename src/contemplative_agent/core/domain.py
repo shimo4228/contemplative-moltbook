@@ -61,7 +61,6 @@ class PromptTemplates:
     submolt_selection: str
     session_insight: str
     distill: str
-    eval: str
     identity_distill: str = ""
     insight_extraction: str = ""
     insight_eval: str = ""
@@ -166,7 +165,6 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         submolt_selection=_read_md_file(directory / "submolt_selection.md"),
         session_insight=_read_md_file(directory / "session_insight.md"),
         distill=_read_md_file(directory / "distill.md"),
-        eval=_read_md_file(directory / "eval.md"),
         identity_distill=_read_md_file(directory / "identity_distill.md", required=False),
         insight_extraction=_read_md_file(directory / "insight_extraction.md", required=False),
         insight_eval=_read_md_file(directory / "insight_eval.md", required=False),

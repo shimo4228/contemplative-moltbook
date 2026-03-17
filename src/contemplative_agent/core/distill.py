@@ -4,119 +4,16 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import stat
-from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 from ._io import archive_before_write
 from .llm import generate, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
-from .prompts import DISTILL_PROMPT, EVAL_PROMPT, IDENTITY_DISTILL_PROMPT
+from .prompts import DISTILL_PROMPT, IDENTITY_DISTILL_PROMPT
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class EvalVerdict:
-    """Result of evaluating a candidate pattern."""
-
-    action: Literal["SAVE", "ABSORB", "DROP"]
-    target_index: Optional[int] = None  # 0-based index for ABSORB
-    merged_text: Optional[str] = None  # merged pattern for ABSORB
-
-
-def _format_numbered_knowledge(patterns: List[str]) -> str:
-    """Format existing patterns as a numbered list for the eval prompt."""
-    if not patterns:
-        return "(none yet)"
-    return "\n".join(f"{i + 1}. {p}" for i, p in enumerate(patterns))
-
-
-def _parse_eval_verdict(response: str) -> Optional[EvalVerdict]:
-    """Parse an eval verdict from LLM response.
-
-    Returns None if the response cannot be parsed.
-    """
-    if not response:
-        return None
-
-    # Find VERDICT line
-    verdict_match = re.search(r"VERDICT:\s*(SAVE|ABSORB|DROP)", response, re.IGNORECASE)
-    if not verdict_match:
-        return None
-
-    action = verdict_match.group(1).upper()
-
-    if action == "SAVE":
-        return EvalVerdict(action="SAVE")
-
-    if action == "DROP":
-        return EvalVerdict(action="DROP")
-
-    if action == "ABSORB":
-        # Parse TARGET (1-based in prompt, convert to 0-based)
-        target_match = re.search(r"TARGET:\s*(\d+)", response)
-        merged_match = re.search(r"MERGED:\s*(.+)", response)
-
-        if not target_match or not merged_match:
-            return None
-
-        target_index = int(target_match.group(1)) - 1  # 0-based
-        merged_text = merged_match.group(1).strip()[:1000]
-
-        if target_index < 0:
-            return None
-
-        return EvalVerdict(
-            action="ABSORB",
-            target_index=target_index,
-            merged_text=merged_text,
-        )
-
-    return None
-
-
-def _evaluate_pattern(
-    candidate: str,
-    knowledge: KnowledgeStore,
-) -> EvalVerdict:
-    """Evaluate a candidate pattern using the LLM.
-
-    Returns a verdict. Falls back to SAVE on parse failure.
-    """
-    existing = knowledge.get_learned_patterns()
-    prompt = EVAL_PROMPT.format(
-        candidate=candidate,
-        knowledge=_format_numbered_knowledge(existing),
-    )
-
-    response = generate(prompt, max_length=500)
-    if response is None:
-        logger.warning("Eval LLM failed — falling back to SAVE")
-        return EvalVerdict(action="SAVE")
-
-    verdict = _parse_eval_verdict(response)
-    if verdict is None:
-        logger.warning(
-            "Failed to parse eval verdict — falling back to SAVE. "
-            "Raw response: %s",
-            response[:200],
-        )
-        return EvalVerdict(action="SAVE")
-
-    # Validate ABSORB target index
-    if verdict.action == "ABSORB":
-        if verdict.target_index is not None and verdict.target_index >= len(existing):
-            logger.warning(
-                "ABSORB target %d out of range (%d patterns) — falling back to SAVE",
-                verdict.target_index,
-                len(existing),
-            )
-            return EvalVerdict(action="SAVE")
-
-    return verdict
 
 
 def distill(
@@ -126,6 +23,9 @@ def distill(
     knowledge_store: Optional[KnowledgeStore] = None,
 ) -> str:
     """Distill recent episodes into learned patterns.
+
+    Single-pass: extract patterns from episodes and accumulate them.
+    Quality filtering is deferred to the insight command.
 
     Args:
         days: Number of days of episodes to process.
@@ -166,66 +66,32 @@ def distill(
         episodes="\n".join(episode_lines),
     )
 
-    result = generate(prompt, max_length=1000)
+    result = generate(prompt, max_length=4000)
     if result is None:
         msg = "LLM failed to generate distillation."
         logger.warning(msg)
         return msg
 
-    # Parse bullet points
-    candidates = []
+    # Parse bullet points and accumulate
+    patterns = []
     for line in result.splitlines():
         line = line.strip()
         if line.startswith("- "):
-            pattern = line[2:].strip()[:1000]
+            pattern = line[2:].strip()
             if pattern:
-                candidates.append(pattern)
+                patterns.append(pattern)
 
     if dry_run:
-        # In dry run, evaluate but don't write
-        eval_lines = [result, "", "--- Eval Results ---"]
-        for candidate in candidates:
-            verdict = _evaluate_pattern(candidate, knowledge)
-            eval_lines.append(f"  [{verdict.action}] {candidate}")
-            if verdict.action == "ABSORB" and verdict.merged_text:
-                eval_lines.append(f"    -> merge into #{verdict.target_index}: {verdict.merged_text}")
         logger.info("Dry run — not writing patterns")
-        return "\n".join(eval_lines)
+        return result
 
-    # Evaluate and apply each candidate pattern
-    saved = 0
-    absorbed = 0
-    dropped = 0
+    for pattern in patterns:
+        knowledge.add_learned_pattern(pattern)
+        logger.info("Added pattern: %s", pattern[:80])
 
-    for candidate in candidates:
-        verdict = _evaluate_pattern(candidate, knowledge)
-
-        if verdict.action == "SAVE":
-            knowledge.add_learned_pattern(candidate)
-            saved += 1
-            logger.info("SAVE: %s", candidate)
-        elif (
-            verdict.action == "ABSORB"
-            and verdict.merged_text is not None
-            and verdict.target_index is not None
-        ):
-            knowledge.replace_learned_pattern(verdict.target_index, verdict.merged_text)
-            absorbed += 1
-            logger.info(
-                "ABSORB: merged into #%d -> %s",
-                verdict.target_index,
-                verdict.merged_text,
-            )
-        elif verdict.action == "DROP":
-            dropped += 1
-            logger.info("DROP: %s", candidate)
-
-    if saved > 0 or absorbed > 0:
+    if patterns:
         knowledge.save()
-        logger.info(
-            "Distill complete: %d saved, %d absorbed, %d dropped",
-            saved, absorbed, dropped,
-        )
+        logger.info("Distill complete: %d patterns added", len(patterns))
 
     # Cleanup old episodes
     deleted = episodes.cleanup()

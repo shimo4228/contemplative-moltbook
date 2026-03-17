@@ -111,8 +111,6 @@ class TestLoadPromptTemplates:
         assert "{actions_text}" in templates.session_insight
         assert "{knowledge}" in templates.distill
         assert "{episodes}" in templates.distill
-        assert "{candidate}" in templates.eval
-        assert "VERDICT" in templates.eval
 
     def test_directory_not_found(self, tmp_path):
         with pytest.raises(FileNotFoundError):
