@@ -48,7 +48,7 @@ def distill(
 
     # Format episodes for the prompt
     episode_lines = []
-    for r in records[-50:]:  # Limit to last 50 records for context window
+    for r in records:
         record_type = r.get("type", "unknown")
         data = r.get("data", {})
         ts = r.get("ts", "")
