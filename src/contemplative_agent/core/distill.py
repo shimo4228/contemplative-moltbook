@@ -64,7 +64,7 @@ def _parse_eval_verdict(response: str) -> Optional[EvalVerdict]:
             return None
 
         target_index = int(target_match.group(1)) - 1  # 0-based
-        merged_text = merged_match.group(1).strip()[:200]
+        merged_text = merged_match.group(1).strip()[:1000]
 
         if target_index < 0:
             return None
@@ -177,7 +177,7 @@ def distill(
     for line in result.splitlines():
         line = line.strip()
         if line.startswith("- "):
-            pattern = line[2:].strip()[:200]
+            pattern = line[2:].strip()[:1000]
             if pattern:
                 candidates.append(pattern)
 

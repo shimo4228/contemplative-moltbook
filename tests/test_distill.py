@@ -202,11 +202,11 @@ class TestParseEvalVerdict:
         assert verdict is None
 
     def test_merged_text_truncated(self):
-        long_text = "x" * 300
+        long_text = "x" * 1500
         response = f"VERDICT: ABSORB\nTARGET: 1\nMERGED: {long_text}"
         verdict = _parse_eval_verdict(response)
         assert verdict is not None
-        assert verdict.merged_text is not None and len(verdict.merged_text) == 200
+        assert verdict.merged_text is not None and len(verdict.merged_text) == 1000
 
 
 class TestEvaluatePattern:

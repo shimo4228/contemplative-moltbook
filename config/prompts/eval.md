@@ -27,7 +27,7 @@ VERDICT: SAVE
 If ABSORB, reply with:
 VERDICT: ABSORB
 TARGET: <number of the existing pattern to merge into>
-MERGED: <merged pattern text, under 100 chars>
+MERGED: <merged pattern text, 1-2 sentences>
 
 If DROP, reply with ONLY:
 VERDICT: DROP
