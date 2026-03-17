@@ -2,7 +2,7 @@
 
 3-layer architecture:
   - EpisodeLog: append-only JSONL logs per day
-  - KnowledgeStore: distilled knowledge as Markdown
+  - KnowledgeStore: distilled learned patterns as JSON
   - MemoryStore: facade preserving the original public API
 """
 
@@ -17,16 +17,13 @@ from typing import Dict, List, Literal, Optional, Tuple
 
 from ._io import SUMMARY_MAX_LENGTH, truncate, write_restricted
 from .episode_log import EpisodeLog
-from .knowledge_store import (
-    KNOWLEDGE_CONTEXT_MAX,
-    MAX_INSIGHTS,
-    MAX_POST_HISTORY,
-    KnowledgeStore,
-)
+from .knowledge_store import KNOWLEDGE_CONTEXT_MAX, KnowledgeStore
 
 logger = logging.getLogger(__name__)
 
 MAX_INTERACTIONS = 1000
+MAX_POST_HISTORY = 50
+MAX_INSIGHTS = 30
 
 # Re-export for backward compatibility — all external code imports from here
 __all__ = [
@@ -85,7 +82,7 @@ class Insight:
 
 
 class MemoryStore:
-    """Facade managing EpisodeLog + KnowledgeStore.
+    """Facade managing EpisodeLog + KnowledgeStore + agents.json.
 
     The public API is fully backward-compatible with the original MemoryStore.
     """
@@ -96,21 +93,28 @@ class MemoryStore:
         log_dir: Optional[Path] = None,
         knowledge_path: Optional[Path] = None,
         commented_cache_path: Optional[Path] = None,
+        agents_path: Optional[Path] = None,
     ) -> None:
         # When path is given (e.g. tests), derive sibling paths from it
         if path is not None:
             base_dir = path.parent
             log_dir = log_dir or base_dir / "logs"
-            knowledge_path = knowledge_path or base_dir / "knowledge.md"
+            knowledge_path = knowledge_path or base_dir / "knowledge.json"
             commented_cache_path = commented_cache_path or base_dir / "commented_cache.json"
+            agents_path = agents_path or base_dir / "agents.json"
         self._episodes = EpisodeLog(log_dir=log_dir)
         self._knowledge = KnowledgeStore(path=knowledge_path)
         self._commented_cache_path = commented_cache_path
+        self._agents_path = agents_path
         self._interactions: List[Interaction] = []
         self._interacted_ids: set[str] = set()
         self._post_history: List[PostRecord] = []
         self._insights_list: List[Insight] = []
         self._commented_cache: Optional[set] = None
+        # Known agents: agent_id -> name (populated from JSONL)
+        self._known_agents: Dict[str, str] = {}
+        # Followed agent names (persisted in agents.json)
+        self._followed: set[str] = set()
 
     @property
     def interactions(self) -> Tuple[Interaction, ...]:
@@ -118,7 +122,7 @@ class MemoryStore:
 
     @property
     def known_agents(self) -> Dict[str, str]:
-        return self._knowledge.agents
+        return dict(self._known_agents)
 
     @property
     def episodes(self) -> EpisodeLog:
@@ -129,19 +133,52 @@ class MemoryStore:
         return self._knowledge
 
     def load(self) -> None:
-        """Load memory from knowledge store and episode logs."""
+        """Load memory from knowledge store, agents.json, and episode logs."""
         if self._knowledge.has_persisted_file():
             self._knowledge.load()
+        self._load_agents_json()
         self._load_episodes_into_memory()
 
         logger.info(
             "Loaded memory: %d interactions, %d known agents, "
             "%d post records, %d insights",
             len(self._interactions),
-            len(self._knowledge.agents),
+            len(self._known_agents),
             len(self._post_history),
             len(self._insights_list),
         )
+
+    def _load_agents_json(self) -> None:
+        """Load followed agents from agents.json."""
+        if self._agents_path is None or not self._agents_path.exists():
+            return
+        try:
+            data = json.loads(self._agents_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                followed = data.get("followed", [])
+                if isinstance(followed, list):
+                    self._followed = set(followed)
+                    logger.debug("Loaded %d followed agents", len(self._followed))
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Failed to load agents.json: %s", exc)
+
+    def _save_agents_json(self) -> None:
+        """Persist followed agents to agents.json."""
+        if self._agents_path is None:
+            return
+        self._agents_path.parent.mkdir(parents=True, exist_ok=True)
+        content = json.dumps(
+            {"followed": sorted(self._followed)},
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n"
+        tmp_path = self._agents_path.with_suffix(".json.tmp")
+        try:
+            write_restricted(tmp_path, content)
+            os.replace(str(tmp_path), str(self._agents_path))
+        except OSError as exc:
+            logger.warning("Failed to save agents.json: %s", exc)
+            tmp_path.unlink(missing_ok=True)
 
     def _load_episodes_into_memory(self) -> None:
         """Load recent episode log entries into in-memory lists."""
@@ -154,6 +191,8 @@ class MemoryStore:
                     interaction = Interaction(**data)
                     self._interactions.append(interaction)
                     self._interacted_ids.add(interaction.agent_id)
+                    # Build known agents from JSONL
+                    self._known_agents[interaction.agent_id] = interaction.agent_name
                 except TypeError:
                     logger.warning("Skipping malformed interaction in episode log")
             elif record_type == "post":
@@ -168,8 +207,9 @@ class MemoryStore:
                     logger.warning("Skipping malformed insight in episode log")
 
     def save(self) -> None:
-        """Persist knowledge store and commented cache. Episodes are saved on append."""
+        """Persist knowledge store, agents.json, and commented cache."""
         self._knowledge.save()
+        self._save_agents_json()
         self._save_commented_cache()
 
     def record_interaction(
@@ -194,7 +234,7 @@ class MemoryStore:
         )
         self._interactions.append(interaction)
         self._interacted_ids.add(agent_id)
-        self._knowledge.record_agent(agent_id, agent_name)
+        self._known_agents[agent_id] = agent_name
 
         # Append to episode log immediately
         self._episodes.append("interaction", asdict(interaction))
@@ -222,7 +262,7 @@ class MemoryStore:
 
     def unique_agent_count(self) -> int:
         """Count unique agents we've interacted with."""
-        return len(self._knowledge.agents)
+        return len(self._known_agents)
 
     def interaction_count(self) -> int:
         """Total number of recorded interactions."""
@@ -234,19 +274,19 @@ class MemoryStore:
 
     def is_followed(self, agent_name: str) -> bool:
         """Check if we've already followed this agent."""
-        return self._knowledge.is_followed(agent_name)
+        return agent_name in self._followed
 
     def record_follow(self, agent_name: str) -> None:
         """Mark an agent as followed."""
-        self._knowledge.record_follow(agent_name)
+        self._followed.add(agent_name)
 
     def record_unfollow(self, agent_name: str) -> None:
         """Mark an agent as unfollowed."""
-        self._knowledge.record_unfollow(agent_name)
+        self._followed.discard(agent_name)
 
     def get_followed_agents(self) -> set:
         """Return set of followed agent names."""
-        return self._knowledge.followed_agents
+        return set(self._followed)
 
     _TEST_AGENT_NAMES = frozenset({
         "Agent0", "Agent1", "Agent2", "Agent3", "Agent4",
@@ -256,7 +296,7 @@ class MemoryStore:
     def get_top_interacted_agents(self, limit: int = 20) -> List[Tuple[str, str]]:
         """Return top N (agent_id, agent_name) pairs by interaction count."""
         ranked = []
-        for agent_id, agent_name in self._knowledge.agents.items():
+        for agent_id, agent_name in self._known_agents.items():
             if agent_name in self._TEST_AGENT_NAMES:
                 continue
             count = self.interaction_count_with(agent_id)
@@ -269,7 +309,7 @@ class MemoryStore:
         """Return (agent_id, agent_name) pairs for agents we interact with
         frequently but haven't followed yet, sorted by interaction count."""
         candidates = []
-        for agent_id, agent_name in self._knowledge.agents.items():
+        for agent_id, agent_name in self._known_agents.items():
             if self.is_followed(agent_name):
                 continue
             count = self.interaction_count_with(agent_id)
@@ -296,7 +336,6 @@ class MemoryStore:
         )
         self._post_history.append(record)
         self._episodes.append("post", asdict(record))
-        self._knowledge.add_post_topic(record.topic_summary)
 
         if len(self._post_history) > MAX_POST_HISTORY:
             self._post_history = self._post_history[-MAX_POST_HISTORY:]
@@ -317,7 +356,6 @@ class MemoryStore:
         )
         self._insights_list.append(insight)
         self._episodes.append("insight", asdict(insight))
-        self._knowledge.add_insight(insight.observation)
 
         if len(self._insights_list) > MAX_INSIGHTS:
             self._insights_list = self._insights_list[-MAX_INSIGHTS:]
@@ -327,6 +365,10 @@ class MemoryStore:
     def get_recent_post_topics(self, limit: int = 5) -> List[str]:
         """Return topic_summaries of recent posts."""
         return [p.topic_summary for p in self._post_history[-limit:]]
+
+    def get_recent_posts(self, limit: int = 5) -> List[PostRecord]:
+        """Return recent PostRecord objects."""
+        return list(self._post_history[-limit:])
 
     def get_recent_insights(self, limit: int = 3) -> List[str]:
         """Return observation strings of recent insights."""

@@ -60,8 +60,16 @@ class EpisodeLog:
         path = self._today_path()
         return self._read_file(path) if path is not None else []
 
-    def read_range(self, days: int = 1) -> List[Dict[str, Any]]:
-        """Read records from the last N days."""
+    def read_range(
+        self, days: int = 1, record_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Read records from the last N days.
+
+        Args:
+            days: Number of days to look back.
+            record_type: If given, filter to records with this type
+                         (e.g. "post", "insight", "interaction").
+        """
         if self._log_dir is None:
             return []
         records: List[Dict[str, Any]] = []
@@ -71,6 +79,8 @@ class EpisodeLog:
             path = self._path_for_date(date_str)
             if path is not None:
                 records.extend(self._read_file(path))
+        if record_type is not None:
+            records = [r for r in records if r.get("type") == record_type]
         return records
 
     def cleanup(self, retention_days: Optional[int] = None) -> int:

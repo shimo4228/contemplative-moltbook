@@ -257,6 +257,7 @@ def extract_insight(
     knowledge_store: Optional[KnowledgeStore] = None,
     skills_dir: Optional[Path] = None,
     dry_run: bool = False,
+    episode_log: Optional["EpisodeLog"] = None,
 ) -> str:
     """Extract a behavioral skill from accumulated knowledge.
 
@@ -268,16 +269,28 @@ def extract_insight(
         knowledge_store: KnowledgeStore with learned patterns.
         skills_dir: Directory to write skill files. Created if needed.
         dry_run: If True, show result without writing.
+        episode_log: EpisodeLog for reading recent insights.
 
     Returns:
         The rendered skill file content, score table, or an error message.
     """
+    from .episode_log import EpisodeLog as _EpisodeLog
+
     if knowledge_store is None:
         return "No knowledge store provided."
 
     knowledge_store.load()
     patterns: List[str] = list(knowledge_store.get_learned_patterns())
-    insights: List[str] = list(knowledge_store.get_insights(limit=10))
+
+    # Get recent insights from JSONL episode log
+    insights: List[str] = []
+    if episode_log is not None:
+        insight_records = episode_log.read_range(days=30, record_type="insight")
+        insights = [
+            r.get("data", {}).get("observation", "")
+            for r in insight_records[-10:]
+            if r.get("data", {}).get("observation")
+        ]
 
     if len(patterns) < MIN_PATTERNS_REQUIRED:
         return (

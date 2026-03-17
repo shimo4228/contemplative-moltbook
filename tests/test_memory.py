@@ -207,7 +207,7 @@ class TestMemoryPersistence:
         )
         store.save()
         # Knowledge file should have restricted permissions
-        knowledge_path = tmp_path / "knowledge.md"
+        knowledge_path = tmp_path / "knowledge.json"
         mode = os.stat(knowledge_path).st_mode
         assert mode & stat.S_IRWXG == 0  # no group access
         assert mode & stat.S_IRWXO == 0  # no other access
@@ -235,7 +235,7 @@ class TestMemoryPersistence:
         )
         store.save()
         # Knowledge file should be created in the same parent directory
-        knowledge_path = tmp_path / "deep" / "nested" / "knowledge.md"
+        knowledge_path = tmp_path / "deep" / "nested" / "knowledge.json"
         assert knowledge_path.exists()
 
     def test_roundtrip_unicode(self, tmp_path):
@@ -469,6 +469,23 @@ class TestEpisodeLog:
         records = log.read_range(days=3)
         assert len(records) >= 1
 
+    def test_read_range_with_record_type(self, tmp_path):
+        log = EpisodeLog(log_dir=tmp_path / "logs")
+        log.append("interaction", {"agent_id": "a1"})
+        log.append("post", {"post_id": "p1"})
+        log.append("insight", {"observation": "test"})
+        log.append("interaction", {"agent_id": "a2"})
+
+        interactions = log.read_range(days=1, record_type="interaction")
+        assert len(interactions) == 2
+        assert all(r["type"] == "interaction" for r in interactions)
+
+        posts = log.read_range(days=1, record_type="post")
+        assert len(posts) == 1
+
+        insights = log.read_range(days=1, record_type="insight")
+        assert len(insights) == 1
+
     def test_file_permissions(self, tmp_path):
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("test", {"data": "value"})
@@ -517,112 +534,197 @@ class TestEpisodeLog:
 
 class TestKnowledgeStore:
     def test_empty_by_default(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
-        assert ks.agents == {}
-        assert ks.get_post_topics() == []
-        assert ks.get_insights() == []
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        assert ks.get_learned_patterns() == []
         assert ks.get_context_string() == ""
 
-    def test_record_and_save(self, tmp_path):
-        path = tmp_path / "knowledge.md"
+    def test_add_and_save(self, tmp_path):
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
-        ks.record_follow("Agent1")
-        ks.add_post_topic("Contemplative AI")
-        ks.add_insight("Good engagement today")
         ks.add_learned_pattern("Reply to questions first")
         ks.save()
 
         assert path.exists()
-        content = path.read_text()
-        assert "Agent1 (a1) [followed]" in content
-        assert "Contemplative AI" in content
-        assert "Good engagement today" in content
-        assert "Reply to questions first" in content
+        data = json.loads(path.read_text())
+        assert len(data) == 1
+        assert data[0]["pattern"] == "Reply to questions first"
+        assert "distilled" in data[0]
 
     def test_load_roundtrip(self, tmp_path):
-        path = tmp_path / "knowledge.md"
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
-        ks.record_agent("a2", "Agent2")
-        ks.record_follow("Agent1")
-        ks.add_post_topic("Topic1")
-        ks.add_insight("Insight1")
         ks.add_learned_pattern("Pattern1")
+        ks.add_learned_pattern("Pattern2")
         ks.save()
 
         ks2 = KnowledgeStore(path=path)
         ks2.load()
-        assert ks2.agents == {"a1": "Agent1", "a2": "Agent2"}
-        assert ks2.is_followed("Agent1")
-        assert not ks2.is_followed("Agent2")
-        assert ks2.get_post_topics() == ["Topic1"]
-        assert ks2.get_insights() == ["Insight1"]
+        assert ks2.get_learned_patterns() == ["Pattern1", "Pattern2"]
 
     def test_get_context_string(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
-        ks.record_agent("a1", "Agent1")
-        ks.add_post_topic("Testing")
-        ks.add_insight("Worked well")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks.add_learned_pattern("Testing pattern")
         ctx = ks.get_context_string()
-        assert "Agent1" in ctx
-        assert "Testing" in ctx
-        assert "Worked well" in ctx
+        assert "Testing pattern" in ctx
         assert len(ctx) <= 500
 
     def test_file_permissions(self, tmp_path):
-        path = tmp_path / "knowledge.md"
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
+        ks.add_learned_pattern("Pattern1")
         ks.save()
         mode = os.stat(path).st_mode
         assert mode & stat.S_IRWXG == 0
         assert mode & stat.S_IRWXO == 0
 
-    def test_post_topics_trimmed(self):
-        ks = KnowledgeStore()
-        for i in range(MAX_POST_HISTORY + 10):
-            ks.add_post_topic(f"topic{i}")
-        assert len(ks.get_post_topics(limit=MAX_POST_HISTORY + 10)) == MAX_POST_HISTORY
-
     def test_load_rejects_tainted_file(self, tmp_path):
         """Knowledge file containing forbidden patterns should not be loaded."""
-        path = tmp_path / "knowledge.md"
-        path.write_text(
-            "# Knowledge Base\n\n"
-            "## Insights\n"
-            "- The api_key for the service is leaked\n"
-        )
+        path = tmp_path / "knowledge.json"
+        path.write_text(json.dumps([
+            {"pattern": "The api_key for the service is leaked", "distilled": "2026-01-01"}
+        ]))
         ks = KnowledgeStore(path=path)
         ks.load()
         # File was rejected — no data should be loaded
-        assert ks.get_insights() == []
-        assert ks.agents == {}
+        assert ks.get_learned_patterns() == []
 
     def test_load_rejects_bearer_pattern(self, tmp_path):
         """Bearer token pattern in knowledge file triggers rejection."""
-        path = tmp_path / "knowledge.md"
-        path.write_text(
-            "# Knowledge Base\n\n"
-            "## Learned Patterns\n"
-            "- Use Bearer token for auth\n"
-        )
+        path = tmp_path / "knowledge.json"
+        path.write_text(json.dumps([
+            {"pattern": "Use Bearer token for auth", "distilled": "2026-01-01"}
+        ]))
         ks = KnowledgeStore(path=path)
         ks.load()
         assert ks.get_context_string() == ""
 
     def test_load_accepts_clean_file(self, tmp_path):
         """A clean knowledge file should load normally."""
-        path = tmp_path / "knowledge.md"
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
-        ks.add_insight("Contemplative practice is valuable")
+        ks.add_learned_pattern("Contemplative practice is valuable")
         ks.save()
 
         ks2 = KnowledgeStore(path=path)
         ks2.load()
-        assert ks2.agents == {"a1": "Agent1"}
-        assert ks2.get_insights() == ["Contemplative practice is valuable"]
+        assert ks2.get_learned_patterns() == ["Contemplative practice is valuable"]
+
+    def test_legacy_markdown_migration(self, tmp_path):
+        """KnowledgeStore can load legacy Markdown format."""
+        path = tmp_path / "knowledge.json"
+        # Write legacy format at the path
+        path.write_text(
+            "# Knowledge Base\n\n"
+            "## Agent Relationships\n"
+            "- Agent1 (a1) [followed]\n\n"
+            "## Recent Post Topics\n"
+            "- Some topic\n\n"
+            "## Insights\n"
+            "- Some insight\n\n"
+            "## Learned Patterns\n"
+            "- Pattern from legacy\n"
+            "- Another pattern\n"
+        )
+        ks = KnowledgeStore(path=path)
+        ks.load()
+        # Only Learned Patterns should be extracted
+        patterns = ks.get_learned_patterns()
+        assert len(patterns) == 2
+        assert "Pattern from legacy" in patterns
+        assert "Another pattern" in patterns
+
+    def test_replace_learned_pattern(self, tmp_path):
+        path = tmp_path / "knowledge.json"
+        ks = KnowledgeStore(path=path)
+        ks.add_learned_pattern("Original")
+        ks.replace_learned_pattern(0, "Replaced")
+        assert ks.get_learned_patterns() == ["Replaced"]
+
+
+class TestFollowedAgents:
+    """Tests for agents.json follow/unfollow persistence."""
+
+    def test_follow_unfollow(self):
+        store = MemoryStore()
+        assert store.is_followed("Agent1") is False
+        store.record_follow("Agent1")
+        assert store.is_followed("Agent1") is True
+        store.record_unfollow("Agent1")
+        assert store.is_followed("Agent1") is False
+
+    def test_followed_agents_persisted(self, tmp_path):
+        path = tmp_path / "memory.json"
+        store = MemoryStore(path=path)
+        store.record_follow("Agent1")
+        store.record_follow("Agent2")
+        store.save()
+
+        agents_path = tmp_path / "agents.json"
+        assert agents_path.exists()
+        data = json.loads(agents_path.read_text())
+        assert set(data["followed"]) == {"Agent1", "Agent2"}
+
+    def test_followed_agents_loaded(self, tmp_path):
+        agents_path = tmp_path / "agents.json"
+        agents_path.write_text(json.dumps({"followed": ["X", "Y"]}))
+
+        store = MemoryStore(path=tmp_path / "memory.json")
+        store.load()
+        assert store.is_followed("X") is True
+        assert store.is_followed("Y") is True
+        assert store.is_followed("Z") is False
+
+    def test_get_followed_agents(self):
+        store = MemoryStore()
+        store.record_follow("A")
+        store.record_follow("B")
+        assert store.get_followed_agents() == {"A", "B"}
+
+
+class TestKnownAgentsFromJSONL:
+    """Tests that known agents are populated from JSONL interactions."""
+
+    def test_known_agents_from_record(self):
+        store = MemoryStore()
+        store.record_interaction(
+            timestamp="t1", agent_id="a1", agent_name="Agent1",
+            post_id="p1", direction="sent", content="hi",
+            interaction_type="comment",
+        )
+        assert store.known_agents == {"a1": "Agent1"}
+
+    def test_known_agents_from_load(self, tmp_path):
+        path = tmp_path / "memory.json"
+        store = MemoryStore(path=path)
+        store.record_interaction(
+            timestamp="t1", agent_id="a1", agent_name="Agent1",
+            post_id="p1", direction="sent", content="hi",
+            interaction_type="comment",
+        )
+        store.save()
+
+        store2 = MemoryStore(path=path)
+        store2.load()
+        assert store2.known_agents == {"a1": "Agent1"}
+
+
+class TestGetRecentPosts:
+    """Tests for get_recent_posts returning PostRecord objects."""
+
+    def test_get_recent_posts(self):
+        store = MemoryStore()
+        store.record_post(
+            timestamp="t1", post_id="p1", title="Title1",
+            topic_summary="topic1", content_hash="hash1",
+        )
+        store.record_post(
+            timestamp="t2", post_id="p2", title="Title2",
+            topic_summary="topic2", content_hash="hash2",
+        )
+        posts = store.get_recent_posts(limit=1)
+        assert len(posts) == 1
+        assert posts[0].title == "Title2"
+        assert isinstance(posts[0], PostRecord)
 
 
 class TestCommentedCache:
@@ -684,62 +786,31 @@ class TestCommentedCache:
         assert store.has_commented_on("new-post") is True
 
 
-class TestKnowledgeArchive:
-    """Knowledge save archives previous version."""
-
-    def test_archives_knowledge_before_save(self, tmp_path):
-        path = tmp_path / "knowledge.md"
-        ks = KnowledgeStore(path=path)
-        ks.add_learned_pattern("Old pattern")
-        ks.save()
-
-        old_content = path.read_text(encoding="utf-8")
-
-        ks.add_learned_pattern("New pattern")
-        ks.save()
-
-        history_dir = tmp_path / "history" / "knowledge"
-        assert history_dir.exists()
-        archives = list(history_dir.glob("*.md"))
-        assert len(archives) == 1
-        assert "Old pattern" in archives[0].read_text(encoding="utf-8")
-        assert old_content == archives[0].read_text(encoding="utf-8")
-
-    def test_no_archive_for_first_save(self, tmp_path):
-        path = tmp_path / "knowledge.md"
-        ks = KnowledgeStore(path=path)
-        ks.add_learned_pattern("First pattern")
-        ks.save()
-
-        history_dir = tmp_path / "history" / "knowledge"
-        assert not history_dir.exists()
-
-
 class TestAtomicWrite:
-    """Phase 1B: Knowledge store uses atomic write."""
+    """Knowledge store uses atomic write."""
 
     def test_no_tmp_file_after_save(self, tmp_path):
-        path = tmp_path / "knowledge.md"
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
+        ks.add_learned_pattern("Pattern1")
         ks.save()
 
         # No .tmp file should remain
-        assert not (tmp_path / "knowledge.md.tmp").exists()
+        assert not (tmp_path / "knowledge.json.tmp").exists()
         assert path.exists()
 
     def test_original_survives_write_failure(self, tmp_path):
-        path = tmp_path / "knowledge.md"
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
+        ks.add_learned_pattern("Pattern1")
         ks.save()
         original_content = path.read_text()
 
         # Simulate write failure by making tmp path a directory
-        tmp_file = path.with_suffix(".md.tmp")
+        tmp_file = path.with_suffix(".json.tmp")
         tmp_file.mkdir()
 
-        ks.record_agent("a2", "Agent2")
+        ks.add_learned_pattern("Pattern2")
         with pytest.raises(OSError):
             ks.save()
 
@@ -747,9 +818,9 @@ class TestAtomicWrite:
         assert path.read_text() == original_content
 
     def test_atomic_write_permissions(self, tmp_path):
-        path = tmp_path / "knowledge.md"
+        path = tmp_path / "knowledge.json"
         ks = KnowledgeStore(path=path)
-        ks.record_agent("a1", "Agent1")
+        ks.add_learned_pattern("Pattern1")
         ks.save()
 
         mode = os.stat(path).st_mode
@@ -758,7 +829,7 @@ class TestAtomicWrite:
 
 
 class TestInteractedIdsSet:
-    """Phase 3B: O(1) has_interacted_with using set."""
+    """O(1) has_interacted_with using set."""
 
     def test_has_interacted_with_after_record(self):
         store = MemoryStore()
@@ -786,7 +857,7 @@ class TestInteractedIdsSet:
 
 
 class TestCommentedCachePersistence:
-    """Phase 3C: Commented cache persistent storage."""
+    """Commented cache persistent storage."""
 
     def test_cache_persisted_on_save(self, tmp_path):
         store = MemoryStore(path=tmp_path / "memory.json")

@@ -55,10 +55,9 @@ LOW_EVAL_RESPONSE = (
 
 @pytest.fixture
 def knowledge_store(tmp_path: Path) -> KnowledgeStore:
-    ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+    ks = KnowledgeStore(path=tmp_path / "knowledge.json")
     for i in range(5):
         ks.add_learned_pattern(f"Pattern {i}: some behavioral observation")
-    ks.add_insight("Recent insight about engagement")
     ks.save()
     return ks
 

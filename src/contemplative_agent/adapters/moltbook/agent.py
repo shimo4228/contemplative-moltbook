@@ -13,6 +13,7 @@ from .auth import check_claim_status, load_credentials, register_agent
 from .client import MoltbookClient, MoltbookClientError
 from .config import (
     ADAPTIVE_BACKOFF,
+    AGENTS_PATH,
     COMMENTED_CACHE_PATH,
     EPISODE_LOG_DIR,
     IDENTITY_PATH,
@@ -81,6 +82,7 @@ class Agent:
             log_dir=EPISODE_LOG_DIR,
             knowledge_path=KNOWLEDGE_PATH,
             commented_cache_path=COMMENTED_CACHE_PATH,
+            agents_path=AGENTS_PATH,
         )
         configure_llm(
             identity_path=IDENTITY_PATH,

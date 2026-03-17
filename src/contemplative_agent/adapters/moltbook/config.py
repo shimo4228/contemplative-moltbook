@@ -26,7 +26,8 @@ COMMENTED_CACHE_PATH = MOLTBOOK_DATA_DIR / "commented_cache.json"
 from ...core.domain import DEFAULT_CONFIG_DIR as _CONFIG_DIR  # noqa: E402
 
 IDENTITY_PATH = _CONFIG_DIR / "identity.md"
-KNOWLEDGE_PATH = _CONFIG_DIR / "knowledge.md"
+KNOWLEDGE_PATH = _CONFIG_DIR / "knowledge.json"
+AGENTS_PATH = MOLTBOOK_DATA_DIR / "agents.json"
 SKILLS_DIR = _CONFIG_DIR / "skills"
 EPISODE_RETENTION_DAYS = 30
 

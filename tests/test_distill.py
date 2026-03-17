@@ -30,17 +30,17 @@ class TestDistill:
         })
         log.append("activity", {"action": "comment", "post_id": "p1"})
 
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
 
         result = distill(days=1, episode_log=log, knowledge_store=ks)
         assert "Pattern one" in result
         assert "Pattern two" in result
 
         # Patterns should be saved to knowledge store
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
-        assert "Pattern one" in ks2._learned_patterns
-        assert "Pattern two" in ks2._learned_patterns
+        assert "Pattern one" in ks2.get_learned_patterns()
+        assert "Pattern two" in ks2.get_learned_patterns()
 
     @patch("contemplative_agent.core.distill.generate")
     def test_dry_run_does_not_write(self, mock_generate, tmp_path):
@@ -53,18 +53,18 @@ class TestDistill:
         log.append("interaction", {"direction": "sent", "agent_name": "Bob",
                                     "content_summary": "Hi", "agent_id": "a1"})
 
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
 
         result = distill(days=1, dry_run=True, episode_log=log, knowledge_store=ks)
         assert "Dry pattern" in result
         assert "[SAVE]" in result
 
         # Knowledge file should NOT exist
-        assert not (tmp_path / "knowledge.md").exists()
+        assert not (tmp_path / "knowledge.json").exists()
 
     def test_empty_episodes(self, tmp_path):
         log = EpisodeLog(log_dir=tmp_path / "logs")
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
 
         result = distill(days=1, episode_log=log, knowledge_store=ks)
         assert "No episodes" in result
@@ -74,7 +74,7 @@ class TestDistill:
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("interaction", {"direction": "sent", "agent_name": "Alice",
                                     "content_summary": "Hi", "agent_id": "a1"})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
 
         result = distill(days=1, episode_log=log, knowledge_store=ks)
         assert "failed" in result.lower()
@@ -89,17 +89,17 @@ class TestDistill:
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("interaction", {"direction": "sent", "agent_name": "Alice",
                                     "content_summary": "Hi", "agent_id": "a1"})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
 
         distill(days=1, episode_log=log, knowledge_store=ks)
 
         # Knowledge file should NOT be created (no patterns saved)
-        assert not (tmp_path / "knowledge.md").exists()
+        assert not (tmp_path / "knowledge.json").exists()
 
     @patch("contemplative_agent.core.distill.generate")
     def test_absorb_merges_pattern(self, mock_generate, tmp_path):
         # Set up existing knowledge with a pattern (write to file, then use fresh instance)
-        ks_setup = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks_setup = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks_setup.add_learned_pattern("Engage with philosophy posts")
         ks_setup.save()
 
@@ -113,19 +113,19 @@ class TestDistill:
                                     "content_summary": "Hi", "agent_id": "a1"})
 
         # Fresh instance — distill will call load() on this
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         distill(days=1, episode_log=log, knowledge_store=ks)
 
         # Reload and check the pattern was replaced
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
-        assert len(ks2._learned_patterns) == 1
-        assert "Philosophy posts drive high engagement" in ks2._learned_patterns[0]
+        assert len(ks2.get_learned_patterns()) == 1
+        assert "Philosophy posts drive high engagement" in ks2.get_learned_patterns()[0]
 
     @patch("contemplative_agent.core.distill.generate")
     def test_mixed_verdicts(self, mock_generate, tmp_path):
         """Test a mix of SAVE, ABSORB, and DROP in one distill run."""
-        ks_setup = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks_setup = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks_setup.add_learned_pattern("Existing pattern about timing")
         ks_setup.save()
 
@@ -140,15 +140,15 @@ class TestDistill:
         log.append("interaction", {"direction": "sent", "agent_name": "Alice",
                                     "content_summary": "Hi", "agent_id": "a1"})
 
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         distill(days=1, episode_log=log, knowledge_store=ks)
 
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
         # SAVE adds "New unique insight", ABSORB replaces index 0 (TARGET:1), DROP skips
-        assert len(ks2._learned_patterns) == 2
-        assert "Post timing matters" in ks2._learned_patterns[0]
-        assert "New unique insight" == ks2._learned_patterns[1]
+        assert len(ks2.get_learned_patterns()) == 2
+        assert "Post timing matters" in ks2.get_learned_patterns()[0]
+        assert "New unique insight" == ks2.get_learned_patterns()[1]
 
 
 class TestParseEvalVerdict:
@@ -213,8 +213,7 @@ class TestEvaluatePattern:
     @patch("contemplative_agent.core.distill.generate")
     def test_save_verdict(self, mock_generate):
         mock_generate.return_value = "VERDICT: SAVE"
-        ks = KnowledgeStore.__new__(KnowledgeStore)
-        ks._learned_patterns = []
+        ks = KnowledgeStore()
 
         verdict = _evaluate_pattern("New pattern", ks)
         assert verdict.action == "SAVE"
@@ -222,8 +221,7 @@ class TestEvaluatePattern:
     @patch("contemplative_agent.core.distill.generate")
     def test_fallback_on_llm_failure(self, mock_generate):
         mock_generate.return_value = None
-        ks = KnowledgeStore.__new__(KnowledgeStore)
-        ks._learned_patterns = []
+        ks = KnowledgeStore()
 
         verdict = _evaluate_pattern("Pattern", ks)
         assert verdict.action == "SAVE"
@@ -231,8 +229,7 @@ class TestEvaluatePattern:
     @patch("contemplative_agent.core.distill.generate")
     def test_fallback_on_parse_failure(self, mock_generate):
         mock_generate.return_value = "I don't understand the question"
-        ks = KnowledgeStore.__new__(KnowledgeStore)
-        ks._learned_patterns = []
+        ks = KnowledgeStore()
 
         verdict = _evaluate_pattern("Pattern", ks)
         assert verdict.action == "SAVE"
@@ -240,8 +237,8 @@ class TestEvaluatePattern:
     @patch("contemplative_agent.core.distill.generate")
     def test_absorb_out_of_range_falls_back(self, mock_generate):
         mock_generate.return_value = "VERDICT: ABSORB\nTARGET: 5\nMERGED: merged"
-        ks = KnowledgeStore.__new__(KnowledgeStore)
-        ks._learned_patterns = ["only one"]
+        ks = KnowledgeStore()
+        ks.add_learned_pattern("only one")
 
         verdict = _evaluate_pattern("Pattern", ks)
         assert verdict.action == "SAVE"  # fallback
@@ -249,8 +246,9 @@ class TestEvaluatePattern:
     @patch("contemplative_agent.core.distill.generate")
     def test_eval_prompt_includes_numbered_knowledge(self, mock_generate):
         mock_generate.return_value = "VERDICT: SAVE"
-        ks = KnowledgeStore.__new__(KnowledgeStore)
-        ks._learned_patterns = ["Pattern A", "Pattern B"]
+        ks = KnowledgeStore()
+        ks.add_learned_pattern("Pattern A")
+        ks.add_learned_pattern("Pattern B")
 
         _evaluate_pattern("New candidate", ks)
 
@@ -271,32 +269,32 @@ class TestFormatNumberedKnowledge:
 
 class TestKnowledgeStoreReplace:
     def test_replace_valid_index(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("old pattern")
         ks.replace_learned_pattern(0, "new pattern")
-        assert ks._learned_patterns == ["new pattern"]
+        assert ks.get_learned_patterns() == ["new pattern"]
 
     def test_replace_out_of_range(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("only one")
         ks.replace_learned_pattern(5, "nope")
-        assert ks._learned_patterns == ["only one"]
+        assert ks.get_learned_patterns() == ["only one"]
 
     def test_replace_negative_index(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("only one")
         ks.replace_learned_pattern(-1, "nope")
-        assert ks._learned_patterns == ["only one"]
+        assert ks.get_learned_patterns() == ["only one"]
 
     def test_get_learned_patterns(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("A")
         ks.add_learned_pattern("B")
         patterns = ks.get_learned_patterns()
         assert patterns == ["A", "B"]
         # Should be a copy
         patterns.append("C")
-        assert len(ks._learned_patterns) == 2
+        assert len(ks.get_learned_patterns()) == 2
 
 
 class TestSummarizeRecord:
@@ -331,7 +329,7 @@ class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
     def test_writes_identity_file(self, mock_generate, tmp_path):
         mock_generate.return_value = "I am an agent who learned about cooperation."
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Cooperation increases with trust")
         ks.save()
 
@@ -344,7 +342,7 @@ class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
     def test_dry_run_does_not_write(self, mock_generate, tmp_path):
         mock_generate.return_value = "I learned things."
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
 
@@ -355,14 +353,14 @@ class TestDistillIdentity:
         assert "learned" in result.lower()
 
     def test_no_knowledge_returns_early(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         result = distill_identity(knowledge_store=ks)
         assert "No knowledge" in result
 
     @patch("contemplative_agent.core.distill.generate")
     def test_llm_failure_returns_message(self, mock_generate, tmp_path):
         mock_generate.return_value = None
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
 
@@ -372,7 +370,7 @@ class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
     def test_forbidden_pattern_prevents_write(self, mock_generate, tmp_path):
         mock_generate.return_value = "My api_key is secret."
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
 
@@ -385,7 +383,7 @@ class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
     def test_identity_path_none(self, mock_generate, tmp_path):
         mock_generate.return_value = "I am curious."
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
 
@@ -395,7 +393,7 @@ class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
     def test_archives_identity_before_overwrite(self, mock_generate, tmp_path):
         mock_generate.return_value = "I am new."
-        ks = KnowledgeStore(path=tmp_path / "knowledge.md")
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
 
