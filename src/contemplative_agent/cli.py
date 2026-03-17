@@ -183,7 +183,7 @@ def _do_uninstall_schedule() -> None:
 
 
 def _do_init(rules_dir: Optional[Path] = None) -> None:
-    """Initialize identity.md and knowledge.md files."""
+    """Initialize identity.md and knowledge.json files."""
     MOLTBOOK_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if IDENTITY_PATH.exists():
