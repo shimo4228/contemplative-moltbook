@@ -93,11 +93,6 @@ def distill(
         knowledge.save()
         logger.info("Distill complete: %d patterns added", len(patterns))
 
-    # Cleanup old episodes
-    deleted = episodes.cleanup()
-    if deleted > 0:
-        logger.info("Cleaned up %d old log files", deleted)
-
     return result
 
 
