@@ -14,9 +14,6 @@ from .config import FORBIDDEN_SUBSTRING_PATTERNS
 
 logger = logging.getLogger(__name__)
 
-KNOWLEDGE_CONTEXT_MAX = 500
-
-
 class KnowledgeStore:
     """Manages distilled learned patterns as a JSON file.
 
@@ -51,12 +48,10 @@ class KnowledgeStore:
         return [p["pattern"] for p in self._learned_patterns]
 
     def get_context_string(self) -> str:
-        """Return a summary string for LLM context injection (max 500 chars)."""
+        """Return all learned patterns as a bullet list for LLM context injection."""
         if not self._learned_patterns:
             return ""
-        last = self._learned_patterns[-1]["pattern"]
-        result = f"Pattern: {last}"
-        return result[:KNOWLEDGE_CONTEXT_MAX]
+        return "\n".join(f"- {p['pattern']}" for p in self._learned_patterns)
 
     def load(self) -> None:
         """Load knowledge from JSON file.

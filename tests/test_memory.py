@@ -563,10 +563,13 @@ class TestKnowledgeStore:
 
     def test_get_context_string(self, tmp_path):
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Testing pattern")
+        ks.add_learned_pattern("Pattern A")
+        ks.add_learned_pattern("Pattern B")
+        ks.add_learned_pattern("Pattern C")
         ctx = ks.get_context_string()
-        assert "Testing pattern" in ctx
-        assert len(ctx) <= 500
+        assert "Pattern A" in ctx
+        assert "Pattern B" in ctx
+        assert "Pattern C" in ctx
 
     def test_file_permissions(self, tmp_path):
         path = tmp_path / "knowledge.json"
