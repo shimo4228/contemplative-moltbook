@@ -217,16 +217,20 @@ class TestInstallSchedule:
 class TestUninstallSchedule:
     def test_uninstall_no_plist(self, tmp_path, capsys):
         plist_path = tmp_path / "com.moltbook.agent.plist"
-        with patch("contemplative_agent.cli.LAUNCHD_PLIST_PATH", plist_path):
+        distill_plist_path = tmp_path / "com.moltbook.distill.plist"
+        with patch("contemplative_agent.cli.LAUNCHD_PLIST_PATH", plist_path), \
+             patch("contemplative_agent.cli.LAUNCHD_DISTILL_PLIST_PATH", distill_plist_path):
             _do_uninstall_schedule()
         assert "No schedule installed" in capsys.readouterr().out
 
     @patch("contemplative_agent.cli.subprocess.run")
     def test_uninstall_removes_plist(self, mock_run, tmp_path):
         plist_path = tmp_path / "com.moltbook.agent.plist"
+        distill_plist_path = tmp_path / "com.moltbook.distill.plist"
         plist_path.write_text("dummy")
 
-        with patch("contemplative_agent.cli.LAUNCHD_PLIST_PATH", plist_path):
+        with patch("contemplative_agent.cli.LAUNCHD_PLIST_PATH", plist_path), \
+             patch("contemplative_agent.cli.LAUNCHD_DISTILL_PLIST_PATH", distill_plist_path):
             _do_uninstall_schedule()
 
         assert not plist_path.exists()
