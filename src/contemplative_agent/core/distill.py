@@ -75,7 +75,6 @@ def distill(
             continue
 
         prompt = DISTILL_PROMPT.format(
-            knowledge=knowledge.get_context_string() or "(none yet)",
             episodes="\n".join(episode_lines),
         )
 

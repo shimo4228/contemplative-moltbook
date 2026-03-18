@@ -27,8 +27,5 @@ Good example: "Posts about memory architecture consistently get deeper threads t
 Reply with bullet points, one per line, starting with "- ".
 Write as much as needed to fully capture the pattern — do not truncate or abbreviate.
 
-Current knowledge:
-{knowledge}
-
-Recent episodes:
+Your activity logs:
 {episodes}
