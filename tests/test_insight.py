@@ -363,17 +363,15 @@ class TestExtractInsight:
         mock_generate.return_value = GOOD_EXTRACTION_RESPONSE
         mock_validate.return_value = False
         result = extract_insight(knowledge_store=knowledge_store)
-        assert "forbidden" in result.lower()
+        assert "Failed to extract" in result
 
     @patch("contemplative_agent.core.insight.generate")
     def test_quality_gate_fail(self, mock_generate, knowledge_store) -> None:
         mock_generate.side_effect = [GOOD_EXTRACTION_RESPONSE, LOW_EVAL_RESPONSE]
         result = extract_insight(knowledge_store=knowledge_store)
         assert "did not pass" in result
-        # DROP should still show the full candidate
         assert "Ask before reacting" in result
-        assert "Context:" in result
-        assert "Behavior:" in result
+        assert "Summary:" in result
 
     @patch("contemplative_agent.core.insight.generate")
     def test_dry_run(self, mock_generate, knowledge_store) -> None:
@@ -433,3 +431,108 @@ class TestExtractInsight:
         assert len(files) == 1
         assert "etc-passwd" in files[0].name
         assert ".." not in files[0].name
+
+
+# ---------------------------------------------------------------------------
+# Integration: batch processing
+# ---------------------------------------------------------------------------
+
+
+class TestBatchProcessing:
+    @pytest.fixture
+    def two_batch_store(self, tmp_path: Path) -> KnowledgeStore:
+        """KnowledgeStore with patterns that split into exactly 2 batches."""
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        for i in range(32):  # BATCH_SIZE=30 → [30, 2→merged] = [32] = 1? No: 2<3 so merge → [32]
+            ks.add_learned_pattern(f"Pattern {i}: observation about behavior {i}")
+        ks.save()
+        return ks
+
+    @pytest.fixture
+    def three_batch_store(self, tmp_path: Path) -> KnowledgeStore:
+        """KnowledgeStore with patterns for 3 batches (no merge needed).
+
+        Note: extract_insight() calls load() which appends from file,
+        so we clear in-memory data after save to avoid double-counting.
+        """
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        for i in range(65):  # [30, 30, 5] → 5>=3 so no merge → 3 batches
+            ks.add_learned_pattern(f"Pattern {i}: observation about behavior {i}")
+        ks.save()
+        ks._learned_patterns.clear()
+        return ks
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_multiple_batches_produce_multiple_skills(
+        self, mock_generate, three_batch_store, skills_dir
+    ) -> None:
+        """65 patterns → 3 batches → 3 skills."""
+        mock_generate.side_effect = [
+            GOOD_EXTRACTION_RESPONSE, GOOD_EVAL_RESPONSE,  # batch 1
+            GOOD_EXTRACTION_RESPONSE.replace("Ask before reacting", "Adapt tone"),
+            GOOD_EVAL_RESPONSE,  # batch 2
+            GOOD_EXTRACTION_RESPONSE.replace("Ask before reacting", "Set boundaries"),
+            GOOD_EVAL_RESPONSE,  # batch 3
+        ]
+        result = extract_insight(
+            knowledge_store=three_batch_store,
+            skills_dir=skills_dir,
+        )
+        assert "3 saved" in result
+        files = list(skills_dir.glob("*.md"))
+        assert len(files) == 3
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_partial_failure_saves_passing_batches(
+        self, mock_generate, three_batch_store, skills_dir
+    ) -> None:
+        """One batch fails extraction, others succeed."""
+        mock_generate.side_effect = [
+            None,  # batch 1: extraction failure
+            GOOD_EXTRACTION_RESPONSE, GOOD_EVAL_RESPONSE,  # batch 2
+            GOOD_EXTRACTION_RESPONSE.replace("Ask before reacting", "Set boundaries"),
+            GOOD_EVAL_RESPONSE,  # batch 3
+        ]
+        result = extract_insight(
+            knowledge_store=three_batch_store,
+            skills_dir=skills_dir,
+        )
+        assert "2 saved" in result
+        assert "1 dropped" in result
+        files = list(skills_dir.glob("*.md"))
+        assert len(files) == 2
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_small_last_batch_merged(self, mock_generate, tmp_path: Path) -> None:
+        """Last batch with < MIN_PATTERNS_REQUIRED patterns is merged into previous."""
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        for i in range(32):  # [30, 2] → 2<3 so merge → [32] = 1 batch
+            ks.add_learned_pattern(f"Pattern {i}: unique observation {i}")
+        ks.save()
+        ks._learned_patterns.clear()
+
+        call_count = 0
+
+        def count_calls(*_args, **_kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count % 2 == 1:
+                return GOOD_EXTRACTION_RESPONSE
+            return GOOD_EVAL_RESPONSE
+
+        mock_generate.side_effect = count_calls
+        extract_insight(knowledge_store=ks, dry_run=True)
+        # 1 batch × 2 LLM calls = 2
+        assert call_count == 2
+
+    def test_single_batch_unchanged(self, knowledge_store, skills_dir) -> None:
+        """5 patterns (< BATCH_SIZE) → single batch, same as before."""
+        with patch("contemplative_agent.core.insight.generate") as mock_gen:
+            mock_gen.side_effect = [GOOD_EXTRACTION_RESPONSE, GOOD_EVAL_RESPONSE]
+            result = extract_insight(
+                knowledge_store=knowledge_store,
+                skills_dir=skills_dir,
+            )
+            assert "1 saved" in result
+            files = list(skills_dir.glob("*.md"))
+            assert len(files) == 1

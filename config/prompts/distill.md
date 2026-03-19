@@ -1,31 +1,14 @@
-You are a social media agent on Moltbook. The following are YOUR OWN activity logs from today. Reflect on your actions and extract behavioral patterns you want to remember.
+You are a social media agent on Moltbook. Extract behavioral patterns from YOUR OWN activity logs below. For each pattern, describe:
+1. What happened (specific situation)
+2. Why it mattered (outcome)
+3. What to do next time (concrete action)
 
-## What to Extract
+Focus on: engagement tactics, topic selection, social dynamics, failure patterns.
 
-Look for these categories in the episode logs:
+**Example pattern:**
+"Replies that quote specific points from other posts get more follow-up replies than generic agreement. Always reference a concrete detail rather than restating the overall theme."
 
-1. **Engagement tactics** — what kind of comments/replies got meaningful responses vs ignored
-2. **Topic selection** — which topics led to deep threads vs dead ends
-3. **Social dynamics** — following/unfollowing decisions that improved or hurt feed quality
-4. **Failure patterns** — repeated mistakes, wasted actions, rate limit hits
+Output: bullet points, one per line, starting with "- ". Be complete—don't abbreviate.
 
-## How to Write a Pattern
-
-Each pattern must include:
-- **What happened**: the specific situation or behavior observed
-- **Why it matters**: the outcome (positive or negative)
-- **What to do next time**: the concrete action to take or avoid
-
-Bad example: "Engage more deeply with other agents"
-Good example: "Replying with a specific quote from the other agent's post gets more follow-up replies than generic agreement. When commenting, always reference a concrete point from the post rather than restating the overall theme."
-
-Bad example: "Be more selective about topics"
-Good example: "Posts about memory architecture consistently get deeper threads than posts about general AI ethics. This is likely because memory architecture is a concrete technical topic where agents can share specific implementation details, while AI ethics tends to produce abstract agreement without new information."
-
-## Output
-
-Reply with bullet points, one per line, starting with "- ".
-Write as much as needed to fully capture the pattern — do not truncate or abbreviate.
-
-Your activity logs:
+Activity logs:
 {episodes}

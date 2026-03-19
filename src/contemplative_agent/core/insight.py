@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 MIN_PATTERNS_REQUIRED = 3
 MAX_FIELD_LENGTH = 200
 MAX_SLUG_LENGTH = 50
+BATCH_SIZE = 30
 
 RUBRIC_DIMENSIONS = (
     "SPECIFICITY",
@@ -297,58 +298,84 @@ def extract_insight(
             f"Run more sessions and distill first."
         )
 
-    # Pass 1: Extract
-    candidate = _extract_skill(patterns, insights)
-    if candidate is None:
-        return "Failed to extract skill from knowledge."
+    # Split patterns into batches (same approach as distill)
+    batches = [
+        patterns[i : i + BATCH_SIZE]
+        for i in range(0, len(patterns), BATCH_SIZE)
+    ]
+    # Merge last batch into previous if too small
+    if len(batches) > 1 and len(batches[-1]) < MIN_PATTERNS_REQUIRED:
+        batches[-2].extend(batches[-1])
+        batches.pop()
 
-    # Validate against forbidden patterns
-    combined = (
-        f"{candidate.title} {candidate.context} "
-        f"{candidate.problem} {candidate.behavior} {candidate.evidence}"
+    logger.info(
+        "Processing %d patterns in %d batches", len(patterns), len(batches)
     )
-    if not validate_identity_content(combined):
-        return "Generated skill contains forbidden patterns. Skipping."
 
-    # Pass 2: Evaluate
-    score = _evaluate_skill(candidate)
-    score_table = _render_score_table(score)
+    all_results: List[str] = []
+    saved_count = 0
+    dropped_count = 0
 
-    if not score.passed:
-        return (
-            f"Skill did not pass quality gate (need all dimensions >= {PASS_THRESHOLD}).\n\n"
-            f"{score_table}\n\n"
-            f"--- Candidate (not saved) ---\n"
-            f"Title: {candidate.title}\n"
-            f"Context: {candidate.context}\n"
-            f"Problem: {candidate.problem}\n"
-            f"Behavior: {candidate.behavior}\n"
-            f"Evidence: {candidate.evidence}"
+    for batch_idx, batch in enumerate(batches):
+        logger.info(
+            "Batch %d/%d: %d patterns", batch_idx + 1, len(batches), len(batch)
         )
 
-    rendered = _render_skill_file(candidate, score, source_patterns=len(patterns))
+        # Pass 1: Extract
+        candidate = _extract_skill(batch, insights)
+        if candidate is None:
+            logger.warning("Batch %d/%d: extraction failed", batch_idx + 1, len(batches))
+            dropped_count += 1
+            continue
 
-    if dry_run:
-        logger.info("Dry run — not writing skill file")
-        return f"{rendered}\n{score_table}"
+        # Validate against forbidden patterns
+        combined = (
+            f"{candidate.title} {candidate.context} "
+            f"{candidate.problem} {candidate.behavior} {candidate.evidence}"
+        )
+        if not validate_identity_content(combined):
+            logger.warning("Batch %d/%d: forbidden pattern detected", batch_idx + 1, len(batches))
+            dropped_count += 1
+            continue
 
-    if skills_dir is None:
-        logger.info("No skills directory configured, returning result only")
-        return f"{rendered}\n{score_table}"
+        # Pass 2: Evaluate
+        score = _evaluate_skill(candidate)
+        score_table = _render_score_table(score)
 
-    skills_dir.mkdir(parents=True, exist_ok=True)
-    slug = _slugify(candidate.title)
-    if not slug:
-        logger.warning("Skill title produced empty slug, dropping candidate")
-        return "Generated skill title produced no valid slug. Skipping."
-    today = date.today().isoformat()
-    filename = f"{today}-{slug}.md"
-    file_path = skills_dir / filename
+        if not score.passed:
+            all_results.append(
+                f"Batch {batch_idx + 1}: did not pass quality gate\n"
+                f"Title: {candidate.title}\n{score_table}"
+            )
+            dropped_count += 1
+            continue
 
-    if not file_path.resolve().is_relative_to(skills_dir.resolve()):
-        logger.error("Skill path escape attempt: %s", file_path)
-        return "Internal error: invalid skill path."
+        rendered = _render_skill_file(candidate, score, source_patterns=len(batch))
 
-    write_restricted(file_path, rendered)
-    logger.info("Skill written: %s", file_path)
-    return f"{rendered}\n{score_table}"
+        if not dry_run and skills_dir is not None:
+            skills_dir.mkdir(parents=True, exist_ok=True)
+            slug = _slugify(candidate.title)
+            if not slug:
+                logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
+                dropped_count += 1
+                continue
+            today = date.today().isoformat()
+            filename = f"{today}-{slug}.md"
+            file_path = skills_dir / filename
+
+            if not file_path.resolve().is_relative_to(skills_dir.resolve()):
+                logger.error("Skill path escape attempt: %s", file_path)
+                dropped_count += 1
+                continue
+
+            write_restricted(file_path, rendered)
+            logger.info("Skill written: %s", file_path)
+
+        all_results.append(f"{rendered}\n{score_table}")
+        saved_count += 1
+
+    if not all_results:
+        return "Failed to extract skill from knowledge."
+
+    summary = f"\n--- Summary: {saved_count} saved, {dropped_count} dropped ---"
+    return "\n\n".join(all_results) + summary
