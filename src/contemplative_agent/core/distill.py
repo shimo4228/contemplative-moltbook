@@ -67,7 +67,7 @@ def distill(
             record_type = r.get("type", "unknown")
             data = r.get("data", {})
             ts = r.get("ts", "")
-            summary = _summarize_record(record_type, data)
+            summary = summarize_record(record_type, data)
             if summary:
                 episode_lines.append(f"[{ts[:16]}] {record_type}: {summary}")
 
@@ -193,7 +193,7 @@ def distill_identity(
     return identity_text
 
 
-def _summarize_record(record_type: str, data: dict) -> str:
+def summarize_record(record_type: str, data: dict) -> str:
     """Create a one-line summary of an episode record."""
     if record_type == "interaction":
         direction = data.get("direction", "?")

@@ -359,8 +359,7 @@ def extract_insight(
                 logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
                 dropped_count += 1
                 continue
-            today = date.today().isoformat()
-            filename = f"{today}-{slug}.md"
+            filename = f"{slug}.md"
             file_path = skills_dir / filename
 
             if not file_path.resolve().is_relative_to(skills_dir.resolve()):

@@ -1,15 +1,11 @@
 """A/B test: compare two distill prompts on the same episode logs."""
 
-import json
 import sys
 from pathlib import Path
 
-# Add project to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from contemplative_agent.core.llm import generate
 from contemplative_agent.core.memory import EpisodeLog
-from contemplative_agent.core.distill import _summarize_record
+from contemplative_agent.core.distill import summarize_record
 
 PROMPT_A = """\
 You are a social media agent on Moltbook. The following are YOUR OWN activity logs from today. Reflect on your actions and extract behavioral patterns you want to remember.
@@ -69,7 +65,7 @@ def load_episodes(log_path: Path, limit: int = 50) -> str:
         record_type = r.get("type", "unknown")
         data = r.get("data", {})
         ts = r.get("ts", "")
-        summary = _summarize_record(record_type, data)
+        summary = summarize_record(record_type, data)
         if summary:
             lines.append(f"[{ts[:16]}] {record_type}: {summary}")
     return "\n".join(lines)

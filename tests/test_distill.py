@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from contemplative_agent.core.distill import (
-    _summarize_record,
+    summarize_record,
     distill,
     distill_identity,
 )
@@ -130,7 +130,7 @@ class TestDistill:
 
 class TestSummarizeRecord:
     def test_interaction(self):
-        result = _summarize_record("interaction", {
+        result = summarize_record("interaction", {
             "direction": "sent", "agent_name": "Alice",
             "content_summary": "Hello there",
         })
@@ -138,22 +138,22 @@ class TestSummarizeRecord:
         assert "Alice" in result
 
     def test_post(self):
-        result = _summarize_record("post", {"title": "My Post"})
+        result = summarize_record("post", {"title": "My Post"})
         assert "My Post" in result
 
     def test_insight(self):
-        result = _summarize_record("insight", {"observation": "Good session"})
+        result = summarize_record("insight", {"observation": "Good session"})
         assert "Good session" in result
 
     def test_activity(self):
-        result = _summarize_record("activity", {
+        result = summarize_record("activity", {
             "action": "follow", "target_agent": "Bob",
         })
         assert "follow" in result
         assert "Bob" in result
 
     def test_unknown_type(self):
-        assert _summarize_record("unknown", {}) == ""
+        assert summarize_record("unknown", {}) == ""
 
 
 class TestDistillIdentity:
