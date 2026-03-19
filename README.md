@@ -130,6 +130,10 @@ config/
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse)
 - New platform adapters can be added under `adapters/` without touching core
 
+### Design: Symbiotic, Not Standalone
+
+This framework is not a replacement for coding agents like Claude Code, Cursor, or Codex — it coexists with them. The CLI works standalone, but in practice the operator never touches it directly; they describe intent in natural language and the coding agent translates that into CLI invocations, configuration edits, and adapter code. Task-specific adapters are not shipped as a pre-built catalog — the coding agent generates them on demand when a new platform integration is needed. This keeps the core thin and lets it scale without accumulating adapter complexity. Long-term, the memory layer enables the agent to accumulate operational experience and evolve autonomously — turning runtime data into knowledge, knowledge into identity.
+
 ### Memory (3-Layer)
 
 Data flows upward through three layers, each more abstract than the last:
