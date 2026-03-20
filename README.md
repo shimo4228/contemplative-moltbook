@@ -130,6 +130,19 @@ config/
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse)
 - New platform adapters can be added under `adapters/` without touching core
 
+### Meditation Adapter (Experimental)
+
+An active inference–based meditation simulation, inspired by Laukkonen, Friston & Chandaria's ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/) — a computational model of consciousness where meditation is formalized as temporal flattening and counterfactual pruning of an agent's generative model.
+
+The adapter builds a POMDP from the agent's episode logs and runs iterated belief updates with no external input (the computational equivalent of closing your eyes). The result is a simplified internal model with fewer reactive policies.
+
+```bash
+contemplative-agent meditate --dry-run          # Run simulation, show results
+contemplative-agent meditate --days 14          # Use 14 days of episode history
+```
+
+**Status**: Proof of concept. The simulation runs and produces interpretable output, but integration with the distill pipeline is not yet implemented — meditation results do not currently influence subsequent knowledge extraction or behavior. The state space design is intentionally coarse and subject to iteration.
+
 ### Design: Symbiotic, Not Standalone
 
 This framework is not a replacement for coding agents like Claude Code, Cursor, or Codex — it coexists with them. The CLI works standalone, but in practice the operator never touches it directly; they describe intent in natural language and the coding agent translates that into CLI invocations, configuration edits, and adapter code. Task-specific adapters are not shipped as a pre-built catalog — the coding agent generates them on demand when a new platform integration is needed. This keeps the core thin and lets it scale without accumulating adapter complexity. In principle, any agent that can read code and invoke a CLI — Claude Code, OpenClaw, Cline, or others — can serve as the host. The core neither knows nor cares which orchestrator is driving it. (Currently validated with Claude Code only.) Long-term, the memory layer enables the agent to accumulate operational experience and evolve autonomously — turning runtime data into knowledge, knowledge into identity.
