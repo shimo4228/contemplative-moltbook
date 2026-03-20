@@ -267,3 +267,75 @@ class TestBatchProcessing:
             assert "1 saved" in result
             files = list(skills_dir.glob("*.md"))
             assert len(files) == 1
+
+
+# ---------------------------------------------------------------------------
+# Integration: incremental mode
+# ---------------------------------------------------------------------------
+
+
+class TestIncrementalMode:
+    @patch("contemplative_agent.core.insight.generate")
+    def test_writes_last_insight_marker(
+        self, mock_generate, knowledge_store, skills_dir
+    ) -> None:
+        mock_generate.return_value = GOOD_SKILL_RESPONSE
+        extract_insight(
+            knowledge_store=knowledge_store,
+            skills_dir=skills_dir,
+        )
+        marker = skills_dir / ".last_insight"
+        assert marker.exists()
+        content = marker.read_text().strip()
+        assert "T" in content  # ISO timestamp
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_dry_run_does_not_write_marker(
+        self, mock_generate, knowledge_store, skills_dir
+    ) -> None:
+        mock_generate.return_value = GOOD_SKILL_RESPONSE
+        extract_insight(
+            knowledge_store=knowledge_store,
+            skills_dir=skills_dir,
+            dry_run=True,
+        )
+        marker = skills_dir / ".last_insight"
+        assert not marker.exists()
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_incremental_filters_old_patterns(
+        self, mock_generate, tmp_path
+    ) -> None:
+        """With .last_insight set, only new patterns are processed."""
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks.add_learned_pattern("old pattern", distilled="2026-01-01T00:00+00:00")
+        ks.add_learned_pattern("new pattern", distilled="2026-03-20T12:00+00:00")
+        ks.save()
+        ks._learned_patterns.clear()
+
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        # Set last insight to before the new pattern
+        (skills_dir / ".last_insight").write_text("2026-03-01T00:00+00:00\n")
+
+        mock_generate.return_value = GOOD_SKILL_RESPONSE
+        result = extract_insight(
+            knowledge_store=ks,
+            skills_dir=skills_dir,
+        )
+        # Only 1 new pattern, which is < MIN_PATTERNS_REQUIRED (3)
+        assert "Insufficient patterns (1/3)" in result
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_full_ignores_marker(
+        self, mock_generate, knowledge_store, skills_dir
+    ) -> None:
+        """--full processes all patterns regardless of marker."""
+        (skills_dir / ".last_insight").write_text("2099-01-01T00:00+00:00\n")
+        mock_generate.return_value = GOOD_SKILL_RESPONSE
+        result = extract_insight(
+            knowledge_store=knowledge_store,
+            skills_dir=skills_dir,
+            full=True,
+        )
+        assert "1 saved" in result
