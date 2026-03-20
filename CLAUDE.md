@@ -31,7 +31,7 @@ src/contemplative_agent/
     knowledge_store.py                  # Layer 2: 蒸留された知識パターン (JSON 永続化)
     memory.py                           # Layer 3: MemoryStore ファサード + dataclass + re-export
     distill.py                          # スリープタイム記憶蒸留
-    insight.py                          # 行動スキル抽出 (2-pass LLM + rubric評価)
+    insight.py                          # 行動スキル抽出 (single-pass, /learn-eval フォーマット)
     scheduler.py                        # レート制限スケジューラ (パラメータ化)
     report.py                           # アクティビティレポート生成 (JSONL → Markdown)
   adapters/
@@ -90,7 +90,7 @@ contemplative-agent --domain-config path/to/domain.json --rules-dir path/to/rule
 - Python 3.9+ (venv は 3.13.5)
 - 依存: requests のみ。LLM は Ollama (qwen3.5:9b, localhost or Docker service)
 - ビルド: hatch
-- 29 モジュール、~6130 LOC (memory 3層分割 + insight.py + report.py + _io.py 共有ユーティリティ)
+- 29 モジュール、~5790 LOC (memory 3層分割 + insight.py + report.py + _io.py 共有ユーティリティ)
 
 ### Docker
 
@@ -124,7 +124,7 @@ GET 60 req/min、POST 30 req/min（分離クォータ）。3層防御（`has_rea
 
 ## テスト
 
-614件全パス (2026-03-17)。
+585件全パス (2026-03-20)。
 distill 94%, memory 93%, verification 94%, agent 90%, insight ~85%, scheduler 88%, content 87%, llm 80%, client 79%, cli 75%, auth 75%, domain, prompts, config (core/adapters 分割済み)。
 
 ## メモリアーキテクチャ (3層)
