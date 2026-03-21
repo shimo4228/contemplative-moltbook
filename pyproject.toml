@@ -1,6 +1,6 @@
 [project]
 name = "contemplative-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Contemplative AI agent for Moltbook — promoting alignment through the four axioms"
 requires-python = ">=3.9"
 license = {text = "MIT"}
