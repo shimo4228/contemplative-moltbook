@@ -164,7 +164,7 @@ def distill_identity(
         knowledge=knowledge_text,
     )
 
-    result = generate(prompt, max_length=2000)
+    result = generate(prompt, max_length=4000)
     if result is None:
         msg = "LLM failed to generate identity distillation."
         logger.warning(msg)
