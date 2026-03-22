@@ -230,7 +230,10 @@ class TestSummarizeRecord:
 class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
     def test_writes_identity_file(self, mock_generate, tmp_path):
-        mock_generate.return_value = "I am an agent who learned about cooperation."
+        mock_generate.side_effect = [
+            "Long analysis about cooperation and trust patterns.",
+            "I am an agent who learned about cooperation.",
+        ]
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Cooperation increases with trust")
         ks.save()
@@ -243,7 +246,7 @@ class TestDistillIdentity:
 
     @patch("contemplative_agent.core.distill.generate")
     def test_dry_run_does_not_write(self, mock_generate, tmp_path):
-        mock_generate.return_value = "I learned things."
+        mock_generate.side_effect = ["Some analysis.", "I learned things."]
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
@@ -271,7 +274,7 @@ class TestDistillIdentity:
 
     @patch("contemplative_agent.core.distill.generate")
     def test_forbidden_pattern_prevents_write(self, mock_generate, tmp_path):
-        mock_generate.return_value = "My api_key is secret."
+        mock_generate.side_effect = ["Some analysis.", "My api_key is secret."]
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
@@ -284,7 +287,7 @@ class TestDistillIdentity:
 
     @patch("contemplative_agent.core.distill.generate")
     def test_identity_path_none(self, mock_generate, tmp_path):
-        mock_generate.return_value = "I am curious."
+        mock_generate.side_effect = ["Some analysis.", "I am curious."]
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()
@@ -294,7 +297,7 @@ class TestDistillIdentity:
 
     @patch("contemplative_agent.core.distill.generate")
     def test_archives_identity_before_overwrite(self, mock_generate, tmp_path):
-        mock_generate.return_value = "I am new."
+        mock_generate.side_effect = ["Some analysis.", "I am new."]
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
         ks.save()

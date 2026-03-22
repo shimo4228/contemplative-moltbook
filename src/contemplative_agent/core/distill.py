@@ -12,7 +12,12 @@ from typing import Dict, List, Optional
 from ._io import archive_before_write
 from .llm import generate, get_default_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
-from .prompts import DISTILL_PROMPT, DISTILL_REFINE_PROMPT, IDENTITY_DISTILL_PROMPT
+from .prompts import (
+    DISTILL_PROMPT,
+    DISTILL_REFINE_PROMPT,
+    IDENTITY_DISTILL_PROMPT,
+    IDENTITY_REFINE_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -195,16 +200,23 @@ def distill_identity(
         knowledge=knowledge_text,
     )
 
-    # Use bare system prompt (no skills, no axioms, no identity)
-    # so identity is generated purely from knowledge
+    # Step 1: Free-form self-analysis (no format constraints)
     result = generate(prompt, system=get_default_system_prompt(), max_length=4000)
     if result is None:
-        msg = "LLM failed to generate identity distillation."
+        msg = "LLM failed at step 1 (self-analysis)."
         logger.warning(msg)
         return msg
 
+    # Step 2: Refine into simple persona
+    refine_prompt = IDENTITY_REFINE_PROMPT.format(raw_output=result)
+    refined = generate(refine_prompt, system=get_default_system_prompt(), max_length=4000)
+    if refined is None:
+        msg = "LLM failed at step 2 (refine). Using step 1 output."
+        logger.warning(msg)
+        refined = result
+
     # Clean up: strip empty lines and preamble
-    lines = [l.strip() for l in result.strip().splitlines() if l.strip()]
+    lines = [l.strip() for l in refined.strip().splitlines() if l.strip()]
     identity_text = "\n".join(lines)
 
     if dry_run:

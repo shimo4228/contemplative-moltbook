@@ -1,9 +1,4 @@
-Update your persona.
-
-Rules:
-- Describe who you are
-- Write in first person ("I")
-- 3-5 short paragraphs, plain text
+Update your persona based on what you've learned.
 
 Your current persona:
 {current_identity}
