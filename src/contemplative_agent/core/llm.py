@@ -319,7 +319,7 @@ def generate(
             "temperature": 1.0,
             "top_p": 0.95,
             "top_k": 20,
-            "num_predict": 2048,
+            "num_predict": 8192,
         },
         "think": False,
     }

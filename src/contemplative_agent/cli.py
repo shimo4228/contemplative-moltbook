@@ -301,6 +301,14 @@ def main() -> None:
         help="Explicit JSONL log file(s) to process (overrides --days)"
     )
 
+    # distill-identity
+    distill_id_parser = subparsers.add_parser(
+        "distill-identity", help="Distill knowledge into identity (without pattern distillation)"
+    )
+    distill_id_parser.add_argument(
+        "--dry-run", action="store_true", help="Show results without writing"
+    )
+
     # report
     report_parser = subparsers.add_parser(
         "report", help="Show self-improvement metrics from episode logs"
@@ -464,6 +472,19 @@ def main() -> None:
                 dry_run=args.dry_run,
             )
             print(identity_result)
+        return
+
+    if args.command == "distill-identity":
+        from .core.distill import distill_identity
+        from .core.memory import KnowledgeStore
+
+        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+        result = distill_identity(
+            knowledge_store=knowledge_store,
+            identity_path=IDENTITY_PATH,
+            dry_run=args.dry_run,
+        )
+        print(result)
         return
 
     if args.command == "insight":

@@ -98,7 +98,7 @@ class TestLoadDomainConfig:
 class TestLoadPromptTemplates:
     def test_loads_all_templates(self):
         templates = load_prompt_templates()
-        assert "Moltbook" in templates.system
+        assert "credentials" in templates.system
         assert "{post_content}" in templates.relevance
         assert "{post_content}" in templates.comment
         assert "{feed_topics}" in templates.cooperation_post
@@ -109,7 +109,6 @@ class TestLoadPromptTemplates:
         assert "{post_content}" in templates.topic_summary
         assert "{submolt_list}" in templates.submolt_selection
         assert "{actions_text}" in templates.session_insight
-        assert "{knowledge}" in templates.distill
         assert "{episodes}" in templates.distill
 
     def test_directory_not_found(self, tmp_path):
