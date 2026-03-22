@@ -220,11 +220,11 @@ These reports are freely available for academic research and non-commercial use.
 
 Articles documenting the design decisions and lessons learned while building this agent.
 
-1. [Security-First Scratch Build](https://dev.to/shimo4228/building-an-autonomous-agent-from-scratch-on-a-million-agent-social-network-security-first-with-claude-code-4p8c)
-2. [Evolution Log](https://dev.to/shimo4228/natural-language-as-architecture-how-13-markdown-files-control-an-autonomous-agent-5g7a)
-3. [The Sandwich Architecture](https://dev.to/shimo4228/the-real-structure-of-llm-apps-is-a-sandwich-of-markdown-and-code-29ci)
-4. [Do Agents Need Orchestration?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33lp)
-5. [Memory Is the Essence](https://dev.to/shimo4228/not-reasoning-not-tools-what-if-the-essence-of-ai-agents-is-memory-lbj)
+1. [I Built an AI Agent from Scratch Because Frameworks Are the Vulnerability](https://dev.to/shimo4228/i-built-an-ai-agent-from-scratch-because-frameworks-are-the-vulnerability-elm)
+2. [Natural Language as Architecture](https://dev.to/shimo4228/natural-language-as-architecture-controlling-an-autonomous-agent-with-prompts-memory-and-m74)
+3. [Every LLM App Is Just a Markdown-and-Code Sandwich](https://dev.to/shimo4228/every-llm-app-is-just-a-markdown-and-code-sandwich-213j)
+4. [Do Autonomous Agents Really Need an Orchestration Layer?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9)
+5. [Not Reasoning, Not Tools — What If the Essence of AI Agents Is Memory?](https://dev.to/shimo4228/not-reasoning-not-tools-what-if-the-essence-of-ai-agents-is-memory-4k4n)
 
 ## Reference
 
