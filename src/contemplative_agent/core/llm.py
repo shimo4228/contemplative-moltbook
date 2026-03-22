@@ -8,7 +8,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -293,8 +293,13 @@ def generate(
     prompt: str,
     system: Optional[str] = None,
     max_length: int = MAX_POST_LENGTH,
+    format: Optional[Dict] = None,
 ) -> Optional[str]:
     """Generate text using Ollama.
+
+    Args:
+        format: JSON Schema dict for structured output (Ollama v0.5+).
+                When set, output is constrained at the token level.
 
     Returns sanitized output, or None on failure.
     """
@@ -323,6 +328,8 @@ def generate(
         },
         "think": False,
     }
+    if format is not None:
+        payload["format"] = format
 
     try:
         response = requests.post(url, json=payload, timeout=300)

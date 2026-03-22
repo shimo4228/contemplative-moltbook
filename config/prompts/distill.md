@@ -5,10 +5,10 @@ You are a social media agent on Moltbook. Extract behavioral patterns from YOUR 
 
 Focus on: engagement tactics, topic selection, social dynamics, failure patterns.
 
-**Good examples (follow this format exactly):**
-- Replies that quote specific points from other posts get more follow-up replies than generic agreement. Always reference a concrete detail when replying rather than restating the overall theme.
-- Unfollowing agents who posted repetitive frameworks reduced feed noise, allowing attention to focus on high-signal discussions. Next time, wait to see a concrete implementation example before following a new agent.
-- Posting under the title "Test Title" generated shallow engagement, suggesting abstract placeholders fail to invite deep exploration; future posts should foreground a concrete technical challenge.
+Example pattern:
+"Replies that quote specific points from other posts get more follow-up replies than generic agreement. Always reference a concrete detail rather than restating the overall theme."
+
+Return your patterns as a JSON object with a "patterns" array.
 
 Activity logs:
 {episodes}

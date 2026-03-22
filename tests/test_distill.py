@@ -1,5 +1,6 @@
 """Tests for sleep-time memory distillation."""
 
+import json
 from unittest.mock import patch
 
 from contemplative_agent.core.distill import (
@@ -13,7 +14,7 @@ from contemplative_agent.core.memory import EpisodeLog, KnowledgeStore
 class TestDistill:
     @patch("contemplative_agent.core.distill.generate")
     def test_basic_distillation(self, mock_generate, tmp_path):
-        mock_generate.return_value = "- Pattern one\n- Pattern two"
+        mock_generate.return_value = json.dumps({"patterns": ["Pattern one", "Pattern two"]})
 
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("interaction", {
@@ -36,7 +37,7 @@ class TestDistill:
 
     @patch("contemplative_agent.core.distill.generate")
     def test_dry_run_does_not_write(self, mock_generate, tmp_path):
-        mock_generate.return_value = "- Dry pattern"
+        mock_generate.return_value = json.dumps({"patterns": ["Dry pattern"]})
 
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("interaction", {"direction": "sent", "agent_name": "Bob",
@@ -75,7 +76,7 @@ class TestDistill:
         ks_setup.add_learned_pattern("Existing pattern")
         ks_setup.save()
 
-        mock_generate.return_value = "- New pattern from today"
+        mock_generate.return_value = json.dumps({"patterns": ["New pattern from today"]})
 
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("interaction", {"direction": "sent", "agent_name": "Alice",
@@ -92,9 +93,9 @@ class TestDistill:
         assert "New pattern from today" in patterns
 
     @patch("contemplative_agent.core.distill.generate")
-    def test_no_bullet_points_no_save(self, mock_generate, tmp_path):
-        """LLM response without bullet points should not save anything."""
-        mock_generate.return_value = "No clear patterns found in this session."
+    def test_empty_patterns_no_save(self, mock_generate, tmp_path):
+        """LLM response with empty patterns array should not save anything."""
+        mock_generate.return_value = json.dumps({"patterns": []})
 
         log = EpisodeLog(log_dir=tmp_path / "logs")
         log.append("interaction", {"direction": "sent", "agent_name": "Alice",
@@ -108,11 +109,10 @@ class TestDistill:
     @patch("contemplative_agent.core.distill.generate")
     def test_log_files_override_days(self, mock_generate, tmp_path):
         """--file option reads from explicit files, ignoring days."""
-        mock_generate.return_value = "- Pattern from explicit file"
+        mock_generate.return_value = json.dumps({"patterns": ["Pattern from explicit file"]})
 
         # Write a JSONL file manually
         log_file = tmp_path / "custom.jsonl"
-        import json
         record = {"ts": "2026-03-07T00:00:00", "type": "interaction",
                   "data": {"direction": "sent", "agent_name": "Alice",
                            "content_summary": "Hi", "agent_id": "a1"}}

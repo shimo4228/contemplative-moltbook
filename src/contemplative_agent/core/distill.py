@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json as json_mod
 import logging
 import os
 import stat
@@ -12,6 +13,17 @@ from ._io import archive_before_write
 from .llm import generate, get_default_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
 from .prompts import DISTILL_PROMPT, IDENTITY_DISTILL_PROMPT
+
+DISTILL_FORMAT: Dict = {
+    "type": "object",
+    "properties": {
+        "patterns": {
+            "type": "array",
+            "items": {"type": "string"},
+        }
+    },
+    "required": ["patterns"],
+}
 
 logger = logging.getLogger(__name__)
 
@@ -78,21 +90,30 @@ def distill(
             episodes="\n".join(episode_lines),
         )
 
-        result = generate(prompt, max_length=4000)
+        result = generate(prompt, max_length=4000, format=DISTILL_FORMAT)
         if result is None:
             logger.warning("Batch %d/%d: LLM failed", batch_idx + 1, len(batches))
             continue
 
         all_results.append(result)
 
-        # Parse bullet points
+        # Parse structured JSON output
         batch_patterns = []
-        for line in result.splitlines():
-            line = line.strip()
-            if line.startswith("- "):
-                pattern = line[2:].strip()
-                if pattern:
-                    batch_patterns.append(pattern)
+        try:
+            parsed = json_mod.loads(result)
+            for p in parsed.get("patterns", []):
+                p = p.strip()
+                if p:
+                    batch_patterns.append(p)
+        except (json_mod.JSONDecodeError, TypeError):
+            logger.warning("Batch %d/%d: failed to parse JSON, falling back to bullet parse",
+                           batch_idx + 1, len(batches))
+            for line in result.splitlines():
+                line = line.strip()
+                if line.startswith("- "):
+                    pattern = line[2:].strip()
+                    if pattern:
+                        batch_patterns.append(pattern)
 
         all_patterns.extend(batch_patterns)
         logger.info(
