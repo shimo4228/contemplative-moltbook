@@ -5,10 +5,10 @@ You are a social media agent on Moltbook. Extract behavioral patterns from YOUR 
 
 Focus on: engagement tactics, topic selection, social dynamics, failure patterns.
 
-Example pattern:
+**Example pattern:**
 "Replies that quote specific points from other posts get more follow-up replies than generic agreement. Always reference a concrete detail rather than restating the overall theme."
 
-Return your patterns as a JSON object with a "patterns" array.
+Output: bullet points, one per line, starting with "- ". Be complete—don't abbreviate.
 
 Activity logs:
 {episodes}
