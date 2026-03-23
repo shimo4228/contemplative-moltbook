@@ -8,19 +8,32 @@ from contemplative_agent.core.distill import (
     distill,
     distill_identity,
     _is_valid_pattern,
+    _parse_importance_scores,
+    _dedup_patterns,
 )
 from contemplative_agent.core.memory import EpisodeLog, KnowledgeStore
 
 
+def _make_log(tmp_path):
+    """Helper: create EpisodeLog with one interaction."""
+    log = EpisodeLog(log_dir=tmp_path / "logs")
+    log.append("interaction", {"direction": "sent", "agent_name": "Alice",
+                                "content_summary": "Hi", "agent_id": "a1"})
+    return log
+
+
 class TestDistill:
+    """3-step pipeline: Step 1 (extract) → Step 2 (summarize) → Step 3 (importance)."""
+
     @patch("contemplative_agent.core.distill.generate")
     def test_basic_distillation(self, mock_generate, tmp_path):
         mock_generate.side_effect = [
             "Some free-form analysis of patterns from the episode logs.",
             json.dumps({"patterns": [
-                {"text": "Pattern one shows that quoting specific details improves engagement", "importance": 8},
-                {"text": "Pattern two reveals that generic replies stall conversations quickly", "importance": 6},
+                "Pattern one shows that quoting specific details improves engagement",
+                "Pattern two reveals that generic replies stall conversations quickly",
             ]}),
+            json.dumps({"scores": [8, 6]}),
         ]
 
         log = EpisodeLog(log_dir=tmp_path / "logs")
@@ -36,13 +49,12 @@ class TestDistill:
         assert "Pattern one" in result
         assert "Pattern two" in result
 
-        # Patterns should be saved to knowledge store with importance
         ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
         patterns = ks2.get_learned_patterns()
         assert any("Pattern one" in p for p in patterns)
         assert any("Pattern two" in p for p in patterns)
-        # Check importance was propagated
+        # Importance from Step 3
         p1 = [p for p in ks2._learned_patterns if "Pattern one" in p["pattern"]][0]
         assert p1["importance"] == 0.8  # 8/10
 
@@ -51,38 +63,29 @@ class TestDistill:
         mock_generate.side_effect = [
             "Some analysis.",
             json.dumps({"patterns": [
-                {"text": "Dry pattern that explains how quoting specific details works better", "importance": 5},
+                "Dry pattern that explains how quoting specific details works better",
             ]}),
+            json.dumps({"scores": [5]}),
         ]
-
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Bob",
-                                    "content_summary": "Hi", "agent_id": "a1"})
-
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
 
         result = distill(days=1, dry_run=True, episode_log=log, knowledge_store=ks)
         assert "Dry pattern" in result
-
-        # Knowledge file should NOT exist
         assert not (tmp_path / "knowledge.json").exists()
 
     def test_empty_episodes(self, tmp_path):
         log = EpisodeLog(log_dir=tmp_path / "logs")
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
         result = distill(days=1, episode_log=log, knowledge_store=ks)
         assert "No episodes" in result
 
     @patch("contemplative_agent.core.distill.generate", return_value=None)
     def test_llm_failure(self, mock_generate, tmp_path):
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
         result = distill(days=1, episode_log=log, knowledge_store=ks)
-        assert result == ""  # All batches failed, nothing returned
+        assert result == ""
         assert not (tmp_path / "knowledge.json").exists()
 
     @patch("contemplative_agent.core.distill.generate")
@@ -95,14 +98,11 @@ class TestDistill:
         mock_generate.side_effect = [
             "Some analysis.",
             json.dumps({"patterns": [
-                {"text": "New pattern from today shows concrete improvement in engagement", "importance": 7},
+                "New pattern from today shows concrete improvement in engagement",
             ]}),
+            json.dumps({"scores": [7]}),
         ]
-
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
-
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         distill(days=1, episode_log=log, knowledge_store=ks)
 
@@ -119,18 +119,15 @@ class TestDistill:
         mock_generate.side_effect = [
             "Some analysis.",
             json.dumps({"patterns": [
-                {"text": "user interaction", "importance": 3},
-                {"text": "activity: upvote", "importance": 2},
-                {"text": "sentiment_analysis", "importance": 4},
-                {"text": "Replies that quote specific points from other posts get more follow-up replies than generic agreement.", "importance": 9},
+                "user interaction",
+                "activity: upvote",
+                "sentiment_analysis",
+                "Replies that quote specific points from other posts get more follow-up replies than generic agreement.",
             ]}),
+            json.dumps({"scores": [9]}),  # Only 1 pattern survives quality gate
         ]
-
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
         distill(days=1, episode_log=log, knowledge_store=ks)
 
         ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
@@ -145,16 +142,12 @@ class TestDistill:
         mock_generate.side_effect = [
             "No clear patterns found.",
             json.dumps({"patterns": []}),
+            # Step 3 not called when no patterns
         ]
-
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
         distill(days=1, episode_log=log, knowledge_store=ks)
         assert not (tmp_path / "knowledge.json").exists()
-
 
     @patch("contemplative_agent.core.distill.generate")
     def test_log_files_override_days(self, mock_generate, tmp_path):
@@ -162,11 +155,10 @@ class TestDistill:
         mock_generate.side_effect = [
             "Some analysis.",
             json.dumps({"patterns": [
-                {"text": "Pattern from explicit file shows quoting drives engagement", "importance": 6},
+                "Pattern from explicit file shows quoting drives engagement",
             ]}),
+            json.dumps({"scores": [6]}),
         ]
-
-        # Write a JSONL file manually
         log_file = tmp_path / "custom.jsonl"
         record = {"ts": "2026-03-07T00:00:00", "type": "interaction",
                   "data": {"direction": "sent", "agent_name": "Alice",
@@ -178,24 +170,21 @@ class TestDistill:
                          log_files=[log_file])
         assert "Pattern from explicit file" in result
 
-
         ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
         assert any("Pattern from explicit file" in p for p in ks2.get_learned_patterns())
 
-
     @patch("contemplative_agent.core.distill.generate")
-    def test_fallback_old_string_format(self, mock_generate, tmp_path):
-        """Old format (flat strings) still works with default importance 0.5."""
+    def test_step3_failure_uses_defaults(self, mock_generate, tmp_path):
+        """If Step 3 (importance) fails, patterns still saved with default 0.5."""
         mock_generate.side_effect = [
             "Some analysis.",
             json.dumps({"patterns": [
-                "Old format pattern that should still work with default importance",
+                "Pattern saved despite importance step failure with default score",
             ]}),
+            None,  # Step 3 fails
         ]
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         distill(days=1, episode_log=log, knowledge_store=ks)
 
@@ -205,47 +194,92 @@ class TestDistill:
         assert ks2._learned_patterns[0]["importance"] == 0.5
 
     @patch("contemplative_agent.core.distill.generate")
-    def test_importance_clamped_to_range(self, mock_generate, tmp_path):
-        """Importance values outside 1-10 are clamped."""
+    def test_step3_scores_applied(self, mock_generate, tmp_path):
+        """Step 3 scores are correctly mapped to patterns."""
         mock_generate.side_effect = [
             "Some analysis.",
             json.dumps({"patterns": [
-                {"text": "Pattern with way too high importance score assigned", "importance": 15},
-                {"text": "Pattern with zero importance score should be clamped up", "importance": 0},
+                "First pattern about quoting specific details from posts for engagement",
+                "Second pattern about avoiding generic replies that stall conversations",
             ]}),
+            json.dumps({"scores": [9, 4]}),
         ]
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
+        log = _make_log(tmp_path)
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         distill(days=1, episode_log=log, knowledge_store=ks)
 
         ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
-        assert ks2._learned_patterns[0]["importance"] == 1.0  # 15 → clamped to 10 → 1.0
-        assert ks2._learned_patterns[1]["importance"] == 0.1  # 0 → clamped to 1 → 0.1
+        assert ks2._learned_patterns[0]["importance"] == 0.9
+        assert ks2._learned_patterns[1]["importance"] == 0.4
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_mixed_format_dict_and_string(self, mock_generate, tmp_path):
-        """Mix of dict and string items in patterns array handled correctly."""
-        mock_generate.side_effect = [
-            "Some analysis.",
-            json.dumps({"patterns": [
-                {"text": "Dict pattern with explicit importance for engagement tracking", "importance": 7},
-                "String pattern that falls back to default importance value for scoring",
-            ]}),
-        ]
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Hi", "agent_id": "a1"})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        distill(days=1, episode_log=log, knowledge_store=ks)
 
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert len(ks2._learned_patterns) == 2
-        assert ks2._learned_patterns[0]["importance"] == 0.7
-        assert ks2._learned_patterns[1]["importance"] == 0.5
+class TestParseImportanceScores:
+    def test_valid_scores(self):
+        raw = json.dumps({"scores": [8, 5, 9]})
+        assert _parse_importance_scores(raw, 3) == [0.8, 0.5, 0.9]
+
+    def test_count_mismatch_returns_defaults(self):
+        raw = json.dumps({"scores": [8, 5]})
+        assert _parse_importance_scores(raw, 3) == [0.5, 0.5, 0.5]
+
+    def test_parse_failure_returns_defaults(self):
+        assert _parse_importance_scores("not json", 2) == [0.5, 0.5]
+
+    def test_clamped_to_range(self):
+        raw = json.dumps({"scores": [15, 0, -3]})
+        result = _parse_importance_scores(raw, 3)
+        assert result == [1.0, 0.1, 0.1]
+
+    def test_non_integer_scores(self):
+        raw = json.dumps({"scores": ["high", None, 7]})
+        result = _parse_importance_scores(raw, 3)
+        assert result == [0.5, 0.5, 0.7]
+
+
+class TestDedupPatterns:
+    def test_adds_new_pattern(self):
+        existing = [{"pattern": "Existing pattern about engagement", "importance": 0.5}]
+        new_p = ["Completely different pattern about feed quality management"]
+        new_i = [0.7]
+        add_p, add_i, skipped, updated = _dedup_patterns(new_p, new_i, existing)
+        assert len(add_p) == 1
+        assert updated == 0
+
+    def test_updates_similar_pattern(self):
+        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.5,
+                     "distilled": "2026-03-20T12:00+00:00"}]
+        new_p = ["Quoting specific details improves engagement significantly"]
+        new_i = [0.9]
+        add_p, add_i, skipped, updated = _dedup_patterns(new_p, new_i, existing)
+        assert len(add_p) == 0  # Not added
+        assert updated == 1
+        assert existing[0]["importance"] == 0.9  # max(0.5, 0.9)
+
+    def test_update_does_not_downgrade_importance(self):
+        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.9,
+                     "distilled": "2026-03-20T12:00+00:00"}]
+        new_p = ["Quoting specific details improves engagement significantly"]
+        new_i = [0.3]
+        _dedup_patterns(new_p, new_i, existing)
+        assert existing[0]["importance"] == 0.9  # max(0.9, 0.3) = 0.9
+
+    def test_updates_distilled_timestamp(self):
+        old_ts = "2026-03-01T12:00+00:00"
+        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.5,
+                     "distilled": old_ts}]
+        new_p = ["Quoting specific details improves engagement significantly"]
+        new_i = [0.7]
+        _dedup_patterns(new_p, new_i, existing)
+        assert existing[0]["distilled"] != old_ts  # Timestamp refreshed
+
+    def test_no_existing_patterns(self):
+        """All patterns are ADD'd when knowledge store is empty."""
+        add_p, add_i, skipped, updated = _dedup_patterns(
+            ["Pattern about engagement quality"], [0.7], [],
+        )
+        assert len(add_p) == 1
+        assert updated == 0
 
 
 class TestIsValidPattern:

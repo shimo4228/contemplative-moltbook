@@ -6,8 +6,10 @@ import json as json_mod
 import logging
 import os
 import stat
+from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from ._io import archive_before_write
 from .llm import generate, get_default_system_prompt, get_rules_system_prompt, validate_identity_content
@@ -15,6 +17,7 @@ from .memory import EpisodeLog, KnowledgeStore
 from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
+    DISTILL_IMPORTANCE_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
 )
@@ -91,36 +94,22 @@ def distill(
             logger.warning("Batch %d/%d: step 1 (extract) failed", batch_idx + 1, len(batches))
             continue
 
-        # Step 2: Refine — summarize + structure (LLM produces JSON naturally)
+        # Step 2: Summarize — concise patterns as JSON string array
         refine_prompt = DISTILL_REFINE_PROMPT.format(raw_output=result)
         refined = generate(refine_prompt, max_length=4000)
         if refined is None:
-            logger.warning("Batch %d/%d: step 2 (refine) failed, using step 1 output", batch_idx + 1, len(batches))
+            logger.warning("Batch %d/%d: step 2 (summarize) failed, using step 1 output", batch_idx + 1, len(batches))
             refined = result
 
         all_results.append(refined)
 
         raw_patterns: List[str] = []
-        raw_importances: List[float] = []
         try:
             parsed = json_mod.loads(refined)
             for item in parsed.get("patterns", []):
-                if isinstance(item, dict):
-                    text = item.get("text", "").strip()
-                    imp_raw = item.get("importance", 5)
-                    try:
-                        imp_raw = int(imp_raw)
-                    except (ValueError, TypeError):
-                        imp_raw = 5
-                    imp = max(1, min(10, imp_raw)) / 10.0
-                    if text:
-                        raw_patterns.append(text)
-                        raw_importances.append(imp)
-                elif isinstance(item, str):
-                    text = item.strip()
-                    if text:
-                        raw_patterns.append(text)
-                        raw_importances.append(0.5)
+                text = str(item).strip() if item else ""
+                if text:
+                    raw_patterns.append(text)
         except (json_mod.JSONDecodeError, TypeError):
             # Fallback: bullet-point parsing
             for line in refined.splitlines():
@@ -129,27 +118,37 @@ def distill(
                     pattern = line[2:].strip()
                     if pattern:
                         raw_patterns.append(pattern)
-                        raw_importances.append(0.5)
 
         # Decision gate: reject low-quality patterns
-        batch_patterns = []
-        batch_importances = []
-        for p, imp in zip(raw_patterns, raw_importances):
-            if _is_valid_pattern(p):
-                batch_patterns.append(p)
-                batch_importances.append(imp)
+        batch_patterns = [p for p in raw_patterns if _is_valid_pattern(p)]
         rejected = len(raw_patterns) - len(batch_patterns)
+
+        # Step 3: Evaluate importance — separate LLM call, single task
+        batch_importances = [0.5] * len(batch_patterns)
+        if batch_patterns and DISTILL_IMPORTANCE_PROMPT:
+            patterns_text = "\n".join(f"- {p}" for p in batch_patterns)
+            importance_prompt = DISTILL_IMPORTANCE_PROMPT.format(patterns=patterns_text)
+            importance_result = generate(importance_prompt, max_length=4000)
+            if importance_result:
+                batch_importances = _parse_importance_scores(importance_result, len(batch_patterns))
 
         all_patterns.extend(batch_patterns)
         all_importances.extend(batch_importances)
+        imp_summary = ", ".join(f"{i:.1f}" for i in batch_importances) if batch_importances else "none"
         logger.info(
-            "Batch %d/%d: %d episodes → %d patterns (%d rejected)",
-            batch_idx + 1, len(batches), len(batch), len(batch_patterns), rejected,
+            "Batch %d/%d: %d episodes → %d patterns (%d rejected) [importance: %s]",
+            batch_idx + 1, len(batches), len(batch), len(batch_patterns), rejected, imp_summary,
         )
 
     if dry_run:
-        logger.info("Dry run — %d patterns found across %d batches, not writing",
-                     len(all_patterns), len(batches))
+        # Simulate dedup for visibility (no writes)
+        # deep copy to avoid mutating existing patterns during simulation
+        import copy
+        _, _, _skip, upd = _dedup_patterns(
+            all_patterns, all_importances, copy.deepcopy(knowledge._learned_patterns),
+        )
+        logger.info("Dry run — %d patterns found, %d would be deduped, not writing",
+                     len(all_patterns), upd)
         return "\n\n".join(all_results)
 
     # Determine source date range from records
@@ -158,14 +157,21 @@ def distill(
     if timestamps and timestamps[0] != timestamps[-1]:
         source_date = f"{timestamps[0]}~{timestamps[-1]}"
 
-    for pattern, importance in zip(all_patterns, all_importances):
+    # Dedup against existing patterns
+    add_patterns, add_importances, _skipped, updated = _dedup_patterns(
+        all_patterns, all_importances, knowledge._learned_patterns,
+    )
+    if updated:
+        logger.info("Dedup: %d update (importance boosted)", updated)
+
+    for pattern, importance in zip(add_patterns, add_importances):
         knowledge.add_learned_pattern(pattern, source=source_date, importance=importance)
         logger.info("Added pattern (importance=%.1f): %s", importance, pattern[:80])
 
-    if all_patterns:
+    if add_patterns or updated:
         knowledge.save()
-        logger.info("Distill complete: %d patterns added from %d batches",
-                     len(all_patterns), len(batches))
+        logger.info("Distill complete: %d added, %d updated from %d batches",
+                     len(add_patterns), updated, len(batches))
 
     return "\n\n".join(all_results)
 
@@ -248,6 +254,76 @@ def distill_identity(
         logger.info("Identity updated: %s", identity_path)
 
     return identity_text
+
+
+def _parse_importance_scores(raw: str, expected_count: int) -> List[float]:
+    """Parse {"scores": [8, 5, ...]} into [0.8, 0.5, ...].
+
+    Falls back to 0.5 for all if parsing fails or count mismatches.
+    """
+    try:
+        parsed = json_mod.loads(raw)
+        scores_raw = parsed.get("scores", [])
+        if len(scores_raw) != expected_count:
+            logger.warning("Importance count mismatch: got %d, expected %d",
+                           len(scores_raw), expected_count)
+            return [0.5] * expected_count
+        result = []
+        for s in scores_raw:
+            try:
+                val = int(s)
+            except (ValueError, TypeError):
+                val = 5
+            result.append(max(1, min(10, val)) / 10.0)
+        return result
+    except (json_mod.JSONDecodeError, TypeError):
+        logger.warning("Failed to parse importance scores, using defaults")
+        return [0.5] * expected_count
+
+
+def _dedup_patterns(
+    new_patterns: List[str],
+    new_importances: List[float],
+    existing_patterns: List[dict],
+    threshold: float = 0.7,
+) -> Tuple[List[str], List[float], int, int]:
+    """Remove duplicates by comparing new patterns against existing ones.
+
+    Returns (patterns_to_add, importances_to_add, skip_count, update_count).
+    UPDATE: boosts existing pattern's importance to max(old, new) and refreshes timestamp.
+    """
+    add_patterns: List[str] = []
+    add_importances: List[float] = []
+    skip_count = 0
+    update_count = 0
+
+    existing_texts = [p["pattern"] for p in existing_patterns]
+
+    for new_text, new_imp in zip(new_patterns, new_importances):
+        best_ratio = 0.0
+        best_idx = -1
+        for idx, existing_text in enumerate(existing_texts):
+            ratio = SequenceMatcher(None, new_text, existing_text).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_idx = idx
+
+        if best_ratio >= 0.95 and best_idx >= 0:
+            # Near-exact duplicate → SKIP (no action)
+            skip_count += 1
+            logger.debug("SKIP (%.2f): %s", best_ratio, new_text[:60])
+        elif best_ratio >= threshold and best_idx >= 0:
+            # Similar pattern → UPDATE (boost importance, refresh timestamp)
+            old_imp = existing_patterns[best_idx].get("importance", 0.5)
+            existing_patterns[best_idx]["importance"] = max(old_imp, new_imp)
+            existing_patterns[best_idx]["distilled"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
+            update_count += 1
+            logger.debug("UPDATE (%.2f): %s", best_ratio, new_text[:60])
+        else:
+            add_patterns.append(new_text)
+            add_importances.append(new_imp)
+
+    return add_patterns, add_importances, skip_count, update_count
 
 
 def _is_valid_pattern(pattern: str) -> bool:

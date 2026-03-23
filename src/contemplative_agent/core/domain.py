@@ -66,6 +66,7 @@ class PromptTemplates:
     insight_eval: str = ""
     meditation_interpret: str = ""
     distill_refine: str = ""
+    distill_importance: str = ""
     identity_refine: str = ""
 
 
@@ -173,6 +174,7 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         insight_eval=_read_md_file(directory / "insight_eval.md", required=False),
         meditation_interpret=_read_md_file(directory / "meditation_interpret.md", required=False),
         distill_refine=_read_md_file(directory / "distill_refine.md", required=False),
+        distill_importance=_read_md_file(directory / "distill_importance.md", required=False),
         identity_refine=_read_md_file(directory / "identity_refine.md", required=False),
     )
 
