@@ -53,6 +53,9 @@ src/contemplative_agent/
       meditate.py                       # 瞑想ループ (temporal flattening + counterfactual pruning)
       report.py                         # 結果解釈 → KnowledgeStore 書き込み
 tests/                                  # テストスイート
+docs/
+  adr/                                  # Architecture Decision Records (設計判断の記録)
+  CODEMAPS/                             # 自動生成アーキテクチャドキュメント
 ```
 
 ### Import 規約

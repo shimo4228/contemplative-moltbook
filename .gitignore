@@ -39,8 +39,10 @@ rate_state.json
 # Logs
 logs/
 
-# Internal docs / legacy
-docs/
+# Internal docs / legacy (allow adr/ and CODEMAPS/)
+docs/*
+!docs/adr/
+!docs/CODEMAPS/
 Modelfile.contemplative
 
 # Generated
