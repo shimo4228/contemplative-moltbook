@@ -1,10 +1,10 @@
-<!-- Generated: 2026-03-22 | Files scanned: 33 | Token estimate: ~850 -->
+<!-- Generated: 2026-03-24 | Files scanned: 34 | Token estimate: ~850 -->
 # Architecture
 
 ## Project Type
 Python application: Contemplative AI agent with core/adapter separation + 3-layer memory
 
-**Stats**: 33 modules, ~6658 LOC, 651 tests (17 test files)
+**Stats**: 34 modules, ~7400 LOC, 673 tests (17 test files)
 
 ## System Diagram
 

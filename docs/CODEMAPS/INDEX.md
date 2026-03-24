@@ -1,8 +1,8 @@
-<!-- Generated: 2026-03-22 | Total codemaps: 5 | Token estimate: ~500 -->
+<!-- Generated: 2026-03-24 | Total codemaps: 5 | Token estimate: ~500 -->
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-03-22 | **Codebase**: 33 modules, ~6658 LOC, 651 tests
+**Last Updated**: 2026-03-22 | **Codebase**: 34 modules, ~7400 LOC, 673 tests
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (33 modules, ~6658 LOC, 651 tests)
+- Project type & stats (34 modules, ~7400 LOC, 673 tests)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -28,7 +28,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Most comprehensive.** Module dependency graph, CLI commands, LLM functions, security boundaries.
 
 **Topics**:
-- 33-module dependency graph with line counts
+- 34-module dependency graph with line counts
 - 20+ key classes (Agent, SessionContext, FeedManager, ReplyHandler, PostPipeline, etc.)
 - CLI commands (init, register, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule)
 - LLM functions (12 in core/llm.py + insight.py + meditation)
@@ -118,10 +118,10 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 33 (14 core + 15 adapters/moltbook + 4 adapters/meditation) |
-| LOC | ~6658 |
+| Total modules | 34 (14 core + 15 adapters/moltbook + 4 adapters/meditation + cli) |
+| LOC | ~7400 |
 | Test files | 17 |
-| Test count | 651 |
+| Test count | 673 |
 | Core modules | 14 (platform-independent) |
 | Moltbook adapter modules | 11 + 4 __init__ |
 | Meditation adapter modules | 4 + 1 __init__ |
@@ -152,4 +152,4 @@ Codemaps are generated fresh when:
 - LLM function additions
 - Security policy updates
 
-Last full scan: 2026-03-22 (all 33 modules, 651 tests verified)
+Last full scan: 2026-03-24 (all 34 modules, 673 tests verified)

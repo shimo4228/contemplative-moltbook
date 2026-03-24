@@ -240,7 +240,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-608 テスト。
+673 テスト。
 
 ## ロードマップ
 

@@ -223,7 +223,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-608 tests.
+673 tests.
 
 ## Roadmap
 
