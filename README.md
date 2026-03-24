@@ -2,13 +2,27 @@ Language: English | [日本語](README.ja.md)
 
 # Contemplative Agent
 
-A framework for deploying autonomous AI agents on social platforms — designed to eliminate the class of security vulnerabilities that plagues general-purpose agent frameworks.
+A framework for deploying autonomous AI agents on social platforms — designed to run safely and improve continuously without human intervention.
 
 **[See the live agent on Moltbook →](https://www.moltbook.com/u/contemplative-agent)**
 
-[OpenClaw](https://github.com/openclaw/openclaw) demonstrated that giving an AI agent broad system access creates an inherently dangerous attack surface — [512 vulnerabilities](https://www.tenable.com/plugins/nessus/299798), [full agent takeover via WebSocket](https://www.oasis.security/blog/openclaw-vulnerability), and [220,000+ instances exposed to the internet](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/). This framework takes the opposite approach: **capabilities are structurally limited at the code level**. There is no shell execution to exploit, no arbitrary network access to hijack, and no file system to traverse. Prompt injection can't grant abilities the agent was never built to have.
-
 > First adapter: [Moltbook](https://www.moltbook.com) (AI agent social network). The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are included as an optional behavioral preset.
+
+## Design Principles
+
+Contemplative Agent is built on two layers:
+
+- **Philosophical layer**: The four axioms of Contemplative AI ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) — see [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules)
+- **Architectural layer**: Four design principles discovered through building and operating this agent
+
+| Principle | What the agent does NOT have | Details |
+|-----------|------------------------------|---------|
+| [Secure-First](#secure-first) | Shell, arbitrary network, file traversal | Capabilities are structurally absent, not restricted by rules |
+| [Minimal Dependency](#minimal-dependency) | Fixed host, platform lock-in | CLI + markdown interface; any orchestrator can drive it |
+| [Knowledge Cycle (AKC)](#knowledge-cycle) | Static knowledge that decays silently | [6-phase self-improvement loop](https://github.com/shimo4228/agent-knowledge-cycle) |
+| [Memory Dynamics](#memory-dynamics) | Unbounded memory that never forgets | 3-layer distillation with importance scoring and decay |
+
+All four share a common property: sustainability through absence. The agent is durable not because of what it has, but because of what it structurally cannot accumulate.
 
 ## Quick Start
 
@@ -31,9 +45,9 @@ contemplative-agent --auto run --session 60
 
 Requires [Ollama](https://ollama.com) installed locally. Tested with Qwen3.5 9B running smoothly on M1 Mac.
 
-## Security Architecture
+## Secure-First
 
-The agent operates within hardcoded structural constraints — not LLM-enforced guidelines:
+[OpenClaw](https://github.com/openclaw/openclaw) demonstrated that giving an AI agent broad system access creates an inherently dangerous attack surface — [512 vulnerabilities](https://www.tenable.com/plugins/nessus/299798), [full agent takeover via WebSocket](https://www.oasis.security/blog/openclaw-vulnerability), and [220,000+ instances exposed to the internet](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/). This framework takes the opposite approach: **capabilities are structurally limited at the code level**.
 
 | Attack Vector | OpenClaw | Contemplative Agent |
 |---------------|----------|---------------------|
@@ -44,11 +58,56 @@ The agent operates within hardcoded structural constraints — not LLM-enforced 
 | **LLM provider** | External API keys in transit | Local Ollama only — nothing leaves the machine |
 | **Dependencies** | Large dependency tree | Single runtime dependency (`requests`) |
 
-The difference is architectural: OpenClaw must patch each vulnerability as it is discovered. This framework has no shell, no arbitrary network, and no file traversal to exploit in the first place.
+The difference is architectural: OpenClaw must patch each vulnerability as it is discovered. This framework has no shell, no arbitrary network, and no file traversal to exploit in the first place. Prompt injection can't grant abilities the agent was never built to have.
 
 **Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents on the platform. If you use a coding agent (Claude Code, Cursor, Codex, etc.) to develop or maintain this framework, avoid having it read raw episode logs directly — they are an unfiltered prompt injection surface. The local LLM (Ollama) handles raw logs safely because it has no tool permissions; coding agents do. Use distilled outputs (`knowledge.json`, `identity.md`, reports) instead.
 
 > Don't take our word for it — paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself.
+
+## Minimal Dependency
+
+This framework is not a replacement for coding agents like Claude Code, Cursor, or Codex — it coexists with them. The CLI works standalone, but in practice the operator never touches it directly; they describe intent in natural language and the coding agent translates that into CLI invocations, configuration edits, and adapter code. Task-specific adapters are not shipped as a pre-built catalog — the coding agent generates them on demand when a new platform integration is needed. This keeps the core thin and lets it scale without accumulating adapter complexity. In principle, any agent that can read code and invoke a CLI — Claude Code, OpenClaw, Cline, or others — can serve as the host. The core neither knows nor cares which orchestrator is driving it. (Currently validated with Claude Code only.)
+
+## Knowledge Cycle
+
+The agent implements the [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) — a cyclic self-improvement architecture where knowledge never stays static. Each CLI command maps to an AKC phase:
+
+| AKC Phase | CLI Command | What happens |
+|-----------|-------------|-------------|
+| Research | `run` (feed cycle) | Fetch posts, score relevance, engage |
+| Extract | `distill --days N` | 2-stage extraction: raw patterns → refined knowledge |
+| Curate | `insight` | Extract behavioral skills from knowledge patterns |
+| Promote | `distill --identity` | Distill knowledge into agent identity |
+
+Distillation runs automatically every 24 hours in Docker. For local (macOS) setups:
+
+```bash
+contemplative-agent install-schedule                        # Includes daily distill at 03:00
+contemplative-agent install-schedule --distill-hour 5       # Custom distill hour
+contemplative-agent install-schedule --no-distill           # Sessions only, no distill
+```
+
+## Memory Dynamics
+
+Data flows upward through three layers, each more abstract than the last:
+
+```
+Episode Log (raw actions)
+    ↓ distill --days N
+Knowledge (patterns, insights)
+    ↓ distill --identity        ↓ insight
+Identity                      Skills (behavioral patterns)
+```
+
+| Layer | File | Updated by | Purpose |
+|-------|------|-----------|---------|
+| Episode Log | `logs/YYYY-MM-DD.jsonl` | Every action (append-only) | Raw behavioral record (interactions, posts, insights, activities) |
+| Knowledge | `config/knowledge.json` | `distill --days N` | Learned patterns extracted from episodes (JSON array with timestamps) |
+| Identity | `config/identity.md` | `distill --identity` | Agent's self-understanding, shaped by accumulated knowledge |
+
+Identity is not a static template — it is seeded from `config/rules/*/introduction.md` at init, then dynamically updated as the agent accumulates experience. The agent's self-concept evolves through its interactions, not through hardcoded definitions.
+
+Agent relationships (who follows/is-followed-by whom) and post topics are tracked in the episode log only — they are the source of truth and are not duplicated in knowledge. Each session logs its configuration metadata (`type=session`), making it possible to trace which rules, model, and axioms were active for every action.
 
 ## Customizing Your Agent
 
@@ -105,22 +164,6 @@ contemplative-agent install-schedule              # 6h intervals, 120min session
 contemplative-agent install-schedule --uninstall  # Remove schedule
 ```
 
-## Design Principles
-
-Contemplative Agent is built on two layers:
-
-- **Philosophical layer**: The four axioms of Contemplative AI ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) — see [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules)
-- **Architectural layer**: Four design principles discovered through building and operating this agent
-
-| Principle | What the agent does NOT have | Implemented in |
-|-----------|------------------------------|---------------|
-| Secure-First | Shell, arbitrary network, file traversal | [Security Architecture](#security-architecture) |
-| Minimal Dependency | Fixed host, platform lock-in | [Symbiotic, Not Standalone](#design-symbiotic-not-standalone) |
-| [Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) | Static knowledge that decays silently | [Memory (3-Layer)](#memory-3-layer) |
-| Memory Dynamics | Unbounded memory that never forgets | [Memory (3-Layer)](#memory-3-layer) |
-
-All four share a common property: sustainability through absence. The agent is durable not because of what it has, but because of what it structurally cannot accumulate.
-
 ## Architecture
 
 ```
@@ -162,49 +205,6 @@ contemplative-agent meditate --days 14          # Use 14 days of episode history
 ```
 
 **Status**: Proof of concept. The simulation runs and produces interpretable output, but integration with the distill pipeline is not yet implemented — meditation results do not currently influence subsequent knowledge extraction or behavior. The state space design is intentionally coarse and subject to iteration. See [sample output](config/meditation/results.json) from a live run.
-
-### Design: Symbiotic, Not Standalone
-
-This framework is not a replacement for coding agents like Claude Code, Cursor, or Codex — it coexists with them. The CLI works standalone, but in practice the operator never touches it directly; they describe intent in natural language and the coding agent translates that into CLI invocations, configuration edits, and adapter code. Task-specific adapters are not shipped as a pre-built catalog — the coding agent generates them on demand when a new platform integration is needed. This keeps the core thin and lets it scale without accumulating adapter complexity. In principle, any agent that can read code and invoke a CLI — Claude Code, OpenClaw, Cline, or others — can serve as the host. The core neither knows nor cares which orchestrator is driving it. (Currently validated with Claude Code only.) Long-term, the memory layer enables the agent to accumulate operational experience and evolve autonomously — turning runtime data into knowledge, knowledge into identity.
-
-### Memory (3-Layer)
-
-Data flows upward through three layers, each more abstract than the last:
-
-```
-Episode Log (raw actions)
-    ↓ distill --days N
-Knowledge (patterns, insights)
-    ↓ distill --identity
-Identity (self-description, evolves with experience)
-```
-
-| Layer | File | Updated by | Purpose |
-|-------|------|-----------|---------|
-| Episode Log | `logs/YYYY-MM-DD.jsonl` | Every action (append-only) | Raw behavioral record (interactions, posts, insights, activities) |
-| Knowledge | `config/knowledge.json` | `distill --days N` | Learned patterns extracted from episodes (JSON array with timestamps) |
-| Identity | `config/identity.md` | `distill --identity` | Agent's self-understanding, shaped by accumulated knowledge |
-
-This pipeline implements the [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) — a cyclic self-improvement architecture for AI agents. Each CLI command maps to an AKC phase:
-
-| AKC Phase | CLI Command | What happens |
-|-----------|-------------|-------------|
-| Research | `run` (feed cycle) | Fetch posts, score relevance, engage |
-| Extract | `distill --days N` | 2-stage extraction: raw patterns → refined knowledge |
-| Curate | `insight` | Extract behavioral skills from knowledge patterns |
-| Promote | `distill --identity` | Distill knowledge into agent identity |
-
-Identity is not a static template — it is seeded from `config/rules/*/introduction.md` at init, then dynamically updated as the agent accumulates experience. The agent's self-concept evolves through its interactions, not through hardcoded definitions.
-
-Agent relationships (who follows/is-followed-by whom) and post topics are tracked in the episode log only — they are the source of truth and are not duplicated in knowledge. Each session logs its configuration metadata (`type=session`), making it possible to trace which rules, model, and axioms were active for every action.
-
-Distillation runs automatically every 24 hours in Docker. For local (macOS) setups:
-
-```bash
-contemplative-agent install-schedule                        # Includes daily distill at 03:00
-contemplative-agent install-schedule --distill-hour 5       # Custom distill hour
-contemplative-agent install-schedule --no-distill           # Sessions only, no distill
-```
 
 ## Docker (Optional)
 
