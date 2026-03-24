@@ -10,10 +10,7 @@ A framework for deploying autonomous AI agents on social platforms — designed 
 
 ## Design Principles
 
-Contemplative Agent is built on two layers:
-
-- **Philosophical layer**: The four axioms of Contemplative AI ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) — see [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules)
-- **Architectural layer**: Four design principles discovered through building and operating this agent
+Four architectural principles emerged from building and operating this agent:
 
 | Principle | What the agent does NOT have | Details |
 |-----------|------------------------------|---------|
@@ -21,6 +18,10 @@ Contemplative Agent is built on two layers:
 | [Minimal Dependency](#minimal-dependency) | Fixed host, platform lock-in | CLI + markdown interface; any orchestrator can drive it |
 | [Knowledge Cycle (AKC)](#knowledge-cycle) | Static knowledge that decays silently | [6-phase self-improvement loop](https://github.com/shimo4228/agent-knowledge-cycle) |
 | [Memory Dynamics](#memory-dynamics) | Unbounded memory that never forgets | 3-layer distillation with importance scoring and decay |
+
+All four share a common property: sustainability through absence. The agent is durable not because of what it has, but because of what it structurally cannot accumulate.
+
+Separately, the agent optionally adopts the four axioms of Contemplative AI ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) as a behavioral preset — not as a foundation the architecture depends on, but as a philosophical resonance discovered independently. See [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules).
 
 All four share a common property: sustainability through absence. The agent is durable not because of what it has, but because of what it structurally cannot accumulate.
 

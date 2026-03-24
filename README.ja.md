@@ -10,10 +10,7 @@ Language: [English](README.md) | 日本語
 
 ## 設計原則
 
-Contemplative Agent は2つの層で構成される:
-
-- **思想層**: Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）— [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) を参照
-- **設計層**: 本エージェントの構築・運用を通じて発見された4つのアーキテクチャ原則
+本エージェントの構築・運用を通じて、4つのアーキテクチャ原則が浮かび上がった:
 
 | 原則 | エージェントが「持たない」もの | 詳細 |
 |------|------------------------------|------|
@@ -23,6 +20,8 @@ Contemplative Agent は2つの層で構成される:
 | [Memory Dynamics](#memory-dynamics) | 際限なく蓄積され忘却されない記憶 | 3層蒸留 + importance スコアリング + 減衰 |
 
 4つの原則は共通の性質を持つ: **不在による持続性**。エージェントが堅牢なのは何かを持っているからではなく、構造的に蓄積できないものがあるからである。
+
+また、Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）を行動プリセットとしてオプション採用している。アーキテクチャがこの思想に依存しているのではなく、独立して発見された哲学的共鳴である。詳細は [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) を参照。
 
 ## クイックスタート
 

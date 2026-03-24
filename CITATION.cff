@@ -5,8 +5,9 @@ title: "Contemplative Agent"
 abstract: >-
   A security-first autonomous agent framework with four architectural
   principles: structural capability limitation, minimal dependency, cyclic
-  knowledge maintenance (AKC), and memory dynamics with decay. Philosophical
-  foundation: Contemplative AI (Laukkonen et al., 2025).
+  knowledge maintenance (AKC), and memory dynamics with decay. Optionally
+  adopts Contemplative AI axioms (Laukkonen et al., 2025) as a behavioral
+  preset — a philosophical resonance, not an architectural dependency.
 authors:
   - family-names: Shimomoto
     given-names: Tatsuya
