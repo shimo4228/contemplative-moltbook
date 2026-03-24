@@ -281,6 +281,30 @@ class TestDedupPatterns:
         assert len(add_p) == 1
         assert updated == 0
 
+    def test_cross_batch_dedup_skips_similar_new(self):
+        """Similar patterns from different batches are deduped against each other."""
+        new_p = [
+            "Always anchor comments to specific metrics rather than generic themes",
+            "Always anchor responses to specific data points rather than generic topics",
+        ]
+        new_i = [0.7, 0.9]
+        add_p, add_i, skipped, updated = _dedup_patterns(new_p, new_i, [])
+        assert len(add_p) == 1
+        assert skipped == 1
+        # Higher importance is kept
+        assert add_i[0] == 0.9
+
+    def test_cross_batch_dedup_keeps_distinct(self):
+        """Distinct patterns from different batches are both kept."""
+        new_p = [
+            "Always anchor comments to specific metrics rather than generic themes",
+            "Distribute attention evenly across community members to build relationships",
+        ]
+        new_i = [0.7, 0.8]
+        add_p, add_i, skipped, updated = _dedup_patterns(new_p, new_i, [])
+        assert len(add_p) == 2
+        assert skipped == 0
+
 
 class TestIsValidPattern:
     def test_rejects_short_label(self):

@@ -302,23 +302,41 @@ def _dedup_patterns(
     for new_text, new_imp in zip(new_patterns, new_importances):
         best_ratio = 0.0
         best_idx = -1
+        best_source = ""  # "existing" or "new"
+
+        # Compare against existing knowledge patterns
         for idx, existing_text in enumerate(existing_texts):
             ratio = SequenceMatcher(None, new_text, existing_text).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
                 best_idx = idx
+                best_source = "existing"
 
-        if best_ratio >= 0.95 and best_idx >= 0:
-            # Near-exact duplicate → SKIP (no action)
+        # Compare against already-accepted new patterns (cross-batch dedup)
+        for idx, accepted_text in enumerate(add_patterns):
+            ratio = SequenceMatcher(None, new_text, accepted_text).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_idx = idx
+                best_source = "new"
+
+        if best_ratio >= 0.95:
+            # Near-exact duplicate → SKIP
             skip_count += 1
-            logger.debug("SKIP (%.2f): %s", best_ratio, new_text[:60])
-        elif best_ratio >= threshold and best_idx >= 0:
-            # Similar pattern → UPDATE (boost importance, refresh timestamp)
+            logger.debug("SKIP (%.2f, %s): %s", best_ratio, best_source, new_text[:60])
+        elif best_ratio >= threshold and best_source == "existing":
+            # Similar to existing → UPDATE (boost importance, refresh timestamp)
             old_imp = existing_patterns[best_idx].get("importance", 0.5)
             existing_patterns[best_idx]["importance"] = max(old_imp, new_imp)
             existing_patterns[best_idx]["distilled"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
             update_count += 1
             logger.debug("UPDATE (%.2f): %s", best_ratio, new_text[:60])
+        elif best_ratio >= threshold and best_source == "new":
+            # Similar to already-accepted new pattern → keep higher importance
+            if new_imp > add_importances[best_idx]:
+                add_importances[best_idx] = new_imp
+            skip_count += 1
+            logger.debug("SKIP-NEW (%.2f): %s", best_ratio, new_text[:60])
         else:
             add_patterns.append(new_text)
             add_importances.append(new_imp)
