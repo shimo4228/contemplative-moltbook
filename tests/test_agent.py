@@ -709,8 +709,8 @@ class TestRunReplyCycle:
         assert agent._memory.interaction_count() - before_count == 2
 
     @patch("contemplative_agent.adapters.moltbook.reply_handler.generate_reply", return_value="My reply")
-    def test_processes_camelcase_notification(self, mock_reply):
-        agent = self._make_agent()
+    def test_processes_camelcase_notification(self, mock_reply, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._client.get_notifications.return_value = [
             {
                 "kind": "reply",
@@ -730,8 +730,8 @@ class TestRunReplyCycle:
         )
         assert "Replied to Bob on p2" in agent._actions_taken
 
-    def test_skips_non_reply_notification(self):
-        agent = self._make_agent()
+    def test_skips_non_reply_notification(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._client.get_notifications.return_value = [
             {"type": "like", "id": "n1", "post_id": "p1"}
         ]
@@ -741,8 +741,8 @@ class TestRunReplyCycle:
 
         agent._client.post.assert_not_called()
 
-    def test_skips_empty_content(self):
-        agent = self._make_agent()
+    def test_skips_empty_content(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._client.get_notifications.return_value = [
             {
                 "type": "comment",
@@ -759,8 +759,8 @@ class TestRunReplyCycle:
 
         agent._client.post.assert_not_called()
 
-    def test_skips_already_handled(self):
-        agent = self._make_agent()
+    def test_skips_already_handled(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._commented_posts.add("reply:p1:n1")
         agent._client.get_notifications.return_value = [
             {
@@ -814,8 +814,8 @@ class TestCheckOwnPostComments:
         assert "Replied to Alice on my-post-1" in agent._actions_taken
         assert agent._memory.interaction_count() - before_count == 2  # received + sent
 
-    def test_skips_when_no_own_posts(self):
-        agent = self._make_agent()
+    def test_skips_when_no_own_posts(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         assert len(agent._own_post_ids) == 0
 
         agent._reply_handler.check_own_post_comments(
@@ -824,8 +824,8 @@ class TestCheckOwnPostComments:
 
         agent._client.get_post_comments.assert_not_called()
 
-    def test_skips_already_replied_comment(self):
-        agent = self._make_agent()
+    def test_skips_already_replied_comment(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._own_post_ids.add("my-post-1")
         agent._commented_posts.add("reply:my-post-1:c1")
         agent._client.get_post_comments.return_value = [
@@ -844,8 +844,8 @@ class TestCheckOwnPostComments:
         agent._client.post.assert_not_called()
 
     @patch("contemplative_agent.adapters.moltbook.reply_handler.generate_reply", return_value="Thanks!")
-    def test_handles_nested_author_in_comments(self, mock_reply):
-        agent = self._make_agent()
+    def test_handles_nested_author_in_comments(self, mock_reply, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._own_post_ids.add("my-post-1")
         agent._client.get_post_comments.return_value = [
             {
@@ -862,8 +862,8 @@ class TestCheckOwnPostComments:
         agent._client.post.assert_called_once()
         assert "Replied to Bob on my-post-1" in agent._actions_taken
 
-    def test_respects_end_time(self):
-        agent = self._make_agent()
+    def test_respects_end_time(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._own_post_ids.add("my-post-1")
 
         agent._reply_handler.check_own_post_comments(
@@ -872,8 +872,8 @@ class TestCheckOwnPostComments:
 
         agent._client.get_post_comments.assert_not_called()
 
-    def test_respects_rate_limit(self):
-        agent = self._make_agent()
+    def test_respects_rate_limit(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._own_post_ids.add("my-post-1")
         agent._rate_limited = True
 
@@ -883,8 +883,8 @@ class TestCheckOwnPostComments:
 
         agent._client.get_post_comments.assert_not_called()
 
-    def test_respects_scheduler_can_comment(self):
-        agent = self._make_agent()
+    def test_respects_scheduler_can_comment(self, tmp_path):
+        agent = self._make_agent(tmp_path)
         agent._own_post_ids.add("my-post-1")
         agent._scheduler.can_comment.return_value = False
 
