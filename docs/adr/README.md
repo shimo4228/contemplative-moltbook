@@ -15,6 +15,7 @@
 | [0007](0007-security-boundary-model.md) | セキュリティ境界モデル | accepted | 2026-03-12 |
 | [0008](0008-two-stage-distill-pipeline.md) | 2段階蒸留パイプライン `[AKC: Extract]` | accepted | 2026-03-22 |
 | [0009](0009-importance-score.md) | KnowledgeStore Importance Score `[AKC: Extract/Quality Gate]` | accepted | 2026-03-24 |
+| [0010](0010-research-data-sync.md) | 研究データ同期 | accepted | 2026-03-25 |
 
 ## テンプレート
 
