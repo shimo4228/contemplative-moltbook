@@ -10,12 +10,18 @@ src/contemplative_agent/
   core/               # プラットフォーム非依存 (15 modules)
   adapters/moltbook/  # Moltbook 固有 (11 modules)
   adapters/meditation/ # Active Inference 瞑想 (4 modules, experimental)
-config/
-  constitution/       # 倫理原則 (CCAI 四公理, rules/ とは独立)
-  rules/              # 行動ルール (rules-distill 出力先)
-  templates/          # identity シード用リファレンス
+config/                 # テンプレートのみ (git 管理)
   prompts/            # LLM プロンプトテンプレート
-  launchd/            # macOS スケジュール設定
+  templates/          # identity シード + constitution デフォルト
+  domain.json         # ドメイン設定
+~/.config/moltbook/     # ランタイムデータ (MOLTBOOK_HOME, ユーザー固有)
+  identity.md         # 人格定義 (蒸留で更新)
+  knowledge.json      # 蒸留済みパターン
+  constitution/       # 倫理原則 (init でデフォルトコピー、コマンドで変更可)
+  skills/             # 行動スキル (insight で生成)
+  rules/              # 行動ルール (rules-distill で生成)
+  history/            # 蒸留スナップショット
+  logs/               # エピソードログ (JSONL)
 tests/                # テストスイート
 docs/adr/             # 設計判断の記録 (→ docs/adr/README.md)
 docs/CODEMAPS/        # アーキテクチャ詳細 (→ docs/CODEMAPS/INDEX.md)
@@ -43,7 +49,7 @@ uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 
 # CLI
 contemplative-agent --help
-contemplative-agent init                          # identity.md + knowledge.json 作成
+contemplative-agent init                          # MOLTBOOK_HOME に identity, knowledge, constitution 作成
 contemplative-agent distill --dry-run             # 記憶蒸留 (dry run)
 contemplative-agent distill --days 3              # 3日分を蒸留
 contemplative-agent distill-identity --dry-run    # アイデンティティ蒸留 (dry run, 手動のみ)
@@ -68,7 +74,7 @@ contemplative-agent --domain-config path/to/domain.json run --session 30
 - Python 3.9+ (venv は 3.13.5)
 - 依存: requests, numpy。LLM は Ollama (qwen3.5:9b, localhost or Docker service)
 - ビルド: hatch
-- 35 モジュール、~6900 LOC
+- 30 モジュール、~6900 LOC
 
 ### Docker
 
@@ -81,7 +87,8 @@ docker compose run agent command distill --days 3       # CLI パススルー
 docker compose down                                     # 停止
 ```
 
-- `CONTEMPLATIVE_CONFIG_DIR` env var で config/ パスをオーバーライド可能
+- `CONTEMPLATIVE_CONFIG_DIR` env var で config/ (テンプレート) パスをオーバーライド可能
+- `MOLTBOOK_HOME` env var でランタイムデータパスをオーバーライド可能 (default: `~/.config/moltbook/`)
 - `OLLAMA_TRUSTED_HOSTS` env var で Ollama ホスト名許可リストを拡張可能
 - `docker-compose.override.yml` で既存データディレクトリをバインドマウント可能
 
@@ -102,7 +109,7 @@ GET 60 req/min、POST 30 req/min（分離クォータ）。3層防御（`has_rea
 
 ## テスト
 
-684件全パス (2026-03-25)。カバレッジ詳細は [docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md) を参照。
+685件全パス (2026-03-25)。カバレッジ詳細は [docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md) を参照。
 
 ## メモリアーキテクチャ
 

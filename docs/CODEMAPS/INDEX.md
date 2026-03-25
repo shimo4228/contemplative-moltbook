@@ -2,7 +2,7 @@
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-03-22 | **Codebase**: 34 modules, ~7400 LOC, 673 tests
+**Last Updated**: 2026-03-25 | **Codebase**: 30 modules, ~6900 LOC, 685 tests
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (34 modules, ~7400 LOC, 673 tests)
+- Project type & stats (30 modules, ~6900 LOC, 685 tests)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -118,17 +118,17 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 34 (14 core + 15 adapters/moltbook + 4 adapters/meditation + cli) |
-| LOC | ~7400 |
+| Total modules | 30 (14 core + 11 adapters/moltbook + 4 adapters/meditation + cli) |
+| LOC | ~6900 |
 | Test files | 17 |
-| Test count | 673 |
+| Test count | 685 |
 | Core modules | 14 (platform-independent) |
-| Moltbook adapter modules | 11 + 4 __init__ |
-| Meditation adapter modules | 4 + 1 __init__ |
+| Moltbook adapter modules | 11 |
+| Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) |
 | CLI commands | 12 (init, register, status, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule, rules-distill) |
 | Prompt templates | 17 |
-| Config templates | 2 (config/constitution/) |
+| Config templates | 2 (config/templates/constitution/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |
 
 ---
@@ -138,8 +138,8 @@ Package versions, transitive dependencies, security notes.
 - **CLAUDE.md** — Project conventions, setup, Docker, security policy
 - **MEMORY.md** — Architecture decisions, key design patterns, feedback log
 - **README.md** — User-facing overview, quickstart
-- **config/knowledge.json** — Learned patterns (output of distill)
-- **config/constitution/contemplative-axioms.md** — Constitutional clauses (Laukkonen et al. 2025)
+- **MOLTBOOK_HOME/knowledge.json** — Learned patterns (output of distill)
+- **config/templates/constitution/contemplative-axioms.md** — Constitutional clauses default (Laukkonen et al. 2025)
 
 ---
 
@@ -152,4 +152,4 @@ Codemaps are generated fresh when:
 - LLM function additions
 - Security policy updates
 
-Last full scan: 2026-03-24 (all 34 modules, 673 tests verified)
+Last full scan: 2026-03-25 (all 30 modules, 685 tests verified)
