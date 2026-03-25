@@ -12,9 +12,9 @@ accepted
 ## Decision
 独自解釈ファイル5つを**全削除**し、論文 Appendix C の constitutional clauses を**そのまま（verbatim）** `config/rules/contemplative/contemplative-axioms.md` に収録。
 
-- `RulesContent.constitutional_clauses` フィールドで管理
+- `load_constitution()` from `config/constitution/` で管理
 - `configure(axiom_prompt=...)` → `_load_identity()` で system prompt に追記
-- `--no-axioms` / `--rules-dir config/rules/default/` で公理なし運用可能（A/Bテスト対応）
+- `--no-axioms` / `--constitution-dir` で公理なし運用可能（A/Bテスト対応）
 
 ## Alternatives Considered
 - **独自解釈を修正して維持**: 論文の趣旨に合わせて書き直す案。しかし「何が正しい解釈か」の判断自体が恣意的になるリスク
@@ -23,5 +23,5 @@ accepted
 ## Consequences
 - 論文著者チーム（Laukkonen）に見せても恥ずかしくない実装になった
 - 公理の追加・修正は論文のアップデートに追従するだけ
-- `--rules-dir` で contemplative/default を切り替えるだけでベースライン比較が可能
+- `--constitution-dir` で contemplative/default を切り替えるだけでベースライン比較が可能
 - contemplative-agent-rules リポジトリで 3-way ベンチマーク（baseline, custom, paper_faithful）を実施済み

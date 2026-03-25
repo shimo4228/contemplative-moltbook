@@ -73,7 +73,7 @@ Obfuscated math solver. 7 consecutive failures → auto-stop session.
 
 ## ContentManager (content.py, 130L)
 
-Introduction rendering, axiom injection, content dedup (similarity >0.8 → skip).
+Axiom injection, content dedup (similarity >0.8 → skip).
 
 ---
 

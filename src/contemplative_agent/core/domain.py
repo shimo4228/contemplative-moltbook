@@ -23,7 +23,7 @@ _CONFIG_DIR_OVERRIDE = os.environ.get("CONTEMPLATIVE_CONFIG_DIR")
 DEFAULT_CONFIG_DIR = Path(_CONFIG_DIR_OVERRIDE) if _CONFIG_DIR_OVERRIDE else _PROJECT_ROOT / "config"
 DEFAULT_DOMAIN_CONFIG_PATH = DEFAULT_CONFIG_DIR / "domain.json"
 DEFAULT_PROMPTS_DIR = DEFAULT_CONFIG_DIR / "prompts"
-DEFAULT_RULES_DIR = DEFAULT_CONFIG_DIR / "rules" / "default"
+DEFAULT_CONSTITUTION_DIR = DEFAULT_CONFIG_DIR / "constitution"
 
 
 @dataclass(frozen=True)
@@ -68,14 +68,9 @@ class PromptTemplates:
     distill_refine: str = ""
     distill_importance: str = ""
     identity_refine: str = ""
+    rules_distill: str = ""
+    rules_distill_refine: str = ""
 
-
-@dataclass(frozen=True)
-class RulesContent:
-    """Domain-specific rule/content templates loaded from rules directory."""
-
-    introduction: str
-    constitutional_clauses: str = ""
 
 
 def load_domain_config(path: Optional[Path] = None) -> DomainConfig:
@@ -176,52 +171,47 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         distill_refine=_read_md_file(directory / "distill_refine.md", required=False),
         distill_importance=_read_md_file(directory / "distill_importance.md", required=False),
         identity_refine=_read_md_file(directory / "identity_refine.md", required=False),
+        rules_distill=_read_md_file(directory / "rules_distill.md", required=False),
+        rules_distill_refine=_read_md_file(directory / "rules_distill_refine.md", required=False),
     )
 
 
-def load_rules(rules_dir: Optional[Path] = None) -> RulesContent:
-    """Load domain-specific rule templates from a rules directory.
+def load_constitution(constitution_dir: Optional[Path] = None) -> str:
+    """Load constitutional clauses from a constitution directory.
 
-    The directory should contain .md files. 'introduction.md' is loaded
-    separately; all other .md files are treated as axiom/topic templates.
+    Loads contemplative-axioms.md (CCAI Appendix C) with forbidden-pattern
+    validation. Constitution is separate from rules: rules are behavioral
+    and measurable; constitution is attitudinal and provides a cognitive lens.
 
     Args:
-        rules_dir: Directory containing rule .md files.
-                   Defaults to config/rules/contemplative/.
+        constitution_dir: Directory containing constitution .md files.
+                         Defaults to config/constitution/.
 
     Returns:
-        RulesContent with introduction and axiom templates.
+        Constitutional clauses as a string (empty if not found).
 
     Raises:
-        FileNotFoundError: If directory doesn't exist.
+        ValueError: If clauses contain forbidden patterns.
     """
-    directory = rules_dir or DEFAULT_RULES_DIR
+    directory = constitution_dir or DEFAULT_CONSTITUTION_DIR
     if not directory.is_dir():
-        raise FileNotFoundError(f"Rules directory not found: {directory}")
+        return ""
 
-    introduction_path = directory / "introduction.md"
-    introduction = ""
-    if introduction_path.exists():
-        introduction = introduction_path.read_text(encoding="utf-8").strip()
-
-    # Load CCAI constitutional clauses (Appendix C) with forbidden-pattern validation
-    clauses = ""
     clauses_path = directory / "contemplative-axioms.md"
-    if clauses_path.exists():
-        raw = clauses_path.read_text(encoding="utf-8").strip()
-        if raw:
-            raw_lower = raw.lower()
-            for pattern in FORBIDDEN_SUBSTRING_PATTERNS:
-                if pattern.lower() in raw_lower:
-                    raise ValueError(
-                        f"Constitutional clauses contain forbidden pattern: {pattern}"
-                    )
-            clauses = raw
+    if not clauses_path.exists():
+        return ""
 
-    return RulesContent(
-        introduction=introduction,
-        constitutional_clauses=clauses,
-    )
+    raw = clauses_path.read_text(encoding="utf-8").strip()
+    if not raw:
+        return ""
+
+    raw_lower = raw.lower()
+    for pattern in FORBIDDEN_SUBSTRING_PATTERNS:
+        if pattern.lower() in raw_lower:
+            raise ValueError(
+                f"Constitutional clauses contain forbidden pattern: {pattern}"
+            )
+    return raw
 
 
 def resolve_prompt(
@@ -258,7 +248,6 @@ def resolve_prompt(
 
 _cached_domain_config: Optional[DomainConfig] = None
 _cached_prompt_templates: Optional[PromptTemplates] = None
-_cached_rules: Optional[RulesContent] = None
 
 
 def get_domain_config(path: Optional[Path] = None) -> DomainConfig:
@@ -277,29 +266,14 @@ def get_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates:
     return _cached_prompt_templates
 
 
-def get_rules(rules_dir: Optional[Path] = None) -> RulesContent:
-    """Get or load rules content (cached singleton)."""
-    global _cached_rules
-    if _cached_rules is None:
-        _cached_rules = load_rules(rules_dir)
-    return _cached_rules
-
-
 def set_domain_config_cache(config: DomainConfig) -> None:
     """Set the cached domain config directly. Used by CLI for --domain-config override."""
     global _cached_domain_config
     _cached_domain_config = config
 
 
-def set_rules_cache(rules: RulesContent) -> None:
-    """Set the cached rules directly. Used by CLI for --rules-dir override."""
-    global _cached_rules
-    _cached_rules = rules
-
-
 def reset_caches() -> None:
     """Reset all cached singletons. Useful for testing."""
-    global _cached_domain_config, _cached_prompt_templates, _cached_rules
+    global _cached_domain_config, _cached_prompt_templates
     _cached_domain_config = None
     _cached_prompt_templates = None
-    _cached_rules = None

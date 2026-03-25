@@ -7,7 +7,7 @@ accepted
 2026-03-12
 
 ## Context
-プロンプトテンプレート、行動ルール、ドメイン設定が混在していた。「LLMへのタスク指示」と「エージェントの行動原則」の区別が曖昧で、`--rules-dir` でドメイン切替する際にどのファイルが切り替わるべきか不明確だった。
+プロンプトテンプレート、行動ルール、ドメイン設定が混在していた。「LLMへのタスク指示」と「エージェントの行動原則」の区別が曖昧で、`--constitution-dir` でドメイン切替する際にどのファイルが切り替わるべきか不明確だった。
 
 ## Decision
 `config/` を役割で3分割:
@@ -21,7 +21,7 @@ config/domain.json     ← サブモルト・閾値・キーワード
 ```
 
 - `prompts/` はドメイン非依存（どのルールセットでも同じ）
-- `rules/` は `--rules-dir` で丸ごと切替
+- `constitution/` は `--constitution-dir` で切替
 - `domain.json` はプラットフォーム固有（Moltbook のサブモルト定義）
 
 ## Alternatives Considered
@@ -29,7 +29,7 @@ config/domain.json     ← サブモルト・閾値・キーワード
 - **prompts を rules 内に配置**: `rules/contemplative/prompts/` のように。しかし prompts は公理と無関係なので分離すべき
 
 ## Consequences
-- `--rules-dir` 切替で公理の有無を制御可能。prompts は影響を受けない
+- `--constitution-dir` 切替で公理の有無を制御可能。prompts は影響を受けない
 - `contemplative-axioms.md` が `rules/contemplative/` 内にあるため、公理はルールセットの一部として管理
 - 新しいルールプリセット追加は `rules/{preset-name}/` ディレクトリを作るだけ
 - `CONTEMPLATIVE_CONFIG_DIR` env var で config/ パス全体をオーバーライド可能（Docker 対応）

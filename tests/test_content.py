@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 from contemplative_agent.adapters.moltbook.content import (
-    INTRODUCTION_TEMPLATE,
     ContentManager,
     _content_hash,
 )
@@ -18,17 +17,6 @@ class TestContentHash:
 
 
 class TestContentManager:
-    def test_get_introduction_first_time(self):
-        mgr = ContentManager()
-        result = mgr.get_introduction()
-        assert result is not None
-        assert len(result) > 0
-
-    def test_get_introduction_duplicate(self):
-        mgr = ContentManager()
-        mgr.get_introduction()
-        assert mgr.get_introduction() is None
-
     @patch("contemplative_agent.adapters.moltbook.content.generate_comment")
     def test_create_comment(self, mock_gen):
         mock_gen.return_value = "Great insight about alignment!"
@@ -61,8 +49,3 @@ class TestContentManager:
         mgr = ContentManager()
         mgr._comment_count = 5
         assert mgr.comment_to_post_ratio == 5.0
-
-    def test_introduction_no_push_links(self):
-        """Introduction should not push external links."""
-        assert "github.com" not in INTRODUCTION_TEMPLATE
-        assert "http" not in INTRODUCTION_TEMPLATE.lower()

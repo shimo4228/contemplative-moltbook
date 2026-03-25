@@ -90,11 +90,10 @@ def _build_report(
     lines: List[str] = [f"# Moltbook Activity Report — {date}", ""]
 
     if session_meta:
-        rules = session_meta.get("rules_dir", "unknown")
         domain = session_meta.get("domain", "unknown")
         axioms = "enabled" if session_meta.get("axioms_enabled") else "disabled"
         model = session_meta.get("ollama_model", "unknown")
-        lines.append(f"**Configuration**: rules={rules}, domain={domain}, axioms={axioms}, model={model}")
+        lines.append(f"**Configuration**: domain={domain}, axioms={axioms}, model={model}")
         lines.append("")
 
     if comments:

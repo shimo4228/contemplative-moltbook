@@ -500,35 +500,32 @@ class TestLoadSkills:
         reset_llm_config()
 
     def test_no_skills_dir(self):
-        from contemplative_agent.core.llm import _load_skills
-        assert _load_skills() == ""
+        from contemplative_agent.core.llm import _load_md_files
+        assert _load_md_files(None, "Skill") == ""
 
     def test_empty_skills_dir(self, tmp_path):
-        from contemplative_agent.core.llm import configure, _load_skills
+        from contemplative_agent.core.llm import _load_md_files
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
-        configure(skills_dir=skills_dir)
-        assert _load_skills() == ""
+        assert _load_md_files(skills_dir, "Skill") == ""
 
     def test_loads_skill_files(self, tmp_path):
-        from contemplative_agent.core.llm import configure, _load_skills
+        from contemplative_agent.core.llm import _load_md_files
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
         (skills_dir / "skill-a.md").write_text("# Skill A\nBehavior A")
         (skills_dir / "skill-b.md").write_text("# Skill B\nBehavior B")
-        configure(skills_dir=skills_dir)
-        result = _load_skills()
+        result = _load_md_files(skills_dir, "Skill")
         assert "# Skill A" in result
         assert "# Skill B" in result
 
     def test_skips_forbidden_content(self, tmp_path):
-        from contemplative_agent.core.llm import configure, _load_skills
+        from contemplative_agent.core.llm import _load_md_files
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
         (skills_dir / "good.md").write_text("# Good Skill\nSafe content")
         (skills_dir / "bad.md").write_text("# Bad Skill\napi_key leaked")
-        configure(skills_dir=skills_dir)
-        result = _load_skills()
+        result = _load_md_files(skills_dir, "Skill")
         assert "Good Skill" in result
         assert "Bad Skill" not in result
 
@@ -551,12 +548,11 @@ class TestLoadSkills:
         assert "Learned behavioral skills:" not in identity
 
     def test_skills_sorted_alphabetically(self, tmp_path):
-        from contemplative_agent.core.llm import configure, _load_skills
+        from contemplative_agent.core.llm import _load_md_files
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
         (skills_dir / "2026-03-16-zebra.md").write_text("# Zebra")
         (skills_dir / "2026-03-15-alpha.md").write_text("# Alpha")
-        configure(skills_dir=skills_dir)
-        result = _load_skills()
+        result = _load_md_files(skills_dir, "Skill")
         # sorted() on filename → alpha before zebra
         assert result.index("# Alpha") < result.index("# Zebra")

@@ -30,7 +30,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Topics**:
 - 34-module dependency graph with line counts
 - 20+ key classes (Agent, SessionContext, FeedManager, ReplyHandler, PostPipeline, etc.)
-- CLI commands (init, register, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule)
+- CLI commands (init, register, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule, rules-distill)
 - LLM functions (12 in core/llm.py + insight.py + meditation)
 - Prompt templates (17 templates, domain placeholders)
 - Persistent state files
@@ -126,9 +126,9 @@ Package versions, transitive dependencies, security notes.
 | Moltbook adapter modules | 11 + 4 __init__ |
 | Meditation adapter modules | 4 + 1 __init__ |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) |
-| CLI commands | 12 (init, register, status, introduce, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule) |
+| CLI commands | 12 (init, register, status, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule, rules-distill) |
 | Prompt templates | 17 |
-| Config templates | 2 (rules/contemplative/) |
+| Config templates | 2 (config/constitution/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |
 
 ---
@@ -139,7 +139,7 @@ Package versions, transitive dependencies, security notes.
 - **MEMORY.md** — Architecture decisions, key design patterns, feedback log
 - **README.md** — User-facing overview, quickstart
 - **config/knowledge.json** — Learned patterns (output of distill)
-- **config/rules/contemplative/contemplative-axioms.md** — Constitutional clauses (Laukkonen et al. 2025)
+- **config/constitution/contemplative-axioms.md** — Constitutional clauses (Laukkonen et al. 2025)
 
 ---
 

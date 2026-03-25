@@ -9,7 +9,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 |--------|-----|---------|
 | `_io.py` | 57 | write_restricted(path, mode, content), truncate(path), archive_before_write(path, history_dir) |
 | `config.py` | 26 | FORBIDDEN_SUBSTRING_PATTERNS, VALID_ID_PATTERN, MAX_COMMENT_LENGTH |
-| `domain.py` | 303 | DomainConfig, PromptTemplates, RulesContent loaders |
+| `domain.py` | 303 | DomainConfig, PromptTemplates, constitution loader |
 | `prompts.py` | 55 | Lazy-load proxy to config/prompts/*.md (17 templates) + placeholder resolution |
 | `llm.py` | 367 | Ollama interface, LLM functions, circuit breaker, sanitization |
 | `episode_log.py` | 127 | EpisodeLog (append-only JSONL, read_range with record_type filter) |
@@ -133,10 +133,10 @@ Stage 2 — Refine:
 
 ```python
 domain = DomainConfig.from_json(Path("config/domain.json"))
-rules = domain.load_rules(Path("config/rules/"))
+constitution = domain.load_constitution(Path("config/constitution/"))
 ```
 - `domain.submolts`, `domain.topic_keywords`, `domain.relevance_threshold`
-- `RulesContent`: introduction + constitutional_clauses
+- `load_constitution()`: constitutional clauses
 
 ## Security Model
 

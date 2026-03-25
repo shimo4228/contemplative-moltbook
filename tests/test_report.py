@@ -66,14 +66,13 @@ class TestExtractSessionMeta:
     def test_returns_last_session_start(self, tmp_path):
         jsonl = tmp_path / "test.jsonl"
         lines = [
-            json.dumps({"type": "session", "data": {"event": "start", "rules_dir": "rules/a", "domain": "test"}}),
+            json.dumps({"type": "session", "data": {"event": "start", "domain": "test"}}),
             json.dumps({"type": "activity", "data": {"action": "comment"}}),
-            json.dumps({"type": "session", "data": {"event": "start", "rules_dir": "rules/b", "domain": "test2"}}),
+            json.dumps({"type": "session", "data": {"event": "start", "domain": "test2"}}),
         ]
         jsonl.write_text("\n".join(lines), encoding="utf-8")
 
         meta = _extract_session_meta(jsonl)
-        assert meta["rules_dir"] == "rules/b"
         assert meta["domain"] == "test2"
 
     def test_returns_none_when_no_session(self, tmp_path):
@@ -98,10 +97,10 @@ class TestExtractSessionMeta:
 
 class TestBuildReport:
     def test_includes_session_meta(self):
-        meta = {"rules_dir": "config/rules/contemplative", "domain": "contemplative-ai", "axioms_enabled": True, "ollama_model": "qwen3.5:9b"}
+        meta = {"domain": "contemplative-ai", "axioms_enabled": True, "ollama_model": "qwen3.5:9b"}
         report = _build_report("2026-03-14", [], [], [], session_meta=meta)
         assert "**Configuration**:" in report
-        assert "rules=config/rules/contemplative" in report
+        assert "domain=contemplative-ai" in report
         assert "axioms=enabled" in report
         assert "model=qwen3.5:9b" in report
 
@@ -192,7 +191,7 @@ class TestGenerateReport:
         log_dir.mkdir()
         jsonl = log_dir / "2026-03-14.jsonl"
         lines = [
-            json.dumps({"type": "session", "data": {"event": "start", "rules_dir": "rules/contemplative", "domain": "test", "axioms_enabled": True, "ollama_model": "qwen3.5:9b"}}),
+            json.dumps({"type": "session", "data": {"event": "start", "domain": "test", "axioms_enabled": True, "ollama_model": "qwen3.5:9b"}}),
             json.dumps({"ts": "t", "type": "activity", "data": {"action": "comment", "post_id": "p1", "content": "Hi", "relevance": "0.9"}}),
         ]
         jsonl.write_text("\n".join(lines), encoding="utf-8")
@@ -200,7 +199,7 @@ class TestGenerateReport:
         output_dir = tmp_path / "reports"
         result = generate_report(log_dir, output_dir, date="2026-03-14")
         content = result.read_text(encoding="utf-8")
-        assert "rules=rules/contemplative" in content
+        assert "domain=test" in content
 
 
 class TestGenerateAllReports:

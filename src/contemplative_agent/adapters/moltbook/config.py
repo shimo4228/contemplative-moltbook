@@ -29,6 +29,7 @@ IDENTITY_PATH = _CONFIG_DIR / "identity.md"
 KNOWLEDGE_PATH = _CONFIG_DIR / "knowledge.json"
 AGENTS_PATH = MOLTBOOK_DATA_DIR / "agents.json"
 SKILLS_DIR = _CONFIG_DIR / "skills"
+RULES_DIR = _CONFIG_DIR / "rules"
 EPISODE_RETENTION_DAYS = 30
 
 # --- Agent pacing ---

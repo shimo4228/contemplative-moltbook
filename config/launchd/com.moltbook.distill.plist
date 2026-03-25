@@ -13,7 +13,6 @@
 		<string>distill</string>
 		<string>--days</string>
 		<string>1</string>
-		<string>--identity</string>
 	</array>
 
 	<key>WorkingDirectory</key>

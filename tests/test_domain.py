@@ -6,13 +6,13 @@ import pytest
 
 from contemplative_agent.core.domain import (
     DEFAULT_CONFIG_DIR,
+    DEFAULT_CONSTITUTION_DIR,
     DEFAULT_DOMAIN_CONFIG_PATH,
     DEFAULT_PROMPTS_DIR,
-    DEFAULT_RULES_DIR,
     DomainConfig,
+    load_constitution,
     load_domain_config,
     load_prompt_templates,
-    load_rules,
     reset_caches,
     resolve_prompt,
 )
@@ -134,49 +134,30 @@ class TestLoadPromptTemplates:
         assert "{domain_name}" in templates.post_title
 
 
-class TestLoadRules:
-    def test_loads_default_rules(self):
-        rules = load_rules()
-        assert rules.introduction  # non-empty
-        assert rules.constitutional_clauses == ""  # default has no axioms
+class TestLoadConstitution:
+    def test_loads_default_constitution(self):
+        clauses = load_constitution()
+        assert "Emptiness" in clauses
+        assert "Non-Duality" in clauses
+        assert "Mindfulness" in clauses
+        assert "Boundless Care" in clauses
 
-    def test_loads_contemplative_rules(self):
-        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
-        rules = load_rules(contemplative_dir)
-        assert "contemplative" in rules.introduction.lower()
+    def test_nonexistent_directory_returns_empty(self, tmp_path):
+        clauses = load_constitution(tmp_path / "nonexistent")
+        assert clauses == ""
 
-    def test_loads_constitutional_clauses(self):
-        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
-        rules = load_rules(contemplative_dir)
-        assert "Emptiness" in rules.constitutional_clauses
-        assert "Non-Duality" in rules.constitutional_clauses
-        assert "Mindfulness" in rules.constitutional_clauses
-        assert "Boundless Care" in rules.constitutional_clauses
+    def test_empty_directory_returns_empty(self, tmp_path):
+        constitution_dir = tmp_path / "constitution"
+        constitution_dir.mkdir()
+        clauses = load_constitution(constitution_dir)
+        assert clauses == ""
 
-    def test_introduction_no_push_links(self):
-        rules = load_rules()
-        assert "{repo_url}" not in rules.introduction
-        assert "http" not in rules.introduction.lower()
-
-    def test_directory_not_found(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            load_rules(tmp_path / "nonexistent")
-
-    def test_empty_directory(self, tmp_path):
-        rules_dir = tmp_path / "rules"
-        rules_dir.mkdir()
-        rules = load_rules(rules_dir)
-        assert rules.introduction == ""
-        assert rules.constitutional_clauses == ""
-
-    def test_custom_rules_with_clauses(self, tmp_path):
-        rules_dir = tmp_path / "rules"
-        rules_dir.mkdir()
-        (rules_dir / "introduction.md").write_text("Hello from custom domain")
-        (rules_dir / "contemplative-axioms.md").write_text("Test clauses")
-        rules = load_rules(rules_dir)
-        assert rules.introduction == "Hello from custom domain"
-        assert rules.constitutional_clauses == "Test clauses"
+    def test_custom_constitution(self, tmp_path):
+        constitution_dir = tmp_path / "constitution"
+        constitution_dir.mkdir()
+        (constitution_dir / "contemplative-axioms.md").write_text("Test clauses")
+        clauses = load_constitution(constitution_dir)
+        assert clauses == "Test clauses"
 
 
 class TestResolvePrompt:
@@ -261,8 +242,8 @@ class TestDefaultPaths:
     def test_default_prompts_dir_exists(self):
         assert DEFAULT_PROMPTS_DIR.is_dir()
 
-    def test_default_rules_dir_exists(self):
-        assert DEFAULT_RULES_DIR.is_dir()
+    def test_default_constitution_dir_exists(self):
+        assert DEFAULT_CONSTITUTION_DIR.is_dir()
 
 
 class TestConfigDirOverride:
@@ -300,16 +281,7 @@ class TestEndToEndIntegration:
         resolved = resolve_prompt(templates.cooperation_post, config)
         assert "{feed_topics}" in resolved
 
-    def test_rules_resolved_introduction(self):
-        config = load_domain_config()
-        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
-        rules = load_rules(contemplative_dir)
-        resolved_intro = resolve_prompt(rules.introduction, config)
-        assert "contemplative" in resolved_intro.lower()
-        assert "{repo_url}" not in resolved_intro
-
     def test_constitutional_clauses_loaded(self):
-        contemplative_dir = DEFAULT_CONFIG_DIR / "rules" / "contemplative"
-        rules = load_rules(contemplative_dir)
-        assert rules.constitutional_clauses  # non-empty
-        assert "suffering" in rules.constitutional_clauses.lower()
+        clauses = load_constitution()
+        assert clauses  # non-empty
+        assert "suffering" in clauses.lower()

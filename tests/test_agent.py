@@ -218,70 +218,6 @@ class TestDoSolve:
         assert "Failed" in captured.out
 
 
-class TestDoIntroduce:
-    def _make_agent(self):
-        agent = Agent(autonomy=AutonomyLevel.AUTO)
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-        return agent
-
-    @patch("contemplative_agent.adapters.moltbook.agent.ContentManager")
-    def test_introduce_success(self, mock_cm_cls):
-        mock_cm = MagicMock()
-        mock_cm.get_introduction.return_value = "Hello world"
-        mock_cm_cls.return_value = mock_cm
-
-        agent = Agent(autonomy=AutonomyLevel.AUTO)
-        agent._content = mock_cm
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-
-        resp_mock = MagicMock()
-        resp_mock.json.return_value = {"id": "post-123"}
-        agent._client.post.return_value = resp_mock
-
-        result = agent.do_introduce()
-        assert result == "post-123"
-        assert "Posted introduction" in agent._actions_taken
-
-    @patch("contemplative_agent.adapters.moltbook.agent.ContentManager")
-    def test_introduce_already_posted(self, mock_cm_cls):
-        mock_cm = MagicMock()
-        mock_cm.get_introduction.return_value = None
-        mock_cm_cls.return_value = mock_cm
-
-        agent = Agent(autonomy=AutonomyLevel.AUTO)
-        agent._content = mock_cm
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-
-        result = agent.do_introduce()
-        assert result is None
-
-    def test_introduce_client_error(self):
-        from contemplative_agent.adapters.moltbook.client import MoltbookClientError
-
-        agent = Agent(autonomy=AutonomyLevel.AUTO)
-        agent._content = MagicMock()
-        agent._content.get_introduction.return_value = "Hello"
-        agent._client = MagicMock()
-        agent._client.post.side_effect = MoltbookClientError("fail")
-        agent._scheduler = MagicMock()
-
-        result = agent.do_introduce()
-        assert result is None
-
-    @patch("builtins.input", return_value="n")
-    def test_introduce_user_declines(self, mock_input):
-        agent = Agent(autonomy=AutonomyLevel.APPROVE)
-        agent._content = MagicMock()
-        agent._content.get_introduction.return_value = "Hello"
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-
-        result = agent.do_introduce()
-        assert result is None
-
 
 class TestFetchFeed:
     def test_fetch_success(self):
@@ -707,37 +643,7 @@ class TestExtractNotificationFields:
 
 
 class TestOwnPostIdTracking:
-    """Tests that own post IDs are captured from do_introduce and _run_dynamic_post."""
-
-    def test_introduce_captures_post_id(self):
-        agent = Agent(autonomy=AutonomyLevel.AUTO)
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-        agent._content = MagicMock()
-        agent._content.get_introduction.return_value = "Hello world"
-
-        resp_mock = MagicMock()
-        resp_mock.json.return_value = {"id": "intro-post-1"}
-        agent._client.post.return_value = resp_mock
-
-        result = agent.do_introduce()
-        assert result == "intro-post-1"
-        assert "intro-post-1" in agent._own_post_ids
-
-    def test_introduce_no_id_in_response(self):
-        agent = Agent(autonomy=AutonomyLevel.AUTO)
-        agent._client = MagicMock()
-        agent._scheduler = MagicMock()
-        agent._content = MagicMock()
-        agent._content.get_introduction.return_value = "Hello world"
-
-        resp_mock = MagicMock()
-        resp_mock.json.return_value = {}
-        agent._client.post.return_value = resp_mock
-
-        result = agent.do_introduce()
-        assert result is None
-        assert len(agent._own_post_ids) == 0
+    """Tests that own post IDs are captured from _run_dynamic_post."""
 
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Title")
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)

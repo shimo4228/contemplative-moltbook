@@ -63,18 +63,6 @@ class TestMainStatus:
         mock_agent.do_status.assert_called_once()
 
 
-class TestMainIntroduce:
-    @patch("contemplative_agent.cli.Agent")
-    def test_introduce(self, mock_agent_cls):
-        mock_agent = MagicMock()
-        mock_agent_cls.return_value = mock_agent
-
-        with patch("sys.argv", ["contemplative-agent", "introduce"]):
-            main()
-
-        mock_agent.do_introduce.assert_called_once()
-
-
 class TestMainRun:
     @patch("contemplative_agent.cli.Agent")
     def test_run_default_duration(self, mock_agent_cls):
@@ -88,7 +76,7 @@ class TestMainRun:
         call_kwargs = mock_agent.run_session.call_args[1]
         assert call_kwargs["duration_minutes"] == 60
         assert "session_meta" in call_kwargs
-        assert "rules_dir" in call_kwargs["session_meta"]
+        assert "domain" in call_kwargs["session_meta"]
 
     @patch("contemplative_agent.cli.Agent")
     def test_run_custom_duration(self, mock_agent_cls):
@@ -250,7 +238,6 @@ class TestInstallDistillSchedule:
         assert plist_path.exists()
         content = plist_path.read_text()
         assert "distill" in content
-        assert "--identity" in content
         assert "<integer>3</integer>" in content
         # Verify all placeholders were replaced
         for placeholder in ("{{VENV_BIN}}", "{{PROJECT_ROOT}}", "{{DISTILL_HOUR}}", "{{LOG_PATH}}"):

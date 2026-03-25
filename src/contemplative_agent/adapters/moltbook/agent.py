@@ -348,42 +348,6 @@ class Agent:
         client = self._ensure_client()
         return check_claim_status(client)
 
-    def do_introduce(self) -> Optional[str]:
-        """Post the introduction template."""
-        client = self._ensure_client()
-        scheduler = self._get_scheduler()
-
-        content = self._content.get_introduction()
-        if content is None:
-            print("Introduction already posted.")
-            return None
-
-        if not self._confirm_action("Introduction Post", content):
-            print("Skipped.")
-            return None
-
-        scheduler.wait_for_post()
-        try:
-            resp = client.post(
-                "/posts",
-                json={
-                    "title": "Introducing Contemplative Agent",
-                    "content": content,
-                    "submolt": self._domain.default_submolt,
-                },
-            )
-            scheduler.record_post()
-            self._actions_taken.append("Posted introduction")
-            result = resp.json()
-            post_id = result.get("id")
-            if post_id:
-                self._own_post_ids.add(post_id)
-            print(f"Introduction posted. ID: {post_id or 'unknown'}")
-            return post_id
-        except MoltbookClientError as exc:
-            logger.error("Failed to post introduction: %s", exc)
-            return None
-
     def do_solve(self, text: str) -> Optional[str]:
         """Solve a verification challenge (for testing)."""
         answer = solve_challenge(text)

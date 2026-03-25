@@ -37,6 +37,7 @@ _ollama_model: str = _DEFAULT_OLLAMA_MODEL
 _default_system_prompt: Optional[str] = None
 _axiom_prompt: Optional[str] = None
 _skills_dir: Optional[Path] = None
+_rules_dir: Optional[Path] = None
 
 
 def configure(
@@ -47,6 +48,7 @@ def configure(
     default_system_prompt: Optional[str] = None,
     axiom_prompt: Optional[str] = None,
     skills_dir: Optional[Path] = None,
+    rules_dir: Optional[Path] = None,
 ) -> None:
     """Configure LLM module with adapter-specific settings.
 
@@ -58,9 +60,11 @@ def configure(
             Appended to the identity/system prompt for CCAI alignment.
         skills_dir: Directory containing learned skill .md files.
             Skill contents are appended to the system prompt.
+        rules_dir: Directory containing learned behavioral rule .md files.
+            Rule contents are appended to the system prompt.
     """
     global _identity_path, _ollama_base_url, _ollama_model
-    global _default_system_prompt, _axiom_prompt, _skills_dir
+    global _default_system_prompt, _axiom_prompt, _skills_dir, _rules_dir
     if identity_path is not None:
         _identity_path = identity_path
     if ollama_base_url is not None:
@@ -73,18 +77,21 @@ def configure(
         _axiom_prompt = axiom_prompt
     if skills_dir is not None:
         _skills_dir = skills_dir
+    if rules_dir is not None:
+        _rules_dir = rules_dir
 
 
 def reset_llm_config() -> None:
     """Reset module-level LLM config and circuit breaker to defaults. Useful for testing."""
     global _identity_path, _ollama_base_url, _ollama_model
-    global _default_system_prompt, _axiom_prompt, _skills_dir
+    global _default_system_prompt, _axiom_prompt, _skills_dir, _rules_dir
     _identity_path = None
     _ollama_base_url = _DEFAULT_OLLAMA_URL
     _ollama_model = _DEFAULT_OLLAMA_MODEL
     _default_system_prompt = None
     _axiom_prompt = None
     _skills_dir = None
+    _rules_dir = None
     _circuit.reset()
 
 
@@ -185,27 +192,27 @@ def validate_identity_content(content: str) -> bool:
     return True
 
 
-def _load_skills() -> str:
-    """Load all skill files from the skills directory.
+def _load_md_files(directory: Optional[Path], label: str) -> str:
+    """Load and concatenate .md files from a directory.
 
-    Returns concatenated skill file contents, or empty string if no skills.
     Each file is validated against forbidden patterns; tainted files are skipped.
+    Returns concatenated contents, or empty string if directory is missing/empty.
     """
-    if _skills_dir is None or not _skills_dir.is_dir():
+    if directory is None or not directory.is_dir():
         return ""
 
-    skills = []
-    for path in sorted(_skills_dir.glob("*.md")):
+    items = []
+    for path in sorted(directory.glob("*.md")):
         try:
             content = path.read_text(encoding="utf-8").strip()
             if content and validate_identity_content(content):
-                skills.append(content)
+                items.append(content)
             elif content:
-                logger.warning("Skill file %s contains forbidden patterns, skipping", path.name)
+                logger.warning("%s file %s contains forbidden patterns, skipping", label, path.name)
         except OSError as exc:
-            logger.warning("Failed to read skill file %s: %s", path.name, exc)
+            logger.warning("Failed to read %s file %s: %s", label, path.name, exc)
 
-    return "\n\n".join(skills)
+    return "\n\n".join(items)
 
 
 def _load_identity() -> str:
@@ -233,10 +240,14 @@ def _load_identity() -> str:
     if _axiom_prompt:
         base_prompt = base_prompt + "\n\n---\n\n" + _axiom_prompt
 
-    # Append learned skills if available
-    skills = _load_skills()
+    # Append learned skills and rules if available
+    skills = _load_md_files(_skills_dir, "Skill")
     if skills:
         base_prompt = base_prompt + "\n\n---\n\nLearned behavioral skills:\n\n" + skills
+
+    rules = _load_md_files(_rules_dir, "Rule")
+    if rules:
+        base_prompt = base_prompt + "\n\n---\n\nLearned behavioral rules:\n\n" + rules
 
     return base_prompt
 

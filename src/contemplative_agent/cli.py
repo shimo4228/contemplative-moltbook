@@ -7,7 +7,6 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 from xml.sax.saxutils import escape as xml_escape
 
 from .adapters.moltbook.agent import Agent, AutonomyLevel
@@ -18,14 +17,11 @@ from .adapters.moltbook.config import (
     SKILLS_DIR,
 )
 from .core.domain import (
-    DEFAULT_RULES_DIR,
     get_domain_config,
-    get_rules,
+    load_constitution,
     load_domain_config,
-    load_rules,
     reset_caches,
     set_domain_config_cache,
-    set_rules_cache,
 )
 from .core.llm import configure as configure_llm
 
@@ -153,7 +149,7 @@ def _do_install_distill_schedule(distill_hour: int) -> None:
     )
 
     print(f"Installed: {LAUNCHD_DISTILL_PLIST_PATH}")
-    print(f"Schedule: daily at {distill_hour:02d}:00 (distill --days 1 --identity)")
+    print(f"Schedule: daily at {distill_hour:02d}:00 (distill --days 1)")
 
 
 def _do_uninstall_schedule() -> None:
@@ -181,19 +177,18 @@ def _do_uninstall_schedule() -> None:
         print("No schedule installed.")
 
 
-def _do_init(rules_dir: Optional[Path] = None) -> None:
+def _do_init() -> None:
     """Initialize identity.md and knowledge.json files."""
     MOLTBOOK_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if IDENTITY_PATH.exists():
         print(f"Identity file already exists: {IDENTITY_PATH}")
     else:
-        # Use introduction as identity seed
-        rules = get_rules(rules_dir)
-        identity_content = rules.introduction or ""
-        IDENTITY_PATH.write_text(identity_content + "\n", encoding="utf-8")
+        IDENTITY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        IDENTITY_PATH.write_text("\n", encoding="utf-8")
         os.chmod(IDENTITY_PATH, stat.S_IRUSR | stat.S_IWUSR)
         print(f"Created identity file: {IDENTITY_PATH}")
+        print("Tip: copy a template from config/templates/ to seed your identity")
 
     if KNOWLEDGE_PATH.exists():
         print(f"Knowledge file already exists: {KNOWLEDGE_PATH}")
@@ -216,23 +211,23 @@ def main() -> None:
 
     # Domain configuration flags
     parser.add_argument(
-        "--rules-dir",
-        type=Path,
-        default=None,
-        help="Path to domain rules directory (e.g. config/rules/contemplative/)",
-    )
-    parser.add_argument(
         "--domain-config",
         type=Path,
         default=None,
         help="Path to domain.json configuration file",
     )
 
-    # Contemplative axioms (CCAI) flag
+    # Constitution (CCAI clauses) flags
+    parser.add_argument(
+        "--constitution-dir",
+        type=Path,
+        default=None,
+        help="Path to constitution directory (e.g. config/constitution/)",
+    )
     parser.add_argument(
         "--no-axioms",
         action="store_true",
-        help="Disable contemplative axiom injection (CCAI clauses) for A/B testing",
+        help="Disable constitutional clause injection (CCAI clauses) for A/B testing",
     )
 
     # Autonomy level flags (mutually exclusive)
@@ -268,9 +263,6 @@ def main() -> None:
     # status
     subparsers.add_parser("status", help="Check agent status")
 
-    # introduce
-    subparsers.add_parser("introduce", help="Post introduction template")
-
     # run
     run_parser = subparsers.add_parser("run", help="Run autonomous session")
     run_parser.add_argument(
@@ -294,9 +286,6 @@ def main() -> None:
         "--dry-run", action="store_true", help="Show results without writing"
     )
     distill_parser.add_argument(
-        "--identity", action="store_true", help="Also distill knowledge into identity"
-    )
-    distill_parser.add_argument(
         "--file", type=Path, nargs="+", dest="log_files",
         help="Explicit JSONL log file(s) to process (overrides --days)"
     )
@@ -307,6 +296,17 @@ def main() -> None:
     )
     distill_id_parser.add_argument(
         "--dry-run", action="store_true", help="Show results without writing"
+    )
+
+    # rules-distill
+    rules_distill_parser = subparsers.add_parser(
+        "rules-distill", help="Distill universal behavioral rules from knowledge patterns"
+    )
+    rules_distill_parser.add_argument(
+        "--dry-run", action="store_true", help="Show results without writing"
+    )
+    rules_distill_parser.add_argument(
+        "--full", action="store_true", help="Process all patterns (not just new ones)"
     )
 
     # report
@@ -416,33 +416,33 @@ def main() -> None:
                 _do_install_distill_schedule(distill_hour=args.distill_hour)
         return
 
-    # Load domain config and rules if custom paths specified
+    # Load domain config if custom path specified
     domain_config = None
-    if args.domain_config is not None or args.rules_dir is not None:
-        reset_caches()
     if args.domain_config is not None:
+        reset_caches()
         domain_config = load_domain_config(args.domain_config)
         set_domain_config_cache(domain_config)
-    if args.rules_dir is not None:
-        set_rules_cache(load_rules(args.rules_dir))
 
     # Load and inject CCAI constitutional clauses unless --no-axioms is set
     if not args.no_axioms:
-        clauses = get_rules().constitutional_clauses
+        clauses = load_constitution(args.constitution_dir)
         if clauses:
             configure_llm(axiom_prompt=clauses)
 
-    # Inject learned skills into system prompt
+    # Inject learned skills and rules into system prompt
     skills_dir = SKILLS_DIR
     if skills_dir.is_dir():
         configure_llm(skills_dir=skills_dir)
+    from .adapters.moltbook.config import RULES_DIR
+    if RULES_DIR.is_dir():
+        configure_llm(rules_dir=RULES_DIR)
 
     if args.command == "init":
-        _do_init(rules_dir=args.rules_dir)
+        _do_init()
         return
 
     if args.command == "distill":
-        from .core.distill import distill, distill_identity
+        from .core.distill import distill
         from .core.memory import EpisodeLog, KnowledgeStore
 
         log_dir = MOLTBOOK_DATA_DIR / "logs"
@@ -463,15 +463,6 @@ def main() -> None:
             log_files=log_files,
         )
         print(result)
-
-        if args.identity:
-            print("\n--- Identity Distillation ---")
-            identity_result = distill_identity(
-                knowledge_store=knowledge_store,
-                identity_path=IDENTITY_PATH,
-                dry_run=args.dry_run,
-            )
-            print(identity_result)
         return
 
     if args.command == "distill-identity":
@@ -498,6 +489,21 @@ def main() -> None:
             skills_dir=SKILLS_DIR,
             dry_run=args.dry_run,
             episode_log=_EL(log_dir=log_dir),
+            full=args.full,
+        )
+        print(result)
+        return
+
+    if args.command == "rules-distill":
+        from .adapters.moltbook.config import RULES_DIR
+        from .core.memory import KnowledgeStore
+        from .core.rules_distill import distill_rules
+
+        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+        result = distill_rules(
+            knowledge_store=knowledge_store,
+            rules_dir=RULES_DIR,
+            dry_run=args.dry_run,
             full=args.full,
         )
         print(result)
@@ -562,15 +568,11 @@ def main() -> None:
         result = agent.do_status()
         print(f"Agent status: {result}")
 
-    elif args.command == "introduce":
-        agent.do_introduce()
-
     elif args.command == "run":
         if args.session <= 0 or args.session > 1440:
             parser.error("--session must be between 1 and 1440 minutes")
         dc = domain_config or get_domain_config()
         session_meta = {
-            "rules_dir": str(args.rules_dir or DEFAULT_RULES_DIR),
             "axioms_enabled": not args.no_axioms,
             "domain": dc.name,
             "ollama_model": os.environ.get("OLLAMA_MODEL", "qwen3.5:9b"),
