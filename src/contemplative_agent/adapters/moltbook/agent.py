@@ -2,11 +2,9 @@
 
 import enum
 import logging
-import os
 import re
 import signal
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from .auth import check_claim_status, load_credentials, register_agent
@@ -586,14 +584,8 @@ class Agent:
         try:
             from ...core.report import generate_report
 
-            from .config import MOLTBOOK_DATA_DIR
-            if os.environ.get("CONTEMPLATIVE_CONFIG_DIR"):
-                # Docker: write to MOLTBOOK_HOME/reports (volume-mounted)
-                output_dir = MOLTBOOK_DATA_DIR / "reports"
-            else:
-                # Local: write to project_root/reports/comment-reports
-                project_root = Path(__file__).resolve().parents[4]
-                output_dir = project_root / "reports" / "comment-reports"
+            from .config import REPORTS_DIR
+            output_dir = REPORTS_DIR
             result = generate_report(
                 log_dir=EPISODE_LOG_DIR,
                 output_dir=output_dir,
