@@ -5,14 +5,12 @@ from __future__ import annotations
 import copy
 import json as json_mod
 import logging
-import os
 import re
-import stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from .llm import generate, get_axiom_prompt, get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
@@ -108,23 +106,31 @@ def distill(
     return "\n\n".join(all_results)
 
 
+@dataclass(frozen=True)
+class IdentityResult:
+    """Result of a successful identity distillation."""
+
+    text: str
+    target_path: Path
+
+
 def distill_identity(
     knowledge_store: Optional[KnowledgeStore] = None,
     identity_path: Optional[Path] = None,
-    dry_run: bool = False,
-) -> str:
+) -> Union[str, IdentityResult]:
     """Distill knowledge into an updated identity description.
 
     Reads the current identity and accumulated knowledge, then asks the LLM
     to write a brief self-description reflecting the agent's actual experience.
 
+    File writing is the caller's responsibility (ADR-0012 approval gate).
+
     Args:
         knowledge_store: KnowledgeStore instance (uses default if None).
         identity_path: Path to identity.md file.
-        dry_run: If True, return result without writing.
 
     Returns:
-        The generated identity text.
+        IdentityResult on success, or error message string.
     """
     knowledge = knowledge_store or KnowledgeStore()
     knowledge.load()
@@ -169,21 +175,15 @@ def distill_identity(
     lines = [l.strip() for l in refined.strip().splitlines() if l.strip()]
     identity_text = "\n".join(lines)
 
-    if dry_run:
-        logger.info("Dry run — not writing identity")
-        return identity_text
-
-    # Validate against forbidden patterns before writing
+    # Validate against forbidden patterns before returning
     if not validate_identity_content(identity_text):
-        logger.warning("Generated identity failed validation — not writing")
+        logger.warning("Generated identity failed validation")
         return identity_text
 
-    if identity_path:
-        identity_path.write_text(identity_text + "\n", encoding="utf-8")
-        os.chmod(identity_path, stat.S_IRUSR | stat.S_IWUSR)
-        logger.info("Identity updated: %s", identity_path)
+    if not identity_path:
+        return identity_text
 
-    return identity_text
+    return IdentityResult(text=identity_text, target_path=identity_path)
 
 
 def _parse_importance_scores(raw: str, expected_count: int) -> List[float]:
@@ -222,30 +222,26 @@ class _ClassifiedRecords:
     uncategorized: Tuple[Dict, ...]
 
 
-def _parse_classify_result(raw: Optional[str], expected_count: int) -> List[str]:
-    """Parse classification LLM output into category list.
+def _parse_classify_result(raw: Optional[str]) -> str:
+    """Parse a classification LLM response.
 
-    Expects {"categories": ["uncategorized", "noise", ...]}. Invalid
-    categories are normalized to "uncategorized". Falls back to all
-    "uncategorized" on parse failure or count mismatch.
+    Scans the entire response for a valid category keyword.
+    Returns one of the VALID_CATEGORIES. Falls back to "uncategorized"
+    if no valid category is found.
     """
     if raw is None:
-        return ["uncategorized"] * expected_count
-    try:
-        parsed = json_mod.loads(raw)
-        categories = parsed.get("categories", [])
-        if len(categories) != expected_count:
-            logger.warning("Classify count mismatch: got %d, expected %d",
-                           len(categories), expected_count)
-            return ["uncategorized"] * expected_count
-        return [
-            c.lower().strip() if isinstance(c, str) and c.lower().strip() in VALID_CATEGORIES
-            else "uncategorized"
-            for c in categories
-        ]
-    except (json_mod.JSONDecodeError, TypeError, AttributeError):
-        logger.warning("Failed to parse classification result, defaulting to uncategorized")
-        return ["uncategorized"] * expected_count
+        return "uncategorized"
+    text = raw.strip().lower()
+    if not text:
+        return "uncategorized"
+    # Search for valid categories in the response
+    for cat in ("constitutional", "noise"):
+        if cat in text:
+            return cat
+    if "uncategorized" in text:
+        return "uncategorized"
+    logger.warning("No category found in %r, defaulting to uncategorized", raw.strip()[:60])
+    return "uncategorized"
 
 
 def _classify_episodes(
@@ -254,7 +250,8 @@ def _classify_episodes(
 ) -> _ClassifiedRecords:
     """Step 0: Classify episodes into categories via LLM.
 
-    Falls back to all uncategorized on LLM failure (safe default —
+    Classifies one record at a time for reliable output from small models.
+    Falls back to uncategorized on LLM failure (safe default —
     identical to the existing pipeline behavior with no classification).
     """
     if not records:
@@ -265,39 +262,35 @@ def _classify_episodes(
             constitutional=(), noise=(), uncategorized=tuple(records),
         )
 
-    all_categories: List[str] = []
-
-    for i in range(0, len(records), BATCH_SIZE):
-        batch = records[i:i + BATCH_SIZE]
-        episode_lines = []
-        for idx, r in enumerate(batch):
-            record_type = r.get("type", "unknown")
-            data = r.get("data", {})
-            ts = r.get("ts", "")
-            summary = summarize_record(record_type, data)
-            if summary:
-                episode_lines.append(f"{idx + 1}. [{ts[:16]}] {record_type}: {summary}")
-            else:
-                episode_lines.append(f"{idx + 1}. [{ts[:16]}] {record_type}: (no summary)")
-
-        prompt = DISTILL_CLASSIFY_PROMPT.format(
-            episodes="\n".join(episode_lines),
-            constitution=constitution if constitution else "(no constitutional principles configured)",
-        )
-        result = generate(prompt, system=get_distill_system_prompt(), max_length=2000)
-        batch_categories = _parse_classify_result(result, len(batch))
-        all_categories.extend(batch_categories)
-
     constitutional = []
     noise = []
     uncategorized = []
-    for record, cat in zip(records, all_categories):
+
+    const_text = constitution if constitution else "(no constitutional principles configured)"
+
+    for idx, r in enumerate(records):
+        record_type = r.get("type", "unknown")
+        data = r.get("data", {})
+        ts = r.get("ts", "")
+        summary = summarize_record(record_type, data)
+        episode_line = f"[{ts[:16]}] {record_type}: {summary}" if summary else f"[{ts[:16]}] {record_type}: (no summary)"
+
+        prompt = DISTILL_CLASSIFY_PROMPT.format(
+            episode=episode_line,
+            constitution=const_text,
+        )
+        result = generate(prompt, system=get_distill_system_prompt(), max_length=20)
+        cat = _parse_classify_result(result)
+
         if cat == "constitutional":
-            constitutional.append(record)
+            constitutional.append(r)
         elif cat == "noise":
-            noise.append(record)
+            noise.append(r)
         else:
-            uncategorized.append(record)
+            uncategorized.append(r)
+
+        if (idx + 1) % 50 == 0:
+            logger.info("Classified %d/%d episodes", idx + 1, len(records))
 
     return _ClassifiedRecords(
         constitutional=tuple(constitutional),

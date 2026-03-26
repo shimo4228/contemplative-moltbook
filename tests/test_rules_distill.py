@@ -10,6 +10,7 @@ import pytest
 
 from contemplative_agent.core.insight import _extract_title, _slugify
 from contemplative_agent.core.rules_distill import (
+    RulesDistillResult,
     _extract_rules,
     distill_rules,
 )
@@ -115,11 +116,13 @@ class TestExtractRules:
 class TestDistillRules:
     def test_no_knowledge_store(self):
         result = distill_rules()
+        assert isinstance(result, str)
         assert "No knowledge store" in result
 
     def test_insufficient_patterns(self, tmp_path):
         ks = _make_knowledge(tmp_path, n=5)
         result = distill_rules(knowledge_store=ks, rules_dir=tmp_path / "rules")
+        assert isinstance(result, str)
         assert "Insufficient patterns" in result
         assert "5/10" in result
 
@@ -128,6 +131,7 @@ class TestDistillRules:
         mock_generate.return_value = None
         ks = _make_knowledge(tmp_path, n=15)
         result = distill_rules(knowledge_store=ks, rules_dir=tmp_path / "rules")
+        assert isinstance(result, str)
         assert "Failed to extract" in result
 
     @patch("contemplative_agent.core.rules_distill.generate")
@@ -138,24 +142,11 @@ class TestDistillRules:
         ]
         ks = _make_knowledge(tmp_path, n=15)
         result = distill_rules(knowledge_store=ks, rules_dir=tmp_path / "rules")
+        assert isinstance(result, str)
         assert "Failed to extract" in result
 
     @patch("contemplative_agent.core.rules_distill.generate")
-    def test_dry_run(self, mock_generate, tmp_path):
-        mock_generate.side_effect = [
-            GOOD_RULES_RESPONSE_STAGE1,
-            GOOD_RULES_RESPONSE_STAGE2,
-        ]
-        ks = _make_knowledge(tmp_path, n=15)
-        rules_dir = tmp_path / "rules"
-        result = distill_rules(
-            knowledge_store=ks, rules_dir=rules_dir, dry_run=True,
-        )
-        assert "Engagement Rules" in result
-        assert not rules_dir.exists()
-
-    @patch("contemplative_agent.core.rules_distill.generate")
-    def test_save_to_file(self, mock_generate, tmp_path):
+    def test_returns_rules_result(self, mock_generate, tmp_path):
         mock_generate.side_effect = [
             GOOD_RULES_RESPONSE_STAGE1,
             GOOD_RULES_RESPONSE_STAGE2,
@@ -163,13 +154,14 @@ class TestDistillRules:
         ks = _make_knowledge(tmp_path, n=15)
         rules_dir = tmp_path / "rules"
         result = distill_rules(knowledge_store=ks, rules_dir=rules_dir)
-        assert "1 saved" in result
-
+        assert isinstance(result, RulesDistillResult)
+        assert len(result.rules) == 1
+        assert "Engagement Rules" in result.rules[0].text
         today = date.today().strftime("%Y%m%d")
-        expected_file = rules_dir / f"engagement-rules-{today}.md"
-        assert expected_file.exists()
-        content = expected_file.read_text()
-        assert "Engagement Rules" in content
+        assert result.rules[0].filename == f"engagement-rules-{today}.md"
+        assert result.rules[0].target_path == rules_dir / f"engagement-rules-{today}.md"
+        # Core function does not write — caller's responsibility
+        assert not rules_dir.exists()
 
     @patch("contemplative_agent.core.rules_distill.generate")
     def test_empty_slug_dropped(self, mock_generate, tmp_path):
@@ -178,6 +170,7 @@ class TestDistillRules:
         ks = _make_knowledge(tmp_path, n=15)
         rules_dir = tmp_path / "rules"
         result = distill_rules(knowledge_store=ks, rules_dir=rules_dir)
+        assert isinstance(result, str)
         assert "Failed to extract" in result
 
 
@@ -190,7 +183,8 @@ class TestBatchProcessing:
         ] * 2
         ks = _make_knowledge(tmp_path, n=50)
         result = distill_rules(knowledge_store=ks, rules_dir=tmp_path / "rules")
-        assert "2 saved" in result
+        assert isinstance(result, RulesDistillResult)
+        assert len(result.rules) == 2
 
     @patch("contemplative_agent.core.rules_distill.generate")
     def test_partial_failure(self, mock_generate, tmp_path):
@@ -201,32 +195,23 @@ class TestBatchProcessing:
         ]
         ks = _make_knowledge(tmp_path, n=50)
         result = distill_rules(knowledge_store=ks, rules_dir=tmp_path / "rules")
-        assert "1 saved" in result
-        assert "1 dropped" in result
+        assert isinstance(result, RulesDistillResult)
+        assert len(result.rules) == 1
+        assert result.dropped_count == 1
 
 
 class TestIncrementalMode:
     @patch("contemplative_agent.core.rules_distill.generate")
-    def test_writes_last_run_marker(self, mock_generate, tmp_path):
+    def test_no_marker_written_by_core(self, mock_generate, tmp_path):
+        """Core function does not write marker — caller's responsibility."""
         mock_generate.side_effect = [
             GOOD_RULES_RESPONSE_STAGE1,
             GOOD_RULES_RESPONSE_STAGE2,
         ]
         ks = _make_knowledge(tmp_path, n=15)
         rules_dir = tmp_path / "rules"
-        distill_rules(knowledge_store=ks, rules_dir=rules_dir)
-        marker = rules_dir / ".last_rules_distill"
-        assert marker.exists()
-
-    @patch("contemplative_agent.core.rules_distill.generate")
-    def test_dry_run_does_not_write_marker(self, mock_generate, tmp_path):
-        mock_generate.side_effect = [
-            GOOD_RULES_RESPONSE_STAGE1,
-            GOOD_RULES_RESPONSE_STAGE2,
-        ]
-        ks = _make_knowledge(tmp_path, n=15)
-        rules_dir = tmp_path / "rules"
-        distill_rules(knowledge_store=ks, rules_dir=rules_dir, dry_run=True)
+        result = distill_rules(knowledge_store=ks, rules_dir=rules_dir)
+        assert isinstance(result, RulesDistillResult)
         marker = rules_dir / ".last_rules_distill"
         assert not marker.exists()
 
@@ -244,4 +229,5 @@ class TestIncrementalMode:
         result = distill_rules(
             knowledge_store=ks, rules_dir=rules_dir, full=True,
         )
-        assert "Engagement Rules" in result
+        assert isinstance(result, RulesDistillResult)
+        assert "Engagement Rules" in result.rules[0].text

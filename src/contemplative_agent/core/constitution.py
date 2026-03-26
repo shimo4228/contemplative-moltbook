@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import os
-import stat
-from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from .llm import generate, get_distill_system_prompt, validate_identity_content
 from .memory import KnowledgeStore
@@ -18,24 +16,33 @@ logger = logging.getLogger(__name__)
 MIN_PATTERNS_REQUIRED = 3
 
 
+@dataclass(frozen=True)
+class AmendmentResult:
+    """Result of a successful constitution amendment generation."""
+
+    text: str
+    target_path: Path
+    marker_dir: Path
+
+
 def amend_constitution(
     knowledge_store: Optional[KnowledgeStore] = None,
     constitution_dir: Optional[Path] = None,
-    dry_run: bool = False,
-) -> str:
-    """Propose amendments to the constitution based on accumulated constitutional patterns.
+) -> Union[str, AmendmentResult]:
+    """Generate a constitution amendment from accumulated constitutional patterns.
 
     Reads the current constitution and constitutional patterns from the knowledge store,
     then asks the LLM to propose an updated constitution that incorporates learned
     ethical insights while preserving the original structure.
 
+    File writing is the caller's responsibility (ADR-0012 approval gate).
+
     Args:
         knowledge_store: KnowledgeStore with learned patterns.
         constitution_dir: Directory containing contemplative-axioms.md.
-        dry_run: If True, return proposed amendments without writing.
 
     Returns:
-        The proposed (or written) amended constitution text.
+        AmendmentResult on success, or error message string.
     """
     knowledge = knowledge_store or KnowledgeStore()
     knowledge.load()
@@ -87,21 +94,11 @@ def amend_constitution(
     amended_text = result.strip()
 
     if not validate_identity_content(amended_text):
-        logger.warning("Generated constitution failed validation — not writing")
+        logger.warning("Generated constitution failed validation")
         return amended_text
 
-    if dry_run:
-        logger.info("Dry run — not writing constitution amendment")
-        return amended_text
-
-    axioms_path.write_text(amended_text + "\n", encoding="utf-8")
-    os.chmod(axioms_path, stat.S_IRUSR | stat.S_IWUSR)
-    logger.info("Constitution amended: %s", axioms_path)
-
-    marker = constitution_dir / ".last_constitution_amend"
-    marker.write_text(
-        datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
-        encoding="utf-8",
+    return AmendmentResult(
+        text=amended_text,
+        target_path=axioms_path,
+        marker_dir=constitution_dir,
     )
-
-    return amended_text

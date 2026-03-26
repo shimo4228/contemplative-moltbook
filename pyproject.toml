@@ -27,6 +27,4 @@ markers = [
 ]
 
 [dependency-groups]
-dev = [
-    "vulture>=2.16",
-]
+dev = []

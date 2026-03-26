@@ -7,11 +7,11 @@ Human in the loop — this command is never auto-scheduled.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
-from ._io import write_restricted
 from .insight import _extract_title, _slugify
 from .llm import generate, get_distill_system_prompt, validate_identity_content
 from .memory import KnowledgeStore
@@ -21,6 +21,24 @@ logger = logging.getLogger(__name__)
 
 MIN_PATTERNS_REQUIRED = 10
 BATCH_SIZE = 30
+
+
+@dataclass(frozen=True)
+class RuleResult:
+    """A single generated rule ready for approval."""
+
+    text: str
+    filename: str
+    target_path: Path
+
+
+@dataclass(frozen=True)
+class RulesDistillResult:
+    """Result of a successful rules distillation."""
+
+    rules: Tuple[RuleResult, ...]
+    dropped_count: int
+    rules_dir: Path
 
 
 def _extract_rules(patterns: List[str]) -> Optional[str]:
@@ -75,23 +93,23 @@ def _write_last_run(rules_dir: Path) -> None:
 def distill_rules(
     knowledge_store: Optional[KnowledgeStore] = None,
     rules_dir: Optional[Path] = None,
-    dry_run: bool = False,
     full: bool = False,
-) -> str:
+) -> Union[str, RulesDistillResult]:
     """Distill universal behavioral rules from accumulated knowledge patterns.
 
     Two-stage pipeline per batch: free-form extraction → structured Markdown.
     Higher threshold than insight (10 patterns minimum) because premature
     generalization produces platitudes, not principles.
 
+    File writing is the caller's responsibility (ADR-0012 approval gate).
+
     Args:
         knowledge_store: KnowledgeStore with learned patterns.
-        rules_dir: Directory to write rule files (e.g. config/rules/learned/).
-        dry_run: If True, show result without writing.
+        rules_dir: Directory for rule files (used for incremental tracking).
         full: If True, process all patterns instead of only new ones.
 
     Returns:
-        The rule contents and summary.
+        RulesDistillResult on success, or error message string.
     """
     if knowledge_store is None:
         return "No knowledge store provided."
@@ -127,11 +145,7 @@ def distill_rules(
         "Processing %d patterns in %d batches", len(patterns), len(batches)
     )
 
-    if not dry_run and rules_dir is not None:
-        rules_dir.mkdir(parents=True, exist_ok=True)
-
-    all_results: List[str] = []
-    saved_count = 0
+    rule_results: List[RuleResult] = []
     dropped_count = 0
 
     for batch_idx, batch in enumerate(batches):
@@ -150,33 +164,36 @@ def distill_rules(
             dropped_count += 1
             continue
 
-        if not dry_run and rules_dir is not None:
-            title = _extract_title(rules_text) or ""
-            slug = _slugify(title)
-            if not slug:
-                logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
-                dropped_count += 1
-                continue
-            today = date.today().strftime("%Y%m%d")
-            filename = f"{slug}-{today}.md"
-            file_path = rules_dir / filename
+        title = _extract_title(rules_text) or ""
+        slug = _slugify(title)
+        if not slug:
+            logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
+            dropped_count += 1
+            continue
 
+        today = date.today().strftime("%Y%m%d")
+        filename = f"{slug}-{today}.md"
+
+        if rules_dir is not None:
+            file_path = rules_dir / filename
             if not file_path.resolve().is_relative_to(rules_dir.resolve()):
                 logger.error("Rule path escape attempt: %s", file_path)
                 dropped_count += 1
                 continue
+        else:
+            file_path = Path(filename)
 
-            write_restricted(file_path, rules_text)
-            logger.info("Rule written: %s", file_path)
+        rule_results.append(RuleResult(
+            text=rules_text,
+            filename=filename,
+            target_path=file_path,
+        ))
 
-        all_results.append(rules_text)
-        saved_count += 1
-
-    if not all_results:
+    if not rule_results:
         return "Failed to extract rules from knowledge."
 
-    if not dry_run and rules_dir is not None and saved_count > 0:
-        _write_last_run(rules_dir)
-
-    summary = f"\n--- Summary: {saved_count} saved, {dropped_count} dropped ---"
-    return "\n\n".join(all_results) + summary
+    return RulesDistillResult(
+        rules=tuple(rule_results),
+        dropped_count=dropped_count,
+        rules_dir=rules_dir or Path("."),
+    )

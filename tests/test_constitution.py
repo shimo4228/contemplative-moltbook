@@ -3,7 +3,7 @@
 import json
 from unittest.mock import patch
 
-from contemplative_agent.core.constitution import amend_constitution, MIN_PATTERNS_REQUIRED
+from contemplative_agent.core.constitution import AmendmentResult, amend_constitution, MIN_PATTERNS_REQUIRED
 from contemplative_agent.core.memory import KnowledgeStore
 
 
@@ -59,6 +59,7 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
         )
+        assert isinstance(result, str)
         assert "Insufficient" in result
 
     def test_insufficient_patterns_returns_early(self, tmp_path):
@@ -72,6 +73,7 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks2, constitution_dir=const_dir,
         )
+        assert isinstance(result, str)
         assert "Insufficient" in result
         assert f"1/{MIN_PATTERNS_REQUIRED}" in result
 
@@ -85,6 +87,7 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=empty_dir,
         )
+        assert isinstance(result, str)
         assert "No constitution file" in result
 
     @patch("contemplative_agent.core.constitution.CONSTITUTION_AMEND_PROMPT",
@@ -95,38 +98,28 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=None,
         )
+        assert isinstance(result, str)
         assert "No constitution directory" in result
 
     @patch("contemplative_agent.core.constitution.CONSTITUTION_AMEND_PROMPT",
            "Amend: {current_constitution}\nPatterns: {constitutional_patterns}")
     @patch("contemplative_agent.core.constitution.generate")
-    def test_dry_run_does_not_write(self, mock_generate, tmp_path):
+    def test_returns_amendment_result(self, mock_generate, tmp_path):
         mock_generate.return_value = AMENDED_CONSTITUTION
         ks = _make_constitutional_knowledge(tmp_path)
         const_dir = _setup_constitution(tmp_path)
         original = (const_dir / "contemplative-axioms.md").read_text()
 
         result = amend_constitution(
-            knowledge_store=ks, constitution_dir=const_dir, dry_run=True,
-        )
-        assert "refined with experience" in result
-        assert (const_dir / "contemplative-axioms.md").read_text() == original
-        assert not (const_dir / ".last_constitution_amend").exists()
-
-    @patch("contemplative_agent.core.constitution.CONSTITUTION_AMEND_PROMPT",
-           "Amend: {current_constitution}\nPatterns: {constitutional_patterns}")
-    @patch("contemplative_agent.core.constitution.generate")
-    def test_basic_amendment(self, mock_generate, tmp_path):
-        mock_generate.return_value = AMENDED_CONSTITUTION
-        ks = _make_constitutional_knowledge(tmp_path)
-        const_dir = _setup_constitution(tmp_path)
-
-        result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
         )
-        assert "refined with experience" in result
-        written = (const_dir / "contemplative-axioms.md").read_text()
-        assert "refined with experience" in written
+        assert isinstance(result, AmendmentResult)
+        assert "refined with experience" in result.text
+        assert result.target_path == const_dir / "contemplative-axioms.md"
+        assert result.marker_dir == const_dir
+        # Core function does not write — caller's responsibility
+        assert (const_dir / "contemplative-axioms.md").read_text() == original
+        assert not (const_dir / ".last_constitution_amend").exists()
 
     @patch("contemplative_agent.core.constitution.CONSTITUTION_AMEND_PROMPT",
            "Amend: {current_constitution}\nPatterns: {constitutional_patterns}")
@@ -139,13 +132,14 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
         )
+        assert isinstance(result, str)
         assert "LLM failed" in result
         assert (const_dir / "contemplative-axioms.md").read_text() == original
 
     @patch("contemplative_agent.core.constitution.CONSTITUTION_AMEND_PROMPT",
            "Amend: {current_constitution}\nPatterns: {constitutional_patterns}")
     @patch("contemplative_agent.core.constitution.generate")
-    def test_forbidden_pattern_validation(self, mock_generate, tmp_path):
+    def test_forbidden_pattern_returns_string(self, mock_generate, tmp_path):
         mock_generate.return_value = "My api_key is secret."
         ks = _make_constitutional_knowledge(tmp_path)
         const_dir = _setup_constitution(tmp_path)
@@ -154,6 +148,8 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
         )
+        # Validation failure returns str, not AmendmentResult
+        assert isinstance(result, str)
         assert "api_key" in result
         assert (const_dir / "contemplative-axioms.md").read_text() == original
 
@@ -165,19 +161,5 @@ class TestAmendConstitution:
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
         )
+        assert isinstance(result, str)
         assert "prompt template not found" in result
-
-    @patch("contemplative_agent.core.constitution.CONSTITUTION_AMEND_PROMPT",
-           "Amend: {current_constitution}\nPatterns: {constitutional_patterns}")
-    @patch("contemplative_agent.core.constitution.generate")
-    def test_writes_timestamp_marker(self, mock_generate, tmp_path):
-        mock_generate.return_value = AMENDED_CONSTITUTION
-        ks = _make_constitutional_knowledge(tmp_path)
-        const_dir = _setup_constitution(tmp_path)
-
-        amend_constitution(
-            knowledge_store=ks, constitution_dir=const_dir,
-        )
-        marker = const_dir / ".last_constitution_amend"
-        assert marker.exists()
-        assert "202" in marker.read_text()  # ISO timestamp starts with year

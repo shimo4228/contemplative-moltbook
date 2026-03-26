@@ -9,6 +9,8 @@ from unittest.mock import patch
 import pytest
 
 from contemplative_agent.core.insight import (
+    InsightResult,
+    SkillResult,
     _extract_skill,
     _extract_title,
     _slugify,
@@ -133,6 +135,7 @@ class TestExtractSkill:
 class TestExtractInsight:
     def test_no_knowledge_store(self) -> None:
         result = extract_insight(knowledge_store=None)
+        assert isinstance(result, str)
         assert "No knowledge store" in result
 
     def test_insufficient_patterns(self, tmp_path: Path) -> None:
@@ -140,12 +143,14 @@ class TestExtractInsight:
         ks.add_learned_pattern("only one")
         ks.save()
         result = extract_insight(knowledge_store=ks)
+        assert isinstance(result, str)
         assert "Insufficient patterns" in result
 
     @patch("contemplative_agent.core.insight.generate")
     def test_extraction_failure(self, mock_generate, knowledge_store) -> None:
         mock_generate.return_value = None
         result = extract_insight(knowledge_store=knowledge_store)
+        assert isinstance(result, str)
         assert "Failed to extract" in result
 
     @patch("contemplative_agent.core.insight.validate_identity_content")
@@ -156,19 +161,21 @@ class TestExtractInsight:
         mock_generate.return_value = GOOD_SKILL_RESPONSE
         mock_validate.return_value = False
         result = extract_insight(knowledge_store=knowledge_store)
+        assert isinstance(result, str)
         assert "Failed to extract" in result
 
     @patch("contemplative_agent.core.insight.generate")
-    def test_dry_run(self, mock_generate, knowledge_store) -> None:
+    def test_returns_insight_result(self, mock_generate, knowledge_store) -> None:
         mock_generate.return_value = GOOD_SKILL_RESPONSE
-        result = extract_insight(
-            knowledge_store=knowledge_store, dry_run=True
-        )
-        assert "# Ask Before Reacting" in result
-        assert "1 saved" in result
+        result = extract_insight(knowledge_store=knowledge_store)
+        assert isinstance(result, InsightResult)
+        assert len(result.skills) == 1
+        assert "# Ask Before Reacting" in result.skills[0].text
+        today = date.today().strftime("%Y%m%d")
+        assert result.skills[0].filename == f"ask-before-reacting-{today}.md"
 
     @patch("contemplative_agent.core.insight.generate")
-    def test_save_to_file(
+    def test_result_has_target_path(
         self, mock_generate, knowledge_store, skills_dir
     ) -> None:
         mock_generate.return_value = GOOD_SKILL_RESPONSE
@@ -176,11 +183,11 @@ class TestExtractInsight:
             knowledge_store=knowledge_store,
             skills_dir=skills_dir,
         )
-        assert "# Ask Before Reacting" in result
-        files = list(skills_dir.glob("*.md"))
-        assert len(files) == 1
+        assert isinstance(result, InsightResult)
         today = date.today().strftime("%Y%m%d")
-        assert files[0].name == f"ask-before-reacting-{today}.md"
+        assert result.skills[0].target_path == skills_dir / f"ask-before-reacting-{today}.md"
+        # Core function does not write files — caller's responsibility
+        assert len(list(skills_dir.glob("*.md"))) == 0
 
     @patch("contemplative_agent.core.insight.generate")
     def test_path_traversal_guard(
@@ -192,14 +199,14 @@ class TestExtractInsight:
         mock_generate.return_value = evil_response
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
-        extract_insight(
+        result = extract_insight(
             knowledge_store=knowledge_store,
             skills_dir=skills_dir,
         )
-        files = list(skills_dir.glob("*.md"))
-        assert len(files) == 1
-        assert "etc-passwd" in files[0].name
-        assert ".." not in files[0].name
+        # Path traversal is blocked but slug sanitization makes it safe
+        assert isinstance(result, InsightResult)
+        assert "etc-passwd" in result.skills[0].filename
+        assert ".." not in result.skills[0].filename
 
 
 # ---------------------------------------------------------------------------
@@ -228,9 +235,8 @@ class TestBatchProcessing:
             knowledge_store=three_batch_store,
             skills_dir=skills_dir,
         )
-        assert "3 saved" in result
-        files = list(skills_dir.glob("*.md"))
-        assert len(files) == 3
+        assert isinstance(result, InsightResult)
+        assert len(result.skills) == 3
 
     @patch("contemplative_agent.core.insight.generate")
     def test_partial_failure(
@@ -242,8 +248,9 @@ class TestBatchProcessing:
             knowledge_store=three_batch_store,
             skills_dir=skills_dir,
         )
-        assert "2 saved" in result
-        assert "1 dropped" in result
+        assert isinstance(result, InsightResult)
+        assert len(result.skills) == 2
+        assert result.dropped_count == 1
 
     @patch("contemplative_agent.core.insight.generate")
     def test_small_last_batch_merged(self, mock_generate, tmp_path: Path) -> None:
@@ -254,7 +261,7 @@ class TestBatchProcessing:
         ks._learned_patterns.clear()
 
         mock_generate.return_value = GOOD_SKILL_RESPONSE
-        extract_insight(knowledge_store=ks, dry_run=True)
+        extract_insight(knowledge_store=ks)
         assert mock_generate.call_count == 1  # 1 batch, 1 LLM call
 
     def test_single_batch(self, knowledge_store, skills_dir) -> None:
@@ -264,9 +271,8 @@ class TestBatchProcessing:
                 knowledge_store=knowledge_store,
                 skills_dir=skills_dir,
             )
-            assert "1 saved" in result
-            files = list(skills_dir.glob("*.md"))
-            assert len(files) == 1
+            assert isinstance(result, InsightResult)
+            assert len(result.skills) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -276,29 +282,16 @@ class TestBatchProcessing:
 
 class TestIncrementalMode:
     @patch("contemplative_agent.core.insight.generate")
-    def test_writes_last_insight_marker(
+    def test_no_marker_written_by_core(
         self, mock_generate, knowledge_store, skills_dir
     ) -> None:
+        """Core function does not write marker — caller's responsibility."""
         mock_generate.return_value = GOOD_SKILL_RESPONSE
-        extract_insight(
+        result = extract_insight(
             knowledge_store=knowledge_store,
             skills_dir=skills_dir,
         )
-        marker = skills_dir / ".last_insight"
-        assert marker.exists()
-        content = marker.read_text().strip()
-        assert "T" in content  # ISO timestamp
-
-    @patch("contemplative_agent.core.insight.generate")
-    def test_dry_run_does_not_write_marker(
-        self, mock_generate, knowledge_store, skills_dir
-    ) -> None:
-        mock_generate.return_value = GOOD_SKILL_RESPONSE
-        extract_insight(
-            knowledge_store=knowledge_store,
-            skills_dir=skills_dir,
-            dry_run=True,
-        )
+        assert isinstance(result, InsightResult)
         marker = skills_dir / ".last_insight"
         assert not marker.exists()
 
@@ -324,6 +317,7 @@ class TestIncrementalMode:
             skills_dir=skills_dir,
         )
         # Only 1 new pattern, which is < MIN_PATTERNS_REQUIRED (3)
+        assert isinstance(result, str)
         assert "Insufficient patterns (1/3)" in result
 
     @patch("contemplative_agent.core.insight.generate")
@@ -338,4 +332,5 @@ class TestIncrementalMode:
             skills_dir=skills_dir,
             full=True,
         )
-        assert "1 saved" in result
+        assert isinstance(result, InsightResult)
+        assert len(result.skills) == 1

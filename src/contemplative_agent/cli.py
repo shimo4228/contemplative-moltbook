@@ -181,6 +181,40 @@ def _do_uninstall_schedule() -> None:
         print("No schedule installed.")
 
 
+_APPROVAL_GATE_COMMANDS = frozenset({
+    "insight", "rules-distill", "distill-identity", "amend-constitution",
+})
+
+
+def _approve_write(path: Path) -> bool:
+    """Prompt user for write approval. Default is N (safe side)."""
+    print(f"\nWrite to {path}? [y/N] ", end="", flush=True)
+    try:
+        return input().strip().lower() == "y"
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+
+def _is_dry_run(args: argparse.Namespace) -> bool:
+    """Check if --dry-run was passed."""
+    return getattr(args, "dry_run", False)
+
+
+def _warn_dry_run_deprecated(args: argparse.Namespace) -> None:
+    """Print deprecation warning if --dry-run is used on approval-gated commands."""
+    if not _is_dry_run(args):
+        return
+    if getattr(args, "command", "") not in _APPROVAL_GATE_COMMANDS:
+        return
+    print(
+        "Warning: --dry-run is deprecated for this command. "
+        "The approval gate now serves the same purpose — "
+        "reject at the prompt to discard.",
+        file=sys.stderr,
+    )
+
+
 def _run_sync() -> None:
     """Run research data sync script (best-effort)."""
     script = Path(__file__).resolve().parents[2] / "scripts" / "sync-research-data.sh"
@@ -331,7 +365,7 @@ def main() -> None:
         "distill-identity", help="Distill knowledge into identity (without pattern distillation)"
     )
     distill_id_parser.add_argument(
-        "--dry-run", action="store_true", help="Show results without writing"
+        "--dry-run", action="store_true", help="[deprecated] Show results without writing (use approval gate instead)"
     )
 
     # rules-distill
@@ -339,7 +373,7 @@ def main() -> None:
         "rules-distill", help="Distill universal behavioral rules from knowledge patterns"
     )
     rules_distill_parser.add_argument(
-        "--dry-run", action="store_true", help="Show results without writing"
+        "--dry-run", action="store_true", help="[deprecated] Show results without writing (use approval gate instead)"
     )
     rules_distill_parser.add_argument(
         "--full", action="store_true", help="Process all patterns (not just new ones)"
@@ -350,7 +384,7 @@ def main() -> None:
         "amend-constitution", help="Propose amendments to the constitution from accumulated ethical experience"
     )
     amend_parser.add_argument(
-        "--dry-run", action="store_true", help="Show proposed amendments without writing"
+        "--dry-run", action="store_true", help="[deprecated] Show proposed amendments without writing (use approval gate instead)"
     )
 
     # report
@@ -408,7 +442,7 @@ def main() -> None:
         "insight", help="Extract behavioral skill from accumulated knowledge"
     )
     insight_parser.add_argument(
-        "--dry-run", action="store_true", help="Show result without writing"
+        "--dry-run", action="store_true", help="[deprecated] Show result without writing (use approval gate instead)"
     )
     insight_parser.add_argument(
         "--full", action="store_true", help="Process all patterns (default: new only)"
@@ -521,59 +555,119 @@ def main() -> None:
         from .core.distill import distill_identity
         from .core.memory import KnowledgeStore
 
+        _warn_dry_run_deprecated(args)
         knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
         result = distill_identity(
             knowledge_store=knowledge_store,
             identity_path=IDENTITY_PATH,
-            dry_run=args.dry_run,
         )
-        print(result)
+        if isinstance(result, str):
+            print(result)
+            return
+        print(result.text)
+        if _is_dry_run(args) or not _approve_write(result.target_path):
+            if not _is_dry_run(args):
+                print("Discarded.")
+            return
+        result.target_path.write_text(result.text + "\n", encoding="utf-8")
+        os.chmod(result.target_path, stat.S_IRUSR | stat.S_IWUSR)
+        _run_sync()
         return
 
     if args.command == "insight":
-        from .core.insight import extract_insight
+        from .core._io import write_restricted
+        from .core.insight import _write_last_insight, extract_insight
         from .core.memory import EpisodeLog as _EL, KnowledgeStore
 
+        _warn_dry_run_deprecated(args)
         log_dir = MOLTBOOK_DATA_DIR / "logs"
         knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
         result = extract_insight(
             knowledge_store=knowledge_store,
             skills_dir=SKILLS_DIR,
-            dry_run=args.dry_run,
             episode_log=_EL(log_dir=log_dir),
             full=args.full,
         )
-        print(result)
+        if isinstance(result, str):
+            print(result)
+            return
+        written = 0
+        for i, skill in enumerate(result.skills, 1):
+            print(f"\n{'='*60}")
+            print(f"[{i}/{len(result.skills)}] {skill.filename}")
+            print(skill.text)
+            if not _is_dry_run(args) and _approve_write(skill.target_path):
+                SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+                write_restricted(skill.target_path, skill.text)
+                written += 1
+            elif not _is_dry_run(args):
+                print("Skipped.")
+        if written > 0:
+            _write_last_insight(SKILLS_DIR)
+            _run_sync()
+        print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
         return
 
     if args.command == "rules-distill":
+        from .core._io import write_restricted
         from .core.memory import KnowledgeStore
-        from .core.rules_distill import distill_rules
+        from .core.rules_distill import _write_last_run, distill_rules
 
+        _warn_dry_run_deprecated(args)
         knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
         result = distill_rules(
             knowledge_store=knowledge_store,
             rules_dir=RULES_DIR,
-            dry_run=args.dry_run,
             full=args.full,
         )
-        print(result)
+        if isinstance(result, str):
+            print(result)
+            return
+        written = 0
+        for i, rule in enumerate(result.rules, 1):
+            print(f"\n{'='*60}")
+            print(f"[{i}/{len(result.rules)}] {rule.filename}")
+            print(rule.text)
+            if not _is_dry_run(args) and _approve_write(rule.target_path):
+                RULES_DIR.mkdir(parents=True, exist_ok=True)
+                write_restricted(rule.target_path, rule.text)
+                written += 1
+            elif not _is_dry_run(args):
+                print("Skipped.")
+        if written > 0:
+            _write_last_run(RULES_DIR)
+            _run_sync()
+        print(f"\n--- Summary: {written} written, {len(result.rules) - written} skipped, {result.dropped_count} dropped ---")
         return
 
     if args.command == "amend-constitution":
         from .core.constitution import amend_constitution
         from .core.memory import KnowledgeStore
 
+        _warn_dry_run_deprecated(args)
         knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
         constitution_dir = args.constitution_dir or CONSTITUTION_DIR
         result = amend_constitution(
             knowledge_store=knowledge_store,
             constitution_dir=constitution_dir,
-            dry_run=args.dry_run,
         )
-        print(result)
-        if not args.dry_run:
-            _run_sync()
+        if isinstance(result, str):
+            print(result)
+            return
+        print(result.text)
+        if _is_dry_run(args) or not _approve_write(result.target_path):
+            if not _is_dry_run(args):
+                print("Discarded.")
+            return
+        from datetime import datetime, timezone
+        result.target_path.write_text(result.text + "\n", encoding="utf-8")
+        os.chmod(result.target_path, stat.S_IRUSR | stat.S_IWUSR)
+        marker = result.marker_dir / ".last_constitution_amend"
+        marker.write_text(
+            datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
+            encoding="utf-8",
+        )
+        _run_sync()
         return
 
     if args.command == "report":

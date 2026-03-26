@@ -9,11 +9,11 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
-from ._io import write_restricted
 from .llm import generate, validate_identity_content
 from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
@@ -24,6 +24,24 @@ logger = logging.getLogger(__name__)
 MIN_PATTERNS_REQUIRED = 3
 MAX_SLUG_LENGTH = 50
 BATCH_SIZE = 30
+
+
+@dataclass(frozen=True)
+class SkillResult:
+    """A single generated skill ready for approval."""
+
+    text: str
+    filename: str
+    target_path: Path
+
+
+@dataclass(frozen=True)
+class InsightResult:
+    """Result of a successful insight extraction."""
+
+    skills: Tuple[SkillResult, ...]
+    dropped_count: int
+    skills_dir: Path
 
 
 def _slugify(title: str) -> str:
@@ -89,13 +107,13 @@ def _write_last_insight(skills_dir: Path) -> None:
 def extract_insight(
     knowledge_store: Optional[KnowledgeStore] = None,
     skills_dir: Optional[Path] = None,
-    dry_run: bool = False,
     episode_log: Optional[EpisodeLog] = None,
     full: bool = False,
-) -> str:
+) -> Union[str, InsightResult]:
     """Extract behavioral skills from accumulated knowledge.
 
-    Single-pass per batch: extract skill, validate, save.
+    Single-pass per batch: extract skill, validate, return.
+    File writing is the caller's responsibility (ADR-0012 approval gate).
     Quality control is deferred to skill-stocktake.
 
     By default, only processes patterns added since the last insight run.
@@ -103,13 +121,12 @@ def extract_insight(
 
     Args:
         knowledge_store: KnowledgeStore with learned patterns.
-        skills_dir: Directory to write skill files. Created if needed.
-        dry_run: If True, show result without writing.
+        skills_dir: Directory for skill files (used for incremental tracking).
         episode_log: EpisodeLog for reading recent insights.
         full: If True, process all patterns instead of only new ones.
 
     Returns:
-        The skill contents and summary.
+        InsightResult on success, or error message string.
     """
     if knowledge_store is None:
         return "No knowledge store provided."
@@ -154,8 +171,7 @@ def extract_insight(
         "Processing %d patterns in %d batches", len(patterns), len(batches)
     )
 
-    all_results: List[str] = []
-    saved_count = 0
+    skill_results: List[SkillResult] = []
     dropped_count = 0
 
     for batch_idx, batch in enumerate(batches):
@@ -174,35 +190,36 @@ def extract_insight(
             dropped_count += 1
             continue
 
-        if not dry_run and skills_dir is not None:
-            skills_dir.mkdir(parents=True, exist_ok=True)
-            title = _extract_title(skill_text) or ""
-            slug = _slugify(title)
-            if not slug:
-                logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
-                dropped_count += 1
-                continue
-            today = date.today().strftime("%Y%m%d")
-            filename = f"{slug}-{today}.md"
-            file_path = skills_dir / filename
+        title = _extract_title(skill_text) or ""
+        slug = _slugify(title)
+        if not slug:
+            logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
+            dropped_count += 1
+            continue
 
+        today = date.today().strftime("%Y%m%d")
+        filename = f"{slug}-{today}.md"
+
+        if skills_dir is not None:
+            file_path = skills_dir / filename
             if not file_path.resolve().is_relative_to(skills_dir.resolve()):
                 logger.error("Skill path escape attempt: %s", file_path)
                 dropped_count += 1
                 continue
+        else:
+            file_path = Path(filename)
 
-            write_restricted(file_path, skill_text)
-            logger.info("Skill written: %s", file_path)
+        skill_results.append(SkillResult(
+            text=skill_text,
+            filename=filename,
+            target_path=file_path,
+        ))
 
-        all_results.append(skill_text)
-        saved_count += 1
-
-    if not all_results:
+    if not skill_results:
         return "Failed to extract skill from knowledge."
 
-    # Record last insight run (skip for dry-run)
-    if not dry_run and skills_dir is not None and saved_count > 0:
-        _write_last_insight(skills_dir)
-
-    summary = f"\n--- Summary: {saved_count} saved, {dropped_count} dropped ---"
-    return "\n\n".join(all_results) + summary
+    return InsightResult(
+        skills=tuple(skill_results),
+        dropped_count=dropped_count,
+        skills_dir=skills_dir or Path("."),
+    )

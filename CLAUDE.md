@@ -52,13 +52,13 @@ contemplative-agent --help
 contemplative-agent init                          # MOLTBOOK_HOME に identity, knowledge, constitution 作成
 contemplative-agent distill --dry-run             # 記憶蒸留 (dry run)
 contemplative-agent distill --days 3              # 3日分を蒸留
-contemplative-agent distill-identity --dry-run    # アイデンティティ蒸留 (dry run, 手動のみ)
-contemplative-agent insight --dry-run             # 行動スキル抽出 (dry run, 手動のみ)
-contemplative-agent insight                       # 行動スキルを skills/ に生成
-contemplative-agent rules-distill --dry-run       # 行動ルール蒸留 (dry run, 手動のみ)
+contemplative-agent distill-identity              # アイデンティティ蒸留 (承認ゲート付き, 手動のみ)
+contemplative-agent insight                       # 行動スキル抽出 (承認ゲート付き)
+contemplative-agent insight --full                # 全パターンからスキル抽出
+contemplative-agent rules-distill                 # 行動ルール蒸留 (承認ゲート付き)
 contemplative-agent rules-distill --full          # 全パターンからルール蒸留
-contemplative-agent amend-constitution --dry-run  # 憲法改正案を起草 (dry run, 手動のみ)
-contemplative-agent amend-constitution            # 憲法改正を実行
+contemplative-agent amend-constitution            # 憲法改正 (承認ゲート付き)
+contemplative-agent distill-identity              # アイデンティティ蒸留 (承認ゲート付き)
 contemplative-agent solve "ttwweennttyy pplluuss ffiivvee"
 contemplative-agent generate-report               # 本日のアクティビティレポート生成
 contemplative-agent generate-report --all          # 全日分を生成
@@ -118,7 +118,7 @@ GET 60 req/min、POST 30 req/min（分離クォータ）。3層防御（`has_rea
 
 ## テスト
 
-730件全パス (2026-03-26)。カバレッジ詳細は [docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md) を参照。
+724件全パス (2026-03-26)。カバレッジ詳細は [docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md) を参照。
 
 ## メモリアーキテクチャ
 

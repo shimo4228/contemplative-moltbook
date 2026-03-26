@@ -7,6 +7,7 @@ from contemplative_agent.core.distill import (
     summarize_record,
     distill,
     distill_identity,
+    IdentityResult,
     _is_valid_pattern,
     _parse_importance_scores,
     _parse_classify_result,
@@ -512,7 +513,7 @@ class TestSummarizeRecord:
 
 class TestDistillIdentity:
     @patch("contemplative_agent.core.distill.generate")
-    def test_writes_identity_file(self, mock_generate, tmp_path):
+    def test_returns_identity_result(self, mock_generate, tmp_path):
         mock_generate.side_effect = [
             "Long analysis about cooperation and trust patterns.",
             "I am an agent who learned about cooperation.",
@@ -524,25 +525,16 @@ class TestDistillIdentity:
         identity_path = tmp_path / "identity.md"
         result = distill_identity(knowledge_store=ks, identity_path=identity_path)
 
-        assert identity_path.exists()
-        assert "cooperation" in result.lower()
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_dry_run_does_not_write(self, mock_generate, tmp_path):
-        mock_generate.side_effect = ["Some analysis.", "I learned things."]
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Pattern")
-        ks.save()
-
-        identity_path = tmp_path / "identity.md"
-        result = distill_identity(knowledge_store=ks, identity_path=identity_path, dry_run=True)
-
+        assert isinstance(result, IdentityResult)
+        assert "cooperation" in result.text.lower()
+        assert result.target_path == identity_path
+        # Core function does not write — caller's responsibility
         assert not identity_path.exists()
-        assert "learned" in result.lower()
 
     def test_no_knowledge_returns_early(self, tmp_path):
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         result = distill_identity(knowledge_store=ks)
+        assert isinstance(result, str)
         assert "No knowledge" in result
 
     @patch("contemplative_agent.core.distill.generate")
@@ -553,10 +545,11 @@ class TestDistillIdentity:
         ks.save()
 
         result = distill_identity(knowledge_store=ks)
+        assert isinstance(result, str)
         assert "LLM failed" in result
 
     @patch("contemplative_agent.core.distill.generate")
-    def test_forbidden_pattern_prevents_write(self, mock_generate, tmp_path):
+    def test_forbidden_pattern_returns_string(self, mock_generate, tmp_path):
         mock_generate.side_effect = ["Some analysis.", "My api_key is secret."]
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern")
@@ -565,6 +558,8 @@ class TestDistillIdentity:
         identity_path = tmp_path / "identity.md"
         result = distill_identity(knowledge_store=ks, identity_path=identity_path)
 
+        # Validation failure returns str, not IdentityResult
+        assert isinstance(result, str)
         assert not identity_path.exists()
         assert "api_key" in result
 
@@ -576,53 +571,55 @@ class TestDistillIdentity:
         ks.save()
 
         result = distill_identity(knowledge_store=ks, identity_path=None)
+        # No path → returns string
+        assert isinstance(result, str)
         assert "curious" in result.lower()
 
 
 class TestParseClassifyResult:
-    """Parse classification LLM output into category list."""
+    """Parse classification LLM response by scanning for category keywords."""
 
-    def test_valid_json(self):
-        raw = json.dumps({"categories": ["uncategorized", "noise", "constitutional"]})
-        assert _parse_classify_result(raw, 3) == ["uncategorized", "noise", "constitutional"]
-
-    def test_count_mismatch_returns_fallback(self):
-        raw = json.dumps({"categories": ["noise"]})
-        assert _parse_classify_result(raw, 3) == ["uncategorized"] * 3
+    def test_valid_categories(self):
+        assert _parse_classify_result("uncategorized") == "uncategorized"
+        assert _parse_classify_result("noise") == "noise"
+        assert _parse_classify_result("constitutional") == "constitutional"
 
     def test_none_returns_fallback(self):
-        assert _parse_classify_result(None, 2) == ["uncategorized", "uncategorized"]
+        assert _parse_classify_result(None) == "uncategorized"
 
-    def test_invalid_json_returns_fallback(self):
-        assert _parse_classify_result("not json", 2) == ["uncategorized", "uncategorized"]
-
-    def test_invalid_category_normalized(self):
-        raw = json.dumps({"categories": ["behavioral", "noise"]})
-        result = _parse_classify_result(raw, 2)
-        assert result == ["uncategorized", "noise"]
+    def test_unrecognized_returns_fallback(self):
+        assert _parse_classify_result("behavioral") == "uncategorized"
 
     def test_normalizes_case(self):
-        raw = json.dumps({"categories": ["NOISE", "Constitutional"]})
-        assert _parse_classify_result(raw, 2) == ["noise", "constitutional"]
+        assert _parse_classify_result("NOISE") == "noise"
+        assert _parse_classify_result("Constitutional") == "constitutional"
 
-    def test_empty_categories_array(self):
-        raw = json.dumps({"categories": []})
-        assert _parse_classify_result(raw, 2) == ["uncategorized", "uncategorized"]
+    def test_strips_whitespace(self):
+        assert _parse_classify_result("  noise  ") == "noise"
 
-    def test_missing_categories_key(self):
-        raw = json.dumps({"scores": [1, 2]})
-        assert _parse_classify_result(raw, 2) == ["uncategorized", "uncategorized"]
+    def test_category_in_sentence(self):
+        assert _parse_classify_result("The category is noise.") == "noise"
+        assert _parse_classify_result("This is constitutional because it relates to ethics") == "constitutional"
+        assert _parse_classify_result("I would classify this as uncategorized") == "uncategorized"
+
+    def test_noise_with_explanation(self):
+        assert _parse_classify_result("noise — this is test data") == "noise"
+
+    def test_empty_string_returns_fallback(self):
+        assert _parse_classify_result("") == "uncategorized"
+
+    def test_constitutional_takes_priority_over_uncategorized(self):
+        """If both constitutional and uncategorized appear, constitutional wins."""
+        assert _parse_classify_result("not uncategorized, this is constitutional") == "constitutional"
 
 
 class TestClassifyEpisodes:
-    """Step 0: classify episodes into categories."""
+    """Step 0: classify episodes into categories (one at a time)."""
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.generate")
     def test_classifies_records(self, mock_generate):
-        mock_generate.return_value = json.dumps({
-            "categories": ["uncategorized", "noise", "constitutional"],
-        })
+        mock_generate.side_effect = ["uncategorized", "noise", "constitutional"]
         records = [
             {"ts": "2026-03-26T10:00:00", "type": "interaction",
              "data": {"direction": "sent", "agent_name": "Alice", "content_summary": "Hi"}},
@@ -635,8 +632,9 @@ class TestClassifyEpisodes:
         assert len(result.uncategorized) == 1
         assert len(result.noise) == 1
         assert len(result.constitutional) == 1
+        assert mock_generate.call_count == 3  # one per record
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.generate", return_value=None)
     def test_llm_failure_all_uncategorized(self, mock_generate):
         records = [
@@ -665,14 +663,11 @@ class TestClassifyEpisodes:
         assert len(result.noise) == 0
         assert len(result.constitutional) == 0
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.generate")
-    def test_batching_large_record_set(self, mock_generate):
-        """Records > BATCH_SIZE are split into multiple classification batches."""
-        mock_generate.side_effect = [
-            json.dumps({"categories": ["uncategorized"] * 30}),
-            json.dumps({"categories": ["noise"] * 5}),
-        ]
+    def test_many_records_classified_individually(self, mock_generate):
+        """Each record gets its own LLM call."""
+        mock_generate.side_effect = ["uncategorized"] * 30 + ["noise"] * 5
         records = [
             {"ts": f"2026-03-26T{i:02d}:00:00", "type": "interaction",
              "data": {"direction": "sent", "agent_name": "A", "content_summary": f"msg {i}"}}
@@ -681,7 +676,7 @@ class TestClassifyEpisodes:
         result = _classify_episodes(records)
         assert len(result.uncategorized) == 30
         assert len(result.noise) == 5
-        assert mock_generate.call_count == 2
+        assert mock_generate.call_count == 35
 
 
 class TestKnowledgeStoreCategory:
@@ -749,16 +744,17 @@ class TestKnowledgeStoreCategory:
 
 
 class TestDistillWithClassification:
-    """Integration: Step 0 classification + Step 1-3 pipeline."""
+    """Integration: Step 0 classification (per-record) + Step 1-3 pipeline."""
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="Emptiness: ...")
     @patch("contemplative_agent.core.distill.generate")
     def test_noise_excluded(self, mock_generate, _mock_axiom, tmp_path):
         """Noise episodes are excluded from distillation."""
         mock_generate.side_effect = [
-            # Step 0: classify (2 records → 1 uncategorized, 1 noise)
-            json.dumps({"categories": ["uncategorized", "noise"]}),
+            # Step 0: classify each record individually
+            "uncategorized",
+            "noise",
             # Step 1-3 for uncategorized batch only
             "Analysis of the remaining episode.",
             json.dumps({"patterns": [
@@ -780,14 +776,14 @@ class TestDistillWithClassification:
         assert len(ks2._learned_patterns) == 1
         assert ks2._learned_patterns[0]["category"] == "uncategorized"
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="Emptiness: ...")
     @patch("contemplative_agent.core.distill.generate")
     def test_constitutional_tagged(self, mock_generate, _mock_axiom, tmp_path):
         """Constitutional episodes get category='constitutional' in KnowledgeStore."""
         mock_generate.side_effect = [
             # Step 0: classify
-            json.dumps({"categories": ["constitutional"]}),
+            "constitutional",
             # Step 1-3 for constitutional batch
             "Ethical reflection analysis.",
             json.dumps({"patterns": [
@@ -808,14 +804,16 @@ class TestDistillWithClassification:
         assert ks2._learned_patterns[0]["category"] == "constitutional"
         assert ks2._learned_patterns[0]["importance"] == 0.9
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="")
     @patch("contemplative_agent.core.distill.generate")
     def test_mixed_categories(self, mock_generate, _mock_axiom, tmp_path):
         """Both constitutional and uncategorized records are distilled separately."""
         mock_generate.side_effect = [
-            # Step 0: classify (3 records → 1 uncategorized, 1 noise, 1 constitutional)
-            json.dumps({"categories": ["uncategorized", "noise", "constitutional"]}),
+            # Step 0: classify each record individually
+            "uncategorized",
+            "noise",
+            "constitutional",
             # Step 1-3 for uncategorized batch
             "Behavioral analysis.",
             json.dumps({"patterns": [
@@ -846,7 +844,7 @@ class TestDistillWithClassification:
         categories = {p["category"] for p in ks2._learned_patterns}
         assert categories == {"uncategorized", "constitutional"}
 
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episodes} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
     @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="")
     @patch("contemplative_agent.core.distill.generate")
     def test_classification_failure_falls_back(self, mock_generate, _mock_axiom, tmp_path):
