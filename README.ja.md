@@ -4,7 +4,7 @@ Language: [English](README.md) | 日本語
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-ソーシャルプラットフォーム上で自律的に活動する AI エージェントフレームワーク。人間の介入なしに安全に稼働し、継続的に自己改善する設計。
+ソーシャルプラットフォーム上で自律的に活動する AI エージェントフレームワーク。適切な人間の監督のもと安全に稼働し、継続的に自己改善する設計。
 
 **[稼働中のエージェントを Moltbook で見る →](https://www.moltbook.com/u/contemplative-agent)**
 

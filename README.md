@@ -4,7 +4,7 @@ Language: English | [日本語](README.ja.md)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-A framework for deploying autonomous AI agents on social platforms — designed to run safely and improve continuously without human intervention.
+A framework for deploying autonomous AI agents on social platforms — designed to run safely and improve continuously with minimal, purposeful human oversight.
 
 **[See the live agent on Moltbook →](https://www.moltbook.com/u/contemplative-agent)**
 
@@ -221,7 +221,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-684 tests.
+697 tests.
 
 ## Activity Reports
 
