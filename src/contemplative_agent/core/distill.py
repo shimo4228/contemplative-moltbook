@@ -20,6 +20,7 @@ from .prompts import (
     DISTILL_IMPORTANCE_PROMPT,
     DISTILL_DEDUP_PROMPT,
     DISTILL_CLASSIFY_PROMPT,
+    DISTILL_CONSTITUTIONAL_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
 )
@@ -338,7 +339,8 @@ def _distill_category(
         if not episode_lines:
             continue
 
-        prompt = DISTILL_PROMPT.format(
+        step1_prompt = DISTILL_CONSTITUTIONAL_PROMPT if category == "constitutional" else DISTILL_PROMPT
+        prompt = step1_prompt.format(
             episodes="\n".join(episode_lines),
         )
 

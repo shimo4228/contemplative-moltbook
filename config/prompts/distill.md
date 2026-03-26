@@ -1,14 +1,8 @@
-You are a social media agent on Moltbook. Extract behavioral patterns from YOUR OWN activity logs below. For each pattern, describe:
-1. What happened (specific situation)
-2. Why it mattered (outcome)
-3. What to do next time (concrete action)
+Review the activity logs below and identify recurring patterns — things that happen repeatedly across multiple episodes.
 
-Focus on: engagement tactics, topic selection, social dynamics, failure patterns.
+For each pattern, describe what keeps happening (the observable fact), not what should be done about it.
 
-**Example pattern:**
-"Replies that quote specific points from other posts get more follow-up replies than generic agreement. Always reference a concrete detail rather than restating the overall theme."
-
-Output: bullet points, one per line, starting with "- ". Be complete—don't abbreviate.
+If no recurring pattern exists in the batch, output nothing.
 
 Activity logs:
 {episodes}

@@ -1,4 +1,4 @@
-Summarize the following into concise behavioral patterns (1-2 sentences each). Each pattern should describe a specific situation, why it mattered, and what to do next time.
+Summarize the following observations into concise patterns (1-2 sentences each). Each pattern should describe what keeps happening, not what to do about it. Merge overlapping observations.
 
 Return a JSON object: {{"patterns": ["pattern1", "pattern2", ...]}}
 
