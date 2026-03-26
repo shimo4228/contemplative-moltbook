@@ -77,7 +77,7 @@ contemplative-agent --domain-config path/to/domain.json run --session 30
 - Python 3.9+ (venv は 3.13.5)
 - 依存: requests, numpy。LLM は Ollama (qwen3.5:9b, localhost or Docker service)
 - ビルド: hatch
-- 31 モジュール、~7300 LOC
+- 31 モジュール、~8200 LOC
 
 ### Docker
 

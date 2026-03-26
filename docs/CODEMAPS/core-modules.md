@@ -16,31 +16,34 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `knowledge_store.py` | 163 | KnowledgeStore (patterns JSON, learned pattern add/retrieve) |
 | `memory.py` | 443 | MemoryStore facade, Interaction/PostRecord/Insight dataclasses |
 | `scheduler.py` | 165 | Scheduler (rate limit state, has_read/write_budget, persistence) |
-| `distill.py` | 259 | 2-stage distill() + distill_identity() + summarize_record() |
-| `insight.py` | 208 | extract_patterns(), generate_skill_file() |
+| `constitution.py` | 105 | amend_constitution() → AmendmentResult |
+| `distill.py` | 430 | distill(), distill_identity() → IdentityResult, episode classification |
+| `insight.py` | 226 | extract_insight() → InsightResult (SkillResult per batch) |
+| `rules_distill.py` | 200 | distill_rules() → RulesDistillResult (RuleResult per batch) |
 | `report.py` | 228 | generate_report() JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
 
-**Total: ~2600 LOC (14 modules)**
+**Total: ~3400 LOC (16 modules)**
 
-## Key Dataclasses (core/memory.py)
+## Key Dataclasses
 
-All frozen (immutable) with type hints:
+All frozen (immutable) with type hints.
 
+**core/memory.py** — Domain models:
 ```python
-@dataclass(frozen=True)
-class Interaction:
-    timestamp: str; agent_id: str; agent_name: str
-    type: Literal["follow", "unfollow", "upvote", "reply", "mention"]
-    direction: Literal["outbound", "inbound"]
+Interaction(timestamp, agent_id, agent_name, type, direction)
+PostRecord(timestamp, post_id, title, topic)
+Insight(timestamp, observation, insight_type)
+```
 
-@dataclass(frozen=True)
-class PostRecord:
-    timestamp: str; post_id: str; title: str; topic: str
-
-@dataclass(frozen=True)
-class Insight:
-    timestamp: str; observation: str; insight_type: str
+**ADR-0012 Result types** — core 関数が返す生成結果。ファイル書き込みは cli.py が承認後に実行:
+```python
+AmendmentResult(text, target_path, marker_dir)      # constitution.py
+IdentityResult(text, target_path)                     # distill.py
+SkillResult(text, filename, target_path)              # insight.py
+InsightResult(skills: tuple[SkillResult], dropped_count, skills_dir)
+RuleResult(text, filename, target_path)               # rules_distill.py
+RulesDistillResult(rules: tuple[RuleResult], dropped_count, rules_dir)
 ```
 
 ## EpisodeLog Schema (JSONL)
@@ -80,50 +83,61 @@ llm = LLM(identity_path=..., ollama_url="http://localhost:11434",
 | `check_topic_novelty(current, recent)` | bool | PostPipeline |
 | `summarize_post_topic(content)` | str (≤100) | FeedManager |
 | `generate_session_insight(actions, topics)` | str | Agent |
-| `extract_patterns(episodes, knowledge)` | str | distill() |
-| `generate(prompt, system_prompt, ...)` | str | distill (2-stage) |
+| `generate(prompt, system_prompt, ...)` | str | distill, insight, rules, constitution |
 
 All output passes `_sanitize_output()`. All external inputs → `wrap_untrusted_content()`.
 
-## 2-Stage Distill Pipeline (core/distill.py, 259L)
+## Distill Pipeline (core/distill.py, 430L)
 
 ### Knowledge Distill (`distill()`)
 
 ```
-Stage 1 — Extract (batch_size=30, timeout=600s):
-  EpisodeLog.read_range(days) → summarize_record() per record
-  → LLM(DISTILL_PROMPT) → raw patterns (unformatted extraction)
+Step 0 — Classify (1件ずつ):
+  各エピソード → LLM(DISTILL_CLASSIFY_PROMPT) → 1語 (constitutional/noise/uncategorized)
+  noise は除外（明示的忘却）
 
-Stage 2 — Refine:
-  raw patterns + KnowledgeStore.get_context_string() + rules context
-  → LLM(DISTILL_REFINE_PROMPT) → refined patterns
+Step 1 — Extract (batch_size=30, カテゴリ別):
+  uncategorized → LLM(DISTILL_PROMPT) → 繰り返しパターンの事実
+  constitutional → LLM(DISTILL_CONSTITUTIONAL_PROMPT) → 倫理的洞察の本質
+
+Step 2 — Refine:
+  → LLM(DISTILL_REFINE_PROMPT) → JSON {"patterns": [...]}
   → _is_valid_pattern() filter
-  → KnowledgeStore.add_learned_pattern()
-  → write config/knowledge.json
+
+Step 3 — Importance:
+  → LLM(DISTILL_IMPORTANCE_PROMPT) → {"scores": [8, 5, ...]}
+  → _dedup_patterns() + _llm_quality_gate()
+  → KnowledgeStore.add_learned_pattern(category=...)
 ```
 
-### Identity Distill (`distill_identity()`)
+### Identity Distill (`distill_identity() → IdentityResult`)
 
 ```
-Stage 1 — Extract:
-  EpisodeLog.read_range(days) + current identity.md + rules
-  → LLM(IDENTITY_DISTILL_PROMPT) → raw identity material
-
-Stage 2 — Refine:
-  raw material + rules context
-  → LLM(IDENTITY_REFINE_PROMPT) → refined identity
-  → validate_identity_content() (forbidden patterns)
-  → archive_before_write() → config/history/identity/
-  → write config/identity.md
+Step 1: LLM(IDENTITY_DISTILL_PROMPT) → 自由分析
+Step 2: LLM(IDENTITY_REFINE_PROMPT) → 簡潔なペルソナ
+→ validate_identity_content() → IdentityResult（書き込みは cli.py が承認後に実行）
 ```
 
-**Key**: Both pipelines use `summarize_record()` helper to compress JSONL records before LLM input.
+## Insight Pipeline (core/insight.py, 226L)
 
-## Insight Pipeline (core/insight.py, 208L)
+`extract_insight() → InsightResult`
 
-1. `extract_patterns(episodes)` → behavior patterns with context
-2. `generate_skill_file(patterns)` → Markdown skill definition
-3. Output: `config/skills/*.md`
+1. KnowledgeStore から uncategorized パターンをバッチ処理
+2. LLM(INSIGHT_EXTRACTION_PROMPT) → スキル Markdown
+3. validate + slugify → SkillResult のリスト
+4. 書き込みは cli.py が個別承認後に実行
+
+## Rules Distill Pipeline (core/rules_distill.py, 200L)
+
+`distill_rules() → RulesDistillResult`
+
+2段 LLM パイプライン（抽出 → 構造化 Markdown）。insight と同構造だが閾値が高い（10パターン以上必要）。
+
+## Constitution Amendment (core/constitution.py, 105L)
+
+`amend_constitution() → AmendmentResult`
+
+constitutional カテゴリのパターンが3件以上蓄積されたら、現行 constitution + パターンから改正案を生成。
 
 ## Report Generation (core/report.py, 228L)
 

@@ -4,7 +4,7 @@
 ## Project Type
 Python application: Contemplative AI agent with core/adapter separation + 3-layer memory
 
-**Stats**: 31 modules, ~7300 LOC, 730 tests (19 test files)
+**Stats**: 31 modules, ~8200 LOC, 725 tests (19 test files)
 
 ## System Diagram
 
