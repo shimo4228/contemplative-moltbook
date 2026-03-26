@@ -30,7 +30,6 @@ RULES_DIR = MOLTBOOK_DATA_DIR / "rules"
 CONSTITUTION_DIR = MOLTBOOK_DATA_DIR / "constitution"
 MEDITATION_DIR = MOLTBOOK_DATA_DIR / "meditation"
 REPORTS_DIR = MOLTBOOK_DATA_DIR / "reports" / "comment-reports"
-EPISODE_RETENTION_DAYS = 30
 
 # --- Agent pacing ---
 COMMENT_PACING_MIN_SECONDS = 60
@@ -57,17 +56,7 @@ class RateLimits:
     comments_per_day: int = 300
 
 
-@dataclass(frozen=True)
-class NewAgentRateLimits:
-    """Stricter rate limits for agents less than 24h old."""
-
-    post_interval_seconds: int = 7200  # 1 per 2h
-    comment_interval_seconds: int = 60
-    comments_per_day: int = 50
-
-
 RATE_LIMITS = RateLimits()
-NEW_AGENT_RATE_LIMITS = NewAgentRateLimits()
 
 
 @dataclass(frozen=True)

@@ -320,19 +320,6 @@ class MemoryStore:
         ranked.sort(key=lambda x: x[2], reverse=True)
         return [(aid, aname) for aid, aname, _ in ranked[:limit]]
 
-    def get_agents_to_follow(self, min_interactions: int = 5) -> List[Tuple[str, str]]:
-        """Return (agent_id, agent_name) pairs for agents we interact with
-        frequently but haven't followed yet, sorted by interaction count."""
-        candidates = []
-        for agent_id, agent_name in self._known_agents.items():
-            if self.is_followed(agent_name):
-                continue
-            count = self.interaction_count_with(agent_id)
-            if count >= min_interactions:
-                candidates.append((agent_id, agent_name, count))
-        candidates.sort(key=lambda x: x[2], reverse=True)
-        return [(aid, aname) for aid, aname, _ in candidates]
-
     def record_post(
         self,
         timestamp: str,
