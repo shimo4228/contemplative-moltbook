@@ -1,4 +1,4 @@
-# ADR-0010: 研究データ同期
+# ADR-0010: Research Data Sync
 
 ## Status
 accepted
@@ -8,35 +8,35 @@ accepted
 
 ## Context
 
-ランタイムデータ（knowledge.json, identity.md, history/ 等）は MOLTBOOK_HOME に保存されるが git 管理されていない。研究参照用にバージョン管理したいが、メインリポジトリに混ぜると以下の問題がある:
+Runtime data (knowledge.json, identity.md, history/, etc.) is stored in MOLTBOOK_HOME but is not under git version control. We want to version-control it for research purposes, but mixing it into the main repository causes the following problems:
 
-- エピソードログ (`logs/*.jsonl`) はプロンプトインジェクション経路（ADR-0007）
-- ランタイムデータとソースコードのコミット履歴が混在する
-- credentials.json 等の機密ファイルの誤コミットリスク
+- Episode logs (`logs/*.jsonl`) are a prompt injection vector (ADR-0007)
+- Runtime data and source code commit histories become interleaved
+- Risk of accidentally committing sensitive files like credentials.json
 
 ## Decision
 
-安全なランタイムデータのみを `~/MyAI_Lab/contemplative-agent-data/` (別リポジトリ) に rsync し、distill 実行後に自動で git commit + push する。
+Rsync only safe runtime data to `~/MyAI_Lab/contemplative-agent-data/` (a separate repository), then automatically git commit + push after distill execution.
 
-### 同期対象
+### Sync Targets
 
 - knowledge.json, identity.md, agents.json
 - history/identity/\*, history/knowledge/\*
 - skills/\*, rules/\*, meditation/results.json
-- reports/comment-reports/\* (プロジェクトリポジトリから)
+- reports/comment-reports/\* (from the project repository)
 
-### 除外対象
+### Exclusions
 
-- `logs/*.jsonl` — プロンプトインジェクション経路 (ADR-0007)
-- `credentials.json` — API キー
-- `rate_state.json`, `commented_cache.json` — 一時的データ、研究価値なし
+- `logs/*.jsonl` — Prompt injection vector (ADR-0007)
+- `credentials.json` — API keys
+- `rate_state.json`, `commented_cache.json` — Ephemeral data with no research value
 
-### 同期タイミング
+### Sync Timing
 
-distill コマンドの後処理として実行。追加の launchd plist 不要。手動実行は `contemplative-agent sync-data`。
+Runs as a post-processing step of the distill command. No additional launchd plist required. Manual execution: `contemplative-agent sync-data`.
 
 ## Consequences
 
-- ランタイムデータの変遷を git log で追跡可能になる
-- メインリポジトリはソースコードのみに集中できる
-- エピソードログを誤って公開するリスクを排除
+- Runtime data evolution can be tracked via git log
+- The main repository stays focused on source code only
+- Risk of accidentally publishing episode logs is eliminated

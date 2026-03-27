@@ -1,4 +1,4 @@
-# ADR-0007: セキュリティ境界モデル
+# ADR-0007: Security Boundary Model
 
 ## Status
 accepted
@@ -7,41 +7,41 @@ accepted
 2026-03-12
 
 ## Context
-自律エージェントは外部入力（他エージェントの投稿、API レスポンス）と LLM 出力の両方が信頼できない。特にプロンプトインジェクション（外部エージェントの投稿に悪意あるプロンプトが含まれる）と LLM 出力の暴走（禁止パターンの生成）が脅威。
+An autonomous agent cannot trust either external input (other agents' posts, API responses) or LLM output. The primary threats are prompt injection (malicious prompts embedded in other agents' posts) and LLM output runaway (generation of forbidden patterns).
 
 ## Decision
-信頼境界を3層で防御:
+Defend trust boundaries with three layers:
 
-**1. 入力サニタイズ（書き込み時）**
-- 全外部入力を `wrap_untrusted_content()` で `<untrusted_content>` タグにラップ
-- knowledge context も untrusted としてラップ（自分自身の蒸留出力も信頼しない）
+**1. Input Sanitization (at write time)**
+- All external input is wrapped with `wrap_untrusted_content()` in `<untrusted_content>` tags
+- Knowledge context is also wrapped as untrusted (the agent does not trust its own distillation output)
 
-**2. 出力サニタイズ（読み出し時）**
-- LLM 出力を `_sanitize_output()` で `FORBIDDEN_SUBSTRING_PATTERNS` 除去（`re.IGNORECASE`）
-- identity.md は `_validate_identity_content()` で forbidden pattern 検証
+**2. Output Sanitization (at read time)**
+- LLM output is sanitized by `_sanitize_output()`, removing `FORBIDDEN_SUBSTRING_PATTERNS` (`re.IGNORECASE`)
+- identity.md is validated by `_validate_identity_content()` against forbidden patterns
 
-**3. ネットワーク制限**
-- HTTP: `allow_redirects=False`（Bearer token 漏洩防止）、ドメインロック（`www.moltbook.com` のみ）
-- Ollama: `LOCALHOST_HOSTS` + `OLLAMA_TRUSTED_HOSTS`（ドット無しホスト名のみ）で制限
-- Docker: ADR-0006 のネットワーク分離
+**3. Network Restrictions**
+- HTTP: `allow_redirects=False` (prevents Bearer token leakage), domain lock (`www.moltbook.com` only)
+- Ollama: restricted to `LOCALHOST_HOSTS` + `OLLAMA_TRUSTED_HOSTS` (dot-free hostnames only)
+- Docker: network isolation per ADR-0006
 
-**4. 設定ファイル検証**
-- `domain.json`, `contemplative-axioms.md` ロード時も `FORBIDDEN_SUBSTRING_PATTERNS` 検証
-- `OLLAMA_MODEL` はフォーマット検証（`VALID_MODEL_PATTERN`）
-- `post_id` は `[A-Za-z0-9_-]+` バリデーション
+**4. Configuration File Validation**
+- `domain.json` and `contemplative-axioms.md` are validated against `FORBIDDEN_SUBSTRING_PATTERNS` at load time
+- `OLLAMA_MODEL` is format-validated (`VALID_MODEL_PATTERN`)
+- `post_id` is validated against `[A-Za-z0-9_-]+`
 
-**5. 運用制限**
-- Verification: 連続7失敗で自動停止
-- API key: env var > credentials.json (0600)、ログには `_mask_key()` のみ
-- Claude Code からのエピソードログ直読み禁止（プロンプトインジェクション経路）
+**5. Operational Constraints**
+- Verification: automatic halt after 7 consecutive failures
+- API key: env var > credentials.json (0600); only `_mask_key()` output appears in logs
+- Direct reading of episode logs from Claude Code is prohibited (prompt injection vector)
 
 ## Alternatives Considered
-- **LLM 出力を信頼する**: 小規模モデル（9B）は禁止パターンを守れないことが多く、サニタイズなしは危険
-- **ホワイトリスト方式（許可パターンのみ通す）**: 表現の自由度が下がりすぎて投稿品質に影響
-- **外部セキュリティスキャナ**: 依存が増える。現時点の規模では内蔵のパターンマッチで十分
+- **Trust LLM output**: Small models (9B) frequently fail to respect forbidden patterns; no sanitization is dangerous
+- **Allowlist-only approach (permit only matching patterns)**: Restricts expressive freedom too much, degrading post quality
+- **External security scanner**: Adds a dependency. At the current scale, built-in pattern matching suffices
 
 ## Consequences
-- 蓄積データ（knowledge.json, identity.md）は全て untrusted として扱われる
-- セキュリティ定数は `core/config.py` に集約（`FORBIDDEN_SUBSTRING_PATTERNS`, `MAX_*_LENGTH`, `VALID_*_PATTERN`）
-- 新しい禁止パターン追加は `core/config.py` の定数を更新するだけ
-- パフォーマンスへの影響は軽微（正規表現マッチのみ）
+- All accumulated data (knowledge.json, identity.md) is treated as untrusted
+- Security constants are consolidated in `core/config.py` (`FORBIDDEN_SUBSTRING_PATTERNS`, `MAX_*_LENGTH`, `VALID_*_PATTERN`)
+- Adding a new forbidden pattern requires only updating constants in `core/config.py`
+- Performance impact is negligible (regex matching only)

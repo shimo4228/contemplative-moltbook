@@ -108,7 +108,8 @@ docker compose down                                     # 停止
 ## ドキュメント言語方針
 
 - `docs/spec/system-spec.md` は英語で記述する（外部研究者向け）
-- CLAUDE.md、docs/adr/、docs/CODEMAPS/ は日本語
+- CLAUDE.md、docs/CODEMAPS/ は日本語
+- docs/adr/ は英語（*.ja.md が日本語版）
 - README.md は英語（README.ja.md が日本語版）
 
 ## API レート制限

@@ -1,30 +1,30 @@
 # Architecture Decision Records
 
-このプロジェクトの主要な設計判断を記録する。
+Records of key design decisions for this project.
 
-## 一覧
+## Index
 
-| ADR | タイトル | Status | Date |
-|-----|---------|--------|------|
-| [0001](0001-core-adapter-separation.md) | Core/Adapter 分離 | accepted | 2026-03-10 |
-| [0002](0002-paper-faithful-ccai.md) | 論文準拠 CCAI 適用 | accepted | 2026-03-12 |
-| [0003](0003-config-directory-design.md) | Config ディレクトリ設計 | accepted | 2026-03-12 |
-| [0004](0004-three-layer-memory.md) | 3層メモリアーキテクチャ `[AKC: Extract/Curate/Promote]` | accepted | 2026-03-17 |
-| [0005](0005-session-context-refactoring.md) | SessionContext リファクタリング | accepted | 2026-03-14 |
-| [0006](0006-docker-network-isolation.md) | Docker ネットワーク分離 | accepted | 2026-03-14 |
-| [0007](0007-security-boundary-model.md) | セキュリティ境界モデル | accepted | 2026-03-12 |
-| [0008](0008-two-stage-distill-pipeline.md) | 2段階蒸留パイプライン `[AKC: Extract]` | accepted | 2026-03-22 |
+| ADR | Title | Status | Date |
+|-----|-------|--------|------|
+| [0001](0001-core-adapter-separation.md) | Core/Adapter Separation | accepted | 2026-03-10 |
+| [0002](0002-paper-faithful-ccai.md) | Paper-Faithful CCAI Implementation | accepted | 2026-03-12 |
+| [0003](0003-config-directory-design.md) | Config Directory Design | accepted | 2026-03-12 |
+| [0004](0004-three-layer-memory.md) | Three-Layer Memory Architecture `[AKC: Extract/Curate/Promote]` | accepted | 2026-03-17 |
+| [0005](0005-session-context-refactoring.md) | SessionContext Refactoring | accepted | 2026-03-14 |
+| [0006](0006-docker-network-isolation.md) | Docker Network Isolation | accepted | 2026-03-14 |
+| [0007](0007-security-boundary-model.md) | Security Boundary Model | accepted | 2026-03-12 |
+| [0008](0008-two-stage-distill-pipeline.md) | Two-Stage Distill Pipeline `[AKC: Extract]` | accepted | 2026-03-22 |
 | [0009](0009-importance-score.md) | KnowledgeStore Importance Score `[AKC: Extract/Quality Gate]` | accepted | 2026-03-24 |
-| [0010](0010-research-data-sync.md) | 研究データ同期 | accepted | 2026-03-25 |
-| [0011](0011-knowledge-injection-to-skills.md) | Knowledge 直接注入の廃止 → Skills 経由 `[AKC: Curate]` | accepted | 2026-03-26 |
-| [0012](0012-human-approval-gate.md) | 行動変更コマンドの人間承認ゲート `[AKC: Curate/Promote]` | accepted | 2026-03-26 |
+| [0010](0010-research-data-sync.md) | Research Data Sync | accepted | 2026-03-25 |
+| [0011](0011-knowledge-injection-to-skills.md) | Deprecating Direct Knowledge Injection in Favor of Skills `[AKC: Curate]` | accepted | 2026-03-26 |
+| [0012](0012-human-approval-gate.md) | Human Approval Gate for Behavior-Modifying Commands `[AKC: Curate/Promote]` | accepted | 2026-03-26 |
 
-## テンプレート
+## Template
 
-新しい ADR を追加する際は以下のフォーマットに従う:
+When adding a new ADR, follow this format:
 
 ```markdown
-# ADR-NNNN: タイトル
+# ADR-NNNN: Title
 
 ## Status
 accepted / superseded by ADR-XXXX / deprecated
@@ -33,21 +33,21 @@ accepted / superseded by ADR-XXXX / deprecated
 YYYY-MM-DD
 
 ## Context
-何が問題だったか
+What was the problem
 
 ## Decision
-何を決めたか
+What was decided
 
 ## Alternatives Considered
-却下した案とその理由
+Rejected options and why
 
 ## Consequences
-この判断の結果どうなったか
+What resulted from this decision
 ```
 
-## 運用ルール
+## Guidelines
 
-- 番号は連番（0001〜）、時系列順
-- 既存 ADR の変更は新 ADR で supersede する（上書きしない）
-- 小さな判断は記録不要。アーキテクチャ・データモデル・セキュリティに影響する判断のみ
-- `/sync-context` で ADR index とファイルの整合性をチェックできる
+- Numbers are sequential (0001–), in chronological order
+- Changes to existing ADRs are made via a new ADR that supersedes the original (never overwrite)
+- Only record decisions affecting architecture, data models, or security — minor decisions need not be recorded
+- Use `/sync-context` to check consistency between the ADR index and files

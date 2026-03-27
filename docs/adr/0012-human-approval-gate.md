@@ -1,4 +1,4 @@
-# ADR-0012: 行動変更コマンドの人間承認ゲート
+# ADR-0012: Human Approval Gate for Behavior-Modifying Commands
 
 ## Status
 accepted
@@ -8,54 +8,54 @@ accepted
 
 ## Context
 
-オフラインコマンド（insight, rules-distill, distill-identity, amend-constitution）は skills, rules, identity, constitution を書き換え、エージェントの行動に直接影響する。これまでは `--dry-run` で事前確認し、別途本番実行するフローだったが、2つの問題があった:
+Offline commands (insight, rules-distill, distill-identity, amend-constitution) modify skills, rules, identity, and constitution — directly affecting agent behavior. Previously, the workflow was to preview via `--dry-run` then run separately in production, but two problems existed:
 
-1. **確率生成の非再現性**: `--dry-run` で見た LLM 出力と本番実行の出力は同一にならない。「プレビュー」として機能しない
-2. **承認の非強制**: `--dry-run` を省略して直接実行できるため、Human in the loop が構造的に保証されない
+1. **Non-reproducibility of probabilistic generation**: The LLM output seen during `--dry-run` is not identical to the production run output. It does not function as a "preview"
+2. **Non-enforcement of approval**: `--dry-run` can be skipped and commands run directly, meaning human-in-the-loop is not structurally guaranteed
 
 ## Decision
 
-行動に直接影響するコマンドに承認ゲートを導入する。生成結果を表示した後、書き込み前に人間の承認を求める。`--auto` フラグは提供しない（AKC の Human in the loop 原則）。
+Introduce an approval gate for commands that directly affect behavior. After generating results, display them and request human approval before writing. No `--auto` flag is provided (AKC human-in-the-loop principle).
 
-| コマンド | 承認ゲート | `--dry-run` | 理由 |
-|---------|-----------|-------------|------|
-| **distill** | なし | 残す | 中間成果物（knowledge）への書き込み。行動に直接影響しない |
-| **insight** | あり | 廃止 | skills を書き換え。承認しなければ dry-run と同等 |
-| **rules-distill** | あり | 廃止 | rules を書き換え |
-| **distill-identity** | あり | 廃止 | identity を書き換え |
-| **amend-constitution** | あり | 廃止 | constitution を書き換え。最も影響が大きい |
+| Command | Approval Gate | `--dry-run` | Rationale |
+|---------|--------------|-------------|-----------|
+| **distill** | None | Retained | Writes to intermediate artifact (knowledge). No direct behavioral impact |
+| **insight** | Yes | Removed | Modifies skills. Not approving = equivalent to dry-run |
+| **rules-distill** | Yes | Removed | Modifies rules |
+| **distill-identity** | Yes | Removed | Modifies identity |
+| **amend-constitution** | Yes | Removed | Modifies constitution. Highest impact |
 
-### フロー
+### Flow
 
 ```
-CLI 実行
-  → LLM 生成
-  → 結果を stdout に表示
+CLI execution
+  → LLM generation
+  → Display results to stdout
   → "Write to {path}? [y/N]"
-  → y: 書き込み / N: 破棄
+  → y: write / N: discard
 ```
 
-### distill が承認不要な理由
+### Why distill Does Not Require Approval
 
-distill は knowledge（中間成果物）にのみ書き込む。ADR-0011 で knowledge 直接注入を廃止したため、knowledge はエージェントの行動に直接影響しない。行動への反映は insight → skills を経由し、そこに承認ゲートがある。
+Distill writes only to knowledge (an intermediate artifact). Since ADR-0011 deprecated direct knowledge injection, knowledge does not directly affect agent behavior. Behavioral influence flows through insight → skills, where the approval gate exists.
 
-### `--auto` を提供しない理由
+### Why No `--auto` Flag
 
-AKC（Agent Knowledge Cycle）は人間の監督を前提とした自己改善ループ。行動変更の自動実行を許可すると、エージェントの行動変化が人間の確認なしに起きる経路が生まれる。これは設計思想に反する。
+AKC (Agent Knowledge Cycle) is a self-improvement loop predicated on human oversight. Permitting automatic execution of behavior modifications creates a path where agent behavior changes without human review. This contradicts the design philosophy.
 
 ## Alternatives Considered
 
-1. **`--auto` フラグで確認スキップ**: Claude Code がオーケストレーターとして自動実行する場合に必要 → 却下。Claude Code は結果を読んで判断し、承認できる。自動スキップは不要
-2. **`--dry-run` を残して承認ゲートも追加**: 2つの確認手段が重複 → 却下。承認しなければ dry-run と同じ結果が得られる。distill だけ `--dry-run` を残す（承認ゲートがないため）
-3. **全コマンドに承認ゲート（distill 含む）**: → 却下。distill は launchd で定期自動実行される。中間成果物への書き込みに毎回承認を求めると運用が成り立たない
+1. **`--auto` flag to skip confirmation**: Needed when Claude Code acts as an automated orchestrator → Rejected. Claude Code can read results and make an approval decision. Automatic skipping is unnecessary
+2. **Retain `--dry-run` alongside the approval gate**: Two confirmation mechanisms become redundant → Rejected. Not approving achieves the same result as dry-run. `--dry-run` is retained only for distill (which has no approval gate)
+3. **Approval gate on all commands (including distill)**: → Rejected. Distill is executed periodically via launchd. Requiring approval for every write to an intermediate artifact makes operations infeasible
 
 ## Consequences
 
-**良い結果**:
-- Human in the loop が構造的に強制される（`--auto` がないため回避不可能）
-- 確率生成の非再現性問題が解消（実際の生成結果に対して承認する）
-- `--dry-run` の意味が明確化（distill 専用のシミュレーションモード）
+**Positive outcomes**:
+- Human-in-the-loop is structurally enforced (no `--auto` means it cannot be bypassed)
+- The non-reproducibility problem of probabilistic generation is resolved (approval is given to the actual generated result)
+- `--dry-run` semantics are clarified (simulation mode for distill only)
 
-**注意が必要**:
-- CLI の対話的プロンプトは CI/CD パイプラインでは使えない（そもそも行動変更コマンドを CI で自動実行すべきでない）
-- Claude Code がオーケストレーターの場合、承認フローの実装方法を検討する必要がある（stdout の結果を読んで再実行か、別のインターフェースか）
+**Requires attention**:
+- CLI interactive prompts cannot be used in CI/CD pipelines (behavior-modifying commands should not be auto-executed in CI anyway)
+- When Claude Code is the orchestrator, the approval flow implementation needs consideration (re-execute after reading stdout results, or a different interface)

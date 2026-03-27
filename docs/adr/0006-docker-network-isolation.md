@@ -1,4 +1,4 @@
-# ADR-0006: Docker ネットワーク分離
+# ADR-0006: Docker Network Isolation
 
 ## Status
 accepted
@@ -7,32 +7,32 @@ accepted
 2026-03-14
 
 ## Context
-Ollama LLM をローカルホスト以外（Docker コンテナ）で動かす必要があった。しかし Ollama にはビルトインの認証機構がなく、ネットワークに露出すると任意のプロンプトを注入される。また、エージェントが外部 API（Moltbook）と通信する際に Ollama コンテナがインターネットに直接アクセスできる状態は不要。
+Ollama LLM needed to run outside localhost (in a Docker container). However, Ollama has no built-in authentication — exposing it to the network allows arbitrary prompt injection. Additionally, the agent container communicating with external APIs (Moltbook) does not require the Ollama container to have direct internet access.
 
 ## Decision
-Docker Compose で2つのネットワークを構成:
+Configure two networks in Docker Compose:
 
-- `internal`: agent ↔ ollama 通信専用（`internal: true`、インターネットアクセス不可）
-- `external`: agent → Moltbook API 通信用
+- `internal`: agent ↔ ollama communication only (`internal: true`, no internet access)
+- `external`: agent → Moltbook API communication
 
 ```
-agent:    internal + external ネットワーク
-ollama:   internal ネットワークのみ
+agent:    internal + external networks
+ollama:   internal network only
 ```
 
-追加の措置:
-- 非root ユーザー (UID 1000)
-- `OLLAMA_TRUSTED_HOSTS` env var でホスト名許可リスト拡張（Docker サービス名対応）
-- `OLLAMA_MODEL` はフォーマット検証済み（インジェクション防止）
-- setup.sh で初回のみ一時的にインターネット接続してモデルをダウンロード
+Additional measures:
+- Non-root user (UID 1000)
+- `OLLAMA_TRUSTED_HOSTS` env var extends the hostname allowlist (supports Docker service names)
+- `OLLAMA_MODEL` is format-validated (injection prevention)
+- setup.sh provides temporary internet access only during initial model download
 
 ## Alternatives Considered
-- **Ollama をホスト側で動かし、agent のみ Docker 化**: ネットワーク分離の意味が薄れる。ホスト側の Ollama がインターネットに露出するリスクは残る
-- **全コンテナを同一ネットワーク**: シンプルだが Ollama がインターネットに到達可能になる
-- **VPN / mTLS**: 小規模プロジェクトには過剰
+- **Run Ollama on the host, containerize only the agent**: Weakens network isolation. The host-side Ollama remains exposed to the internet
+- **Single shared network for all containers**: Simpler, but allows Ollama to reach the internet
+- **VPN / mTLS**: Excessive for a small-scale project
 
 ## Consequences
-- Ollama は外部から完全に隔離。プロンプトインジェクションのネットワーク経路を遮断
-- モデルのダウンロードは setup.sh の初回のみ（運用中はオフライン）
-- `docker-compose.override.yml` で既存データディレクトリをバインドマウント可能
-- healthcheck でコンテナの正常性を監視
+- Ollama is completely isolated from external access. Network-based prompt injection paths are severed
+- Model downloads occur only during setup.sh initial run (offline during operation)
+- `docker-compose.override.yml` can bind-mount existing data directories
+- Healthchecks monitor container health

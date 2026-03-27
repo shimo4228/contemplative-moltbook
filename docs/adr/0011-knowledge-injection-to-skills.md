@@ -1,4 +1,4 @@
-# ADR-0011: Knowledge 直接注入の廃止 — Skills 経由への移行
+# ADR-0011: Deprecating Direct Knowledge Injection — Migration to Skills
 
 ## Status
 accepted
@@ -8,80 +8,80 @@ accepted
 
 ## Context
 
-現在、`get_context_string(limit=50)` で KnowledgeStore のパターン50件をバレットリストとしてプロンプトに直接注入している（`generate_cooperation_post` と `generate_reply` の2箇所）。
+Currently, `get_context_string(limit=50)` injects 50 KnowledgeStore patterns as a bullet list directly into the prompt (in two places: `generate_cooperation_post` and `generate_reply`).
 
-問題点:
+Problems:
 
-1. **ブラックボックス**: LLM が50件のうち何をどう反映したか追跡不可能
-2. **Human in the loop 不在**: 人間の確認なしにエージェントの行動が変化する
-3. **ノイズ耐性なし**: 低品質パターン（例: "Test Title を避けろ" の重複）が行動に影響
-4. **AKC との矛盾**: AKC の Curate/Promote フェーズ（人間の監督）をバイパスしている
-5. **トークンコスト**: 50パターン × 100-200 tokens = 5000-10000 tokens がプロンプトに無差別追加
+1. **Black box**: It is impossible to trace which of the 50 patterns the LLM reflected and how
+2. **No human in the loop**: Agent behavior changes without human review
+3. **No noise resistance**: Low-quality patterns (e.g., duplicates of "avoid Test Title") influence behavior
+4. **AKC contradiction**: Bypasses the AKC Curate/Promote phases (human oversight)
+5. **Token cost**: 50 patterns × 100–200 tokens = 5,000–10,000 tokens added indiscriminately to the prompt
 
-一方、既存の `insight` コマンドは knowledge から skills/*.md を抽出し、LLM のシステムプロンプトに注入している。skills は:
-- 人間が読める Markdown
-- `--dry-run` で事前確認可能
-- 直接編集可能
-- git で差分追跡可能
+Meanwhile, the existing `insight` command extracts skills/*.md from knowledge and injects them into the LLM system prompt. Skills are:
+- Human-readable Markdown
+- Previewable via `--dry-run`
+- Directly editable
+- Diff-trackable via git
 
 ## Decision
 
-Knowledge パターンのプロンプト直接注入を段階的に廃止し、行動への影響は skills 経由のみにする。
+Gradually deprecate direct knowledge pattern injection into prompts. Behavioral influence must flow exclusively through skills.
 
 ```
-廃止:  knowledge → プロンプト直接注入 → LLM が暗黙的に反映
-採用:  knowledge → insight → skills/*.md → システムプロンプトに注入
+Deprecated:  knowledge → direct prompt injection → LLM implicitly reflects
+Adopted:     knowledge → insight → skills/*.md → injected into system prompt
 ```
 
-Knowledge は蒸留パイプラインの中間成果物として保持するが、セッション中の行動に直接影響を与えない。
+Knowledge is retained as an intermediate artifact of the distillation pipeline but no longer directly influences behavior during sessions.
 
-### 移行計画
+### Migration Plan
 
-1. skills が十分に蓄積されるまでは knowledge 注入を維持
-2. insight の実行頻度を上げ、skills のカバレッジを確認
-3. skills で行動がカバーされていることを検証後、knowledge 注入を廃止
-4. `get_context_string()` は distill-identity の入力としてのみ使用
+1. Maintain knowledge injection until skills are sufficiently accumulated
+2. Increase insight execution frequency and verify skills coverage
+3. After confirming behavior is covered by skills, deprecate knowledge injection
+4. `get_context_string()` will only be used as input for distill-identity
 
-### influence 経路の明確化
+### Influence Path Clarification
 
-| 経路 | 入力 | 出力 | 人間の確認 |
-|------|------|------|----------|
-| 倫理的判断 | constitutional knowledge | constitution 反映 | constitution 編集時 |
-| 行動パターン | uncategorized knowledge | insight → skills/*.md | insight 実行時（手動） |
-| 人格 | 全 knowledge | distill-identity → identity.md | distill-identity 実行時（手動） |
+| Path | Input | Output | Human Review |
+|------|-------|--------|-------------|
+| Ethical judgment | constitutional knowledge | Reflected in constitution | At constitution edit time |
+| Behavior patterns | uncategorized knowledge | insight → skills/*.md | At insight execution (manual) |
+| Personality | all knowledge | distill-identity → identity.md | At distill-identity execution (manual) |
 
 ## Alternatives Considered
 
-1. **knowledge 注入を改善して維持**: Phase 3 の選択的ロード（カテゴリフィルタ）で注入品質を上げる。→ 却下: Human in the loop の問題は解決しない。品質が上がっても「何が行動を変えたか」は追跡できない
+1. **Improve and retain knowledge injection**: Use Phase 3 selective loading (category filter) to improve injection quality. → Rejected: Does not solve the human-in-the-loop problem. Even with better quality, "what changed behavior" remains untrackable
 
-2. **knowledge と skills の併用**: 両方をプロンプトに注入する。→ 却下: 二重注入はトークンコストとノイズを増やすだけ。influence 経路が不明確なまま
+2. **Use both knowledge and skills**: Inject both into the prompt. → Rejected: Double injection only increases token cost and noise. Influence paths remain ambiguous
 
-3. **即座に廃止**: knowledge 注入を今すぐ削除する。→ 却下: skills のカバレッジが不十分な段階では行動品質が低下するリスク。段階的移行が安全
+3. **Immediate deprecation**: Remove knowledge injection now. → Rejected: At this stage with insufficient skills coverage, behavior quality would degrade. Gradual migration is safer
 
 ## Consequences
 
-**良い結果**:
-- エージェントの行動変化が全て人間の確認を経由する（Human in the loop）
-- 変更の追跡が可能（git diff で skills の変化を確認）
-- AKC の設計思想と完全に整合
-- プロンプトのトークン消費が削減される
-- README の "with minimal, purposeful human oversight" と一貫
+**Positive outcomes**:
+- All agent behavior changes pass through human review (human in the loop)
+- Changes are trackable (verify skills changes via git diff)
+- Fully aligned with AKC design philosophy
+- Reduced prompt token consumption
+- Consistent with the README's "with minimal, purposeful human oversight"
 
-**注意が必要**:
-- insight の実行頻度を上げる必要がある（現在は手動のみ）
-- skills のカバレッジが十分か継続的に検証が必要
-- knowledge → skills の変換精度（insight の品質）が行動品質のボトルネックになりうる
+**Requires attention**:
+- Insight execution frequency needs to increase (currently manual only)
+- Continuous verification that skills coverage is sufficient
+- Knowledge → skills conversion accuracy (insight quality) may become a bottleneck for behavior quality
 
-## 3層監督構造との関係
+## Relationship to the Three-Layer Oversight Structure
 
-この ADR は、エージェントの3層監督構造を完結させる:
+This ADR completes the agent's three-layer oversight structure:
 
-| 層 | 役割 | 能力 |
-|---|------|------|
-| **contemplative-agent** | 自律活動、エピソード蓄積 | run, distill（自動）。自己改変不可 |
-| **Orchestrator（Claude Code 等）** | 人間の意図を CLI に変換 | insight, rules-distill, distill-identity |
-| **Human** | 意図を伝え、結果を確認 | dry-run 確認、skills 編集、git diff |
+| Layer | Role | Capabilities |
+|-------|------|-------------|
+| **contemplative-agent** | Autonomous activity, episode accumulation | run, distill (automatic). Cannot self-modify |
+| **Orchestrator (e.g., Claude Code)** | Translates human intent into CLI commands | insight, rules-distill, distill-identity |
+| **Human** | Communicates intent, reviews results | dry-run review, skills editing, git diff |
 
-Knowledge 直接注入を廃止することで、エージェントの行動変化は全て skills 経由 → 全て人間が確認した成果物を経由する。エージェント自身に自己改変能力がないため、プロンプトインジェクションで行動を書き換えることが構造的に不可能になる。
+By deprecating direct knowledge injection, all behavior changes flow through skills — all through artifacts reviewed by humans. Since the agent itself has no self-modification capability, rewriting behavior via prompt injection becomes structurally impossible.
 
-オーケストレーターは Claude Code に限定されない。CLI を叩けるものなら何でもよい（Minimal Dependency 原則）。
+The orchestrator is not limited to Claude Code. Anything that can invoke the CLI suffices (Minimal Dependency principle).

@@ -1,4 +1,4 @@
-# ADR-0003: Config ディレクトリ設計
+# ADR-0003: Config Directory Design
 
 ## Status
 accepted
@@ -7,29 +7,29 @@ accepted
 2026-03-12
 
 ## Context
-プロンプトテンプレート、行動ルール、ドメイン設定が混在していた。「LLMへのタスク指示」と「エージェントの行動原則」の区別が曖昧で、`--constitution-dir` でドメイン切替する際にどのファイルが切り替わるべきか不明確だった。
+Prompt templates, behavior rules, and domain configuration were intermixed. The distinction between "task instructions for the LLM" and "agent behavior principles" was ambiguous, making it unclear which files should change when switching domains via `--constitution-dir`.
 
 ## Decision
-`config/` を役割で3分割:
+Split `config/` into three role-based directories:
 
 ```
-config/prompts/        ← 「このタスクをやれ」(LLM タスク指示テンプレート、13個)
-config/rules/          ← 「こう振る舞え」(行動原則・コンテンツ)
-  contemplative/       ←   CCAI 公理プリセット
-  default/             ←   ニュートラル（公理なし）
-config/domain.json     ← サブモルト・閾値・キーワード
+config/prompts/        ← "Do this task" (LLM task instruction templates, 13 files)
+config/rules/          ← "Behave this way" (behavior principles & content)
+  contemplative/       ←   CCAI axiom preset
+  default/             ←   Neutral (no axioms)
+config/domain.json     ← Sub-molts, thresholds, keywords
 ```
 
-- `prompts/` はドメイン非依存（どのルールセットでも同じ）
-- `constitution/` は `--constitution-dir` で切替
-- `domain.json` はプラットフォーム固有（Moltbook のサブモルト定義）
+- `prompts/` is domain-agnostic (same regardless of rule set)
+- `constitution/` switches via `--constitution-dir`
+- `domain.json` is platform-specific (Moltbook sub-molt definitions)
 
 ## Alternatives Considered
-- **フラットに config/ 直下**: ファイル数が少ない間は問題ないが、ルール切替時に prompts まで切り替わるリスク
-- **prompts を rules 内に配置**: `rules/contemplative/prompts/` のように。しかし prompts は公理と無関係なので分離すべき
+- **Flat config/ directory**: Fine while file count is low, but risks prompts being inadvertently swapped when switching rule sets
+- **Place prompts inside rules**: e.g., `rules/contemplative/prompts/`. However, prompts are unrelated to axioms and should be separate
 
 ## Consequences
-- `--constitution-dir` 切替で公理の有無を制御可能。prompts は影響を受けない
-- `contemplative-axioms.md` が `rules/contemplative/` 内にあるため、公理はルールセットの一部として管理
-- 新しいルールプリセット追加は `rules/{preset-name}/` ディレクトリを作るだけ
-- `CONTEMPLATIVE_CONFIG_DIR` env var で config/ パス全体をオーバーライド可能（Docker 対応）
+- `--constitution-dir` controls axiom presence/absence without affecting prompts
+- `contemplative-axioms.md` resides in `rules/contemplative/`, managed as part of the rule set
+- Adding a new rule preset requires only creating a `rules/{preset-name}/` directory
+- `CONTEMPLATIVE_CONFIG_DIR` env var allows overriding the entire config/ path (Docker support)
