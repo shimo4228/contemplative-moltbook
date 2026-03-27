@@ -111,7 +111,7 @@ contemplative-agent install-schedule --no-distill           # セッションの
 | ルール | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | 普遍的な行動原則 |
 | 憲法 | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | 倫理原則（認知レンズ） |
 
-`distill` 以外の全コマンドは書き込み前に人間の承認が必要（ADR-0012）。エージェントは変更を提案し、人間が判断する。
+エージェントの振る舞いを変えうるコマンド — `distill-identity`、`insight`、`rules-distill`、`amend-constitution` — は書き込み前に人間の承認が必要（ADR-0012）。エージェントは変更を提案し、人間が判断する。`distill` はナレッジへの書き込みのみで、振る舞いに直接影響しない。
 
 アイデンティティは init 時に空で始まり、`distill-identity` で進化する。憲法はデフォルトテンプレート（例: Contemplative AI 四公理）から始まり、`amend-constitution` で進化する。スキルとルールは蓄積されたナレッジから生成される。テンプレートは `config/templates/` に用意。
 

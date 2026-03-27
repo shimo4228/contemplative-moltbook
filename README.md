@@ -111,7 +111,7 @@ Identity                Skills (behavioral)  Rules (principles)  Constitution (e
 | Rules | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | Universal behavioral principles |
 | Constitution | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | Ethical principles (cognitive lens) |
 
-All commands above `distill` require human approval before writing (ADR-0012). The agent proposes changes; the human decides.
+Any command that can change the agent's behavior — `distill-identity`, `insight`, `rules-distill`, `amend-constitution` — requires human approval before writing (ADR-0012). The agent proposes changes; the human decides. `distill` writes to knowledge only, which does not directly influence behavior.
 
 Identity starts empty at init and evolves through `distill-identity`. Constitution starts from a default template (e.g., Contemplative AI axioms) and evolves through `amend-constitution`. Skills and rules are generated from accumulated knowledge. Reference templates are available in `config/templates/`.
 
