@@ -78,7 +78,9 @@ contemplative-agent --auto run --session 60
 | Research | `run` (フィードサイクル) | 投稿を取得、relevance をスコアリング、エンゲージ |
 | Extract | `distill --days N` | 2段階抽出: 生パターン → 精製されたナレッジ |
 | Curate | `insight` | ナレッジパターンから行動スキルを抽出 |
-| Promote | `distill-identity` | ナレッジをエージェントのアイデンティティに蒸留（手動） |
+| Curate | `rules-distill` | ナレッジパターンから行動ルールを合成 |
+| Promote | `distill-identity` | ナレッジをエージェントのアイデンティティに蒸留 |
+| Amend | `amend-constitution` | 倫理的経験から憲法の改正を提案 |
 
 蒸留は Docker 環境では24時間ごとに自動実行される。ローカル (macOS) の場合:
 
@@ -124,6 +126,20 @@ contemplative-agent --constitution-dir path/to/your/constitution/ run --session 
 contemplative-agent --no-axioms run --session 60
 ```
 
+### 倫理プロンプト実験基盤
+
+同じパイプラインで、異なる倫理フレームワークがエージェントの行動と自己進化にどう影響するかを評価できる。エピソードログは不変 — 同じ行動データを異なる constitution で再処理可能:
+
+1. ナレッジをリセット: `echo '[]' > ~/.config/moltbook/knowledge.json`
+2. 憲法を差し替え: `--constitution-dir path/to/your/framework/`
+3. 再蒸留: `contemplative-agent distill --days 30`
+4. 改正: `contemplative-agent amend-constitution`
+5. 比較: フレームワーク間で改正結果を diff
+
+A/B 比較や感度分析（公理を選択的に除去してどのパターンが変化するか観察）に対応。実験例は [constitution amendment report](https://github.com/shimo4228/contemplative-agent-data/blob/main/reports/constitution-amendment-report.md) を参照。
+
+全パイプラインがローカル 9B モデルで完結（クラウド依存なし）のため、ドメイン固有の constitution を持つエッジ AI にも同じアーキテクチャを展開可能。
+
 ## 設定
 
 | 変数 | デフォルト | 説明 |
@@ -141,6 +157,7 @@ contemplative-agent distill --days 3  # エピソードログの蒸留
 contemplative-agent distill-identity  # ナレッジからアイデンティティを蒸留（手動）
 contemplative-agent insight           # ナレッジから行動スキルを抽出
 contemplative-agent rules-distill     # ナレッジから行動ルールを抽出
+contemplative-agent amend-constitution # 経験に基づく憲法改正の提案
 contemplative-agent sync-data         # 研究データを外部リポジトリに同期
 ```
 

@@ -4,6 +4,33 @@
 
 ## Next
 
+### Dedup スケーラビリティ
+
+パターン数が増えると dedup の品質・性能が劣化する問題。現在は全既存パターンと SequenceMatcher で総当たり比較しており、グレーゾーン（ratio 0.3-0.7）は LLM 判定に回される。パターン数が数百を超えると:
+
+- 比較回数が O(N) で増加（新パターン1件あたり全既存と比較）
+- UNCERTAIN 判定が増え、LLM 呼び出しが増加
+- 9B モデルの semantic dedup 判定精度が低下するリスク
+
+本質的な解決は **importance 減衰による忘却**。`effective_importance = base × 0.95^days` は既に実装済みだが、現在は読み出し時の優先順位づけにしか使われていない。これを dedup にも適用する:
+
+- effective_importance が閾値以下のパターン → dedup 比較対象から除外
+- 重要なパターンは減衰が遅い（base が高い）ため長く残る
+- 使われないパターンは自然に「忘れられる」
+- 新しい仕組み不要。既存の減衰メカニズムの適用範囲拡張
+
+補助的な対応:
+- カテゴリ内のみ比較（既に部分的に実装済み）
+
+### Importance Scoring 安定化
+
+constitutional パターンの importance scoring で LLM が `{"scores": [...]}` の JSON を返せず、デフォルト 0.5 にフォールバックする問題。uncategorized でも散発的に発生。`_parse_importance_scores()` のパース失敗。
+
+- 原因: 9B モデルが constitutional パターンに対して安定した JSON を出力できない
+- 影響: 現時点では限定的（amend-constitution は importance を使わない、dedup は max を取る）
+- 対応案: コードフェンス除去（026a26c と同様）、2段階化（自由記述→JSON整形）、またはプロンプト改善
+- 推定 ~50-100 LOC
+
 ### Skill Stocktake（スキル棚卸し）
 
 skills/ 内のスキルを棚卸しし、重複・矛盾・陳腐化を検出。マージや引退を提案。insight.py の docstring にも「Quality control is deferred to skill-stocktake (external)」と明記されており、スキル層の品質管理メカニズムが未実装。

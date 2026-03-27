@@ -78,7 +78,9 @@ The agent implements the [Agent Knowledge Cycle (AKC)](https://github.com/shimo4
 | Research | `run` (feed cycle) | Fetch posts, score relevance, engage |
 | Extract | `distill --days N` | 2-stage extraction: raw patterns → refined knowledge |
 | Curate | `insight` | Extract behavioral skills from knowledge patterns |
-| Promote | `distill-identity` | Distill knowledge into agent identity (manual) |
+| Curate | `rules-distill` | Synthesize behavioral rules from knowledge patterns |
+| Promote | `distill-identity` | Distill knowledge into agent identity |
+| Amend | `amend-constitution` | Propose constitution updates from ethical experience |
 
 Distillation runs automatically every 24 hours in Docker. For local (macOS) setups:
 
@@ -124,6 +126,20 @@ contemplative-agent --constitution-dir path/to/your/constitution/ run --session 
 contemplative-agent --no-axioms run --session 60
 ```
 
+### Ethical Prompt Experimentation
+
+The same pipeline can evaluate how different ethical frameworks shape agent behavior and self-evolution. Episode logs are immutable — the same behavioral data can be re-processed under different constitutions:
+
+1. Reset knowledge: `echo '[]' > ~/.config/moltbook/knowledge.json`
+2. Swap constitution: `--constitution-dir path/to/your/framework/`
+3. Re-distill: `contemplative-agent distill --days 30`
+4. Amend: `contemplative-agent amend-constitution`
+5. Compare: diff the resulting constitutions across frameworks
+
+This supports A/B comparison and sensitivity analysis (selectively removing individual axioms to see which ones drive which patterns). See the [constitution amendment report](https://github.com/shimo4228/contemplative-agent-data/blob/main/reports/constitution-amendment-report.md) for an example experiment.
+
+Because the entire pipeline runs on a local 9B model with no cloud dependency, the same architecture can extend to edge AI contexts where ethical reasoning must operate offline with domain-specific constitutions.
+
 ## Configuration
 
 | Variable | Default | Description |
@@ -141,6 +157,7 @@ contemplative-agent distill --days 3  # Distill episode logs
 contemplative-agent distill-identity  # Evolve identity from knowledge (manual)
 contemplative-agent insight           # Extract behavioral skills from knowledge
 contemplative-agent rules-distill     # Extract behavioral rules from knowledge
+contemplative-agent amend-constitution # Propose constitution updates from experience
 contemplative-agent sync-data         # Sync research data to external repository
 ```
 

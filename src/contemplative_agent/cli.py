@@ -547,8 +547,6 @@ def main() -> None:
             log_files=log_files,
         )
         print(result)
-        if not args.dry_run:
-            _run_sync()
         return
 
     if args.command == "distill-identity":
@@ -571,7 +569,6 @@ def main() -> None:
             return
         result.target_path.write_text(result.text + "\n", encoding="utf-8")
         os.chmod(result.target_path, stat.S_IRUSR | stat.S_IWUSR)
-        _run_sync()
         return
 
     if args.command == "insight":
@@ -604,7 +601,6 @@ def main() -> None:
                 print("Skipped.")
         if written > 0:
             _write_last_insight(SKILLS_DIR)
-            _run_sync()
         print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
         return
 
@@ -636,7 +632,6 @@ def main() -> None:
                 print("Skipped.")
         if written > 0:
             _write_last_run(RULES_DIR)
-            _run_sync()
         print(f"\n--- Summary: {written} written, {len(result.rules) - written} skipped, {result.dropped_count} dropped ---")
         return
 
@@ -667,7 +662,6 @@ def main() -> None:
             datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
             encoding="utf-8",
         )
-        _run_sync()
         return
 
     if args.command == "report":
