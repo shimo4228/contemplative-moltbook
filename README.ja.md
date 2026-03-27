@@ -78,7 +78,7 @@ contemplative-agent --auto run --session 60
 | Research | `run` (フィードサイクル) | 投稿を取得、relevance をスコアリング、エンゲージ |
 | Extract | `distill --days N` | 2段階抽出: 生パターン → 精製されたナレッジ |
 | Curate | `insight` | ナレッジパターンから行動スキルを抽出 |
-| Curate | `rules-distill` | ナレッジパターンから行動ルールを合成 |
+| Curate | `rules-distill` | 蓄積されたスキルから行動ルールを合成 |
 | Promote | `distill-identity` | ナレッジをエージェントのアイデンティティに蒸留 |
 | Amend | `amend-constitution` | 倫理的経験から憲法の改正を提案 |
 
@@ -98,8 +98,10 @@ contemplative-agent install-schedule --no-distill           # セッションの
 エピソードログ（生の行動記録）
     ↓ distill --days N
 ナレッジ（パターン・洞察）
-    ↓ distill-identity    ↓ insight         ↓ rules-distill    ↓ amend-constitution
-アイデンティティ          スキル（行動パターン）  ルール（原則）      憲法（倫理原則）
+    ↓ distill-identity    ↓ insight                              ↓ amend-constitution
+アイデンティティ          スキル（行動パターン）                      憲法（倫理原則）
+                            ↓ rules-distill
+                         ルール（原則）
 ```
 
 | レイヤー | ファイル | 更新契機 | 目的 |
@@ -108,7 +110,7 @@ contemplative-agent install-schedule --no-distill           # セッションの
 | ナレッジ | `MOLTBOOK_HOME/knowledge.json` | `distill --days N` | エピソードから抽出されたパターン |
 | アイデンティティ | `MOLTBOOK_HOME/identity.md` | `distill-identity` | エージェントの自己理解 |
 | スキル | `MOLTBOOK_HOME/skills/*.md` | `insight` | ナレッジから抽出された行動スキル |
-| ルール | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | 普遍的な行動原則 |
+| ルール | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | スキルから蒸留された普遍的原則 |
 | 憲法 | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | 倫理原則（認知レンズ） |
 
 エージェントの振る舞いを変えうるコマンド — `distill-identity`、`insight`、`rules-distill`、`amend-constitution` — は書き込み前に人間の承認が必要（ADR-0012）。エージェントは変更を提案し、人間が判断する。`distill` はナレッジへの書き込みのみで、振る舞いに直接影響しない。
@@ -122,7 +124,7 @@ contemplative-agent install-schedule --no-distill           # セッションの
 デフォルトのエージェントはニュートラルな人格で、公理なしで起動する。2つの独立したメカニズムで振る舞いを変更できる:
 
 - **Constitution** (`MOLTBOOK_HOME/constitution/`) — 認知レンズとして注入される倫理原則（例: Contemplative AI 四公理）。`init` 時に `config/templates/constitution/` からデフォルトがコピーされる。`--constitution-dir` で差し替え可能。
-- **Rules** (`MOLTBOOK_HOME/rules/`) — `rules-distill` により蓄積されたナレッジから生成される行動ルール。スキルとともに LLM システムプロンプトに注入される。
+- **Rules** (`MOLTBOOK_HOME/rules/`) — `rules-distill` により蓄積されたスキルから生成される行動ルール。スキルとともに LLM システムプロンプトに注入される。
 
 ```bash
 # 別の倫理フレームワークを使用
@@ -161,7 +163,7 @@ contemplative-agent run --session 60  # セッション実行
 contemplative-agent distill --days 3  # エピソードログの蒸留
 contemplative-agent distill-identity  # ナレッジからアイデンティティを蒸留（手動）
 contemplative-agent insight           # ナレッジから行動スキルを抽出
-contemplative-agent rules-distill     # ナレッジから行動ルールを抽出
+contemplative-agent rules-distill     # スキルから行動ルールを抽出
 contemplative-agent amend-constitution # 経験に基づく憲法改正の提案
 contemplative-agent sync-data         # 研究データを外部リポジトリに同期
 ```
