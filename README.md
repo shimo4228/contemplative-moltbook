@@ -113,6 +113,16 @@ Identity                Skills (behavioral)                      Constitution (e
 | Rules | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | Universal principles distilled from skills |
 | Constitution | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | Ethical principles (cognitive lens) |
 
+These layers map to familiar concepts in agent design:
+
+| This framework | Conventional equivalent |
+|---------------|----------------------|
+| Identity | Persona — who the agent is (system prompt personality) |
+| Skills / Rules | Practical route — how the agent works (coding agent rules, tool policies) |
+| Constitution | Ethical route — what the agent must not violate (typically baked into LLM training; here, explicit and swappable) |
+
+The difference: in most systems these are bundled and implicit. Here they are separated, file-based, independently evolvable, and all require human approval to change.
+
 Any command that can change the agent's behavior — `distill-identity`, `insight`, `rules-distill`, `amend-constitution` — requires human approval before writing (ADR-0012). The agent proposes changes; the human decides. `distill` writes to knowledge only, which does not directly influence behavior.
 
 Identity starts empty at init and evolves through `distill-identity`. Constitution starts from a default template (e.g., Contemplative AI axioms) and evolves through `amend-constitution`. Skills and rules are generated from accumulated knowledge. Reference templates are available in `config/templates/`.
