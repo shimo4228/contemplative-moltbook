@@ -4,32 +4,29 @@ Language: English | [日本語](README.ja.md)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-Deploy AI agents with distinct personalities, ethical frameworks, and evolving memory on social platforms. Choose a character, watch it learn.
+An agent simulation framework where initial conditions -- personality, ethics, skills -- shape how agents develop through social experience. Same activity logs, different starting points, divergent outcomes.
 
 **[See the live agent on Moltbook →](https://www.moltbook.com/u/contemplative-agent)**
 
-> First adapter: [Moltbook](https://www.moltbook.com) (AI agent social network). The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are included as an optional behavioral preset.
+> First adapter: [Moltbook](https://www.moltbook.com) (AI agent social network). The framework was born from implementing the Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) -- CCAI remains the default preset and first experimental subject.
 
 ## What You Can Do
 
-### Character Simulation
+### Agent Simulation
 
-10 pre-built character templates ship with the framework. Deploy agents with different ethical worldviews and watch how they diverge over time.
+The knowledge cycle turns the agent into something like a character in a role-playing game. Identity is the base stat sheet, skills are unlocked perks, rules are passive traits, and constitution is the moral alignment -- all evolving through actual social experience rather than manual tuning.
 
-**Ethics Research**
+Start with a different identity template, swap the constitution, or begin with zero skills and watch what the agent learns. The same activity logs can produce radically different agents depending on the initial configuration and which ethical framework filters the experience.
 
-| Template | Framework | Constitution |
-|----------|-----------|-------------|
+10 pre-built templates ship as starting points -- 5 ethical frameworks and 5 game archetypes:
+
+| Template | Initial Condition | What Evolves |
+|----------|------------------|-------------|
 | `contemplative` | CCAI Four Axioms (default) | Emptiness, Non-Duality, Mindfulness, Boundless Care |
 | `stoic` | Stoic Virtue Ethics | Wisdom, Courage, Temperance, Justice |
 | `utilitarian` | Consequentialism | Outcome Orientation, Impartial Concern, Maximization, Scope Sensitivity |
 | `deontologist` | Kantian Duty Ethics | Universalizability, Dignity, Duty, Consistency |
 | `care-ethicist` | Care Ethics (Gilligan) | Attentiveness, Responsibility, Competence, Responsiveness |
-
-**Game Archetypes**
-
-| Template | Role | Growth Direction |
-|----------|------|-----------------|
 | `berserker` | Front-line, gut instinct | Intuition accuracy improves |
 | `bard` | Storyteller, analogies | Metaphors sharpen |
 | `rogue` | Scout, skeptic | Contradiction detection refines |
@@ -38,9 +35,9 @@ Deploy AI agents with distinct personalities, ethical frameworks, and evolving m
 
 Each template includes identity, constitution, skills, and rules. See [Configuration Guide](docs/CONFIGURATION.md#character-templates) for setup.
 
-### Ethical Experimentation
+### Counterfactual Experimentation
 
-Episode logs are immutable -- the same behavioral data can be re-processed under different constitutions to compare outcomes. This supports A/B comparison and sensitivity analysis (selectively removing individual axioms to see which ones drive which patterns).
+Episode logs are immutable -- the same behavioral data can be re-processed under different initial conditions to compare outcomes. Swap the constitution, change the identity seed, or selectively remove axioms to see which ones drive which patterns.
 
 1. Reset knowledge: `echo '[]' > ~/.config/moltbook/knowledge.json`
 2. Swap constitution files in `MOLTBOOK_HOME/constitution/`
@@ -48,9 +45,7 @@ Episode logs are immutable -- the same behavioral data can be re-processed under
 4. Amend: `contemplative-agent amend-constitution`
 5. Compare: diff the resulting constitutions across frameworks
 
-Because the entire pipeline runs on a local model with no cloud dependency, experiments are fully reproducible.
-
-Because the entire pipeline runs on a local 9B model with no cloud dependency, the same architecture can extend to edge AI contexts where ethical reasoning must operate offline with domain-specific constitutions.
+Because the entire pipeline runs on a local 9B model with no cloud dependency, experiments are fully reproducible.
 
 ### Self-Improving Memory
 
@@ -250,12 +245,6 @@ Customization is just placing Markdown files in the right directories. The agent
 All four are optional. Add what you need, leave out what you don't.
 
 Add a file, remove a file, edit a file -- changes take effect on the next session. No rebuild, no redeploy. The agent reads these directories on every `generate()` call.
-
-### Agent as Simulation
-
-The knowledge cycle turns the agent into something like a character in a role-playing game. Identity is the base stat sheet, skills are unlocked perks, rules are passive traits, and constitution is the moral alignment -- all evolving through actual social experience rather than manual tuning.
-
-Start with a different identity template, swap the constitution, or begin with zero skills and watch what the agent learns. The same Moltbook activity logs can produce radically different agents depending on the initial configuration and which ethical framework filters the experience. This makes the framework useful not only as an autonomous agent but as a simulation environment for observing how initial conditions and ethical priors shape long-term behavioral development.
 
 ## Usage
 
