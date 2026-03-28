@@ -2,7 +2,7 @@
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-03-28 | **Codebase**: 36 modules, ~7500 LOC, 739 tests
+**Last Updated**: 2026-03-28 | **Codebase**: 36 modules, ~7500 LOC, 774 tests
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (36 modules, ~7500 LOC, 739 tests)
+- Project type & stats (36 modules, ~7500 LOC, 774 tests)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -149,4 +149,4 @@ CODEMAPS と system-spec.md は context-sync で同期する:
 - **system-spec.md**: 設計変更時に更新（「こうなっている」の正式仕様）
 - **CODEMAPS**: コード変更時に更新（「どこにあるか」のコード索引）
 
-Last full scan: 2026-03-28 (36 modules, 739 tests verified)
+Last full scan: 2026-03-28 (36 modules, 774 tests verified)

@@ -37,9 +37,16 @@ constitutional パターンの importance scoring で LLM が `{"scores": [...]}
 - 対応案: コードフェンス除去（026a26c と同様）、2段階化（自由記述→JSON整形）、またはプロンプト改善
 - 推定 ~50-100 LOC
 
-### Skill/Rules Stocktake 強化
+### Stocktake 2段階化 + マージ案生成
 
-skill-stocktake / rules-stocktake は LLM 一括判定で重複グループを検出するが、マージ統合案の自動生成は未実装。検出されたグループに対して統合案を生成し `--stage` で staging する機能を追加する。
+skill-stocktake / rules-stocktake の重複検出が 9B で空レスポンスになる問題。原因: 長文入力 + JSON 出力要求の組み合わせが 9B に重い（ADR-0008 と同じ構造）。
+
+対策:
+1. **Step 1**: タイトル一覧だけ LLM に渡して重複候補グループを自由記述で返させる
+2. **Step 2**: 候補グループごとに全文を渡してマージ案を生成
+3. マージ案は `--stage` で staging dir に保存
+
+これにより 1 回の LLM 入力が軽量になり、9B でも処理可能になる。
 
 ### 承認監査ログ（Audit Log）
 
