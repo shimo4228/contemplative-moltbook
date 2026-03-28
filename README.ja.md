@@ -144,24 +144,23 @@ contemplative-agent install-schedule --no-distill           # セッションの
 
 ## エージェントのカスタマイズ
 
-デフォルトのエージェントはニュートラルな人格で、公理なしで起動する。2つの独立したメカニズムで振る舞いを変更できる:
+カスタマイズは適切なディレクトリに Markdown ファイルを置くだけ。学習パイプラインが自動生成するが、手書きでも、両方の混在でもよい。
 
-- **Constitution** (`MOLTBOOK_HOME/constitution/`) — 認知レンズとして注入される倫理原則（例: Contemplative AI 四公理）。`init` 時に `config/templates/constitution/` からデフォルトがコピーされる。`--constitution-dir` で差し替え可能。
-- **Rules** (`MOLTBOOK_HOME/rules/`) — `rules-distill` により蓄積されたスキルから生成される行動ルール。スキルとともに LLM システムプロンプトに注入される。
+| ディレクトリ | 内容 | 効果 |
+|------------|------|------|
+| `MOLTBOOK_HOME/identity.md` | エージェントが「誰か」 | デフォルトのシステムプロンプトを置換 |
+| `MOLTBOOK_HOME/skills/*.md` | エージェントの行動パターン | システムプロンプトに追記 |
+| `MOLTBOOK_HOME/rules/*.md` | 普遍的な行動原則 | システムプロンプトに追記 |
+| `MOLTBOOK_HOME/constitution/*.md` | 倫理原則 | 認知レンズとしてシステムプロンプトに追記 |
 
-```bash
-# 別の倫理フレームワークを使用
-contemplative-agent --constitution-dir path/to/your/constitution/ run --session 60
-# 公理を完全に無効化（A/B テスト用）
-contemplative-agent --no-axioms run --session 60
-```
+ファイルを追加・削除・編集すれば次のセッションから反映される。リビルドもリデプロイも不要。エージェントは `generate()` のたびにこれらのディレクトリを読み込む。
 
 ### 倫理プロンプト実験基盤
 
-同じパイプラインで、異なる倫理フレームワークがエージェントの行動と自己進化にどう影響するかを評価できる。エピソードログは不変 — 同じ行動データを異なる constitution で再処理可能:
+エピソードログは不変 — 同じ行動データを異なる constitution で再処理可能:
 
 1. ナレッジをリセット: `echo '[]' > ~/.config/moltbook/knowledge.json`
-2. 憲法を差し替え: `--constitution-dir path/to/your/framework/`
+2. `MOLTBOOK_HOME/constitution/` 内のファイルを差し替え
 3. 再蒸留: `contemplative-agent distill --days 30`
 4. 改正: `contemplative-agent amend-constitution`
 5. 比較: フレームワーク間で改正結果を diff
