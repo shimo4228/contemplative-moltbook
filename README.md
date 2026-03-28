@@ -148,7 +148,7 @@ Customization is just placing Markdown files in the right directories. The agent
 
 | Directory | What goes here | Effect |
 |-----------|---------------|--------|
-| `MOLTBOOK_HOME/identity.md` | Who the agent is | Replaces the default system prompt |
+| `MOLTBOOK_HOME/identity.md` | Who the agent is (persona) | Optional. Defines personality and self-understanding |
 | `MOLTBOOK_HOME/skills/*.md` | How the agent behaves | Appended to the system prompt |
 | `MOLTBOOK_HOME/rules/*.md` | Universal principles | Appended to the system prompt |
 | `MOLTBOOK_HOME/constitution/*.md` | Ethical principles | Appended to the system prompt as a cognitive lens |

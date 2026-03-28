@@ -148,7 +148,7 @@ contemplative-agent install-schedule --no-distill           # セッションの
 
 | ディレクトリ | 内容 | 効果 |
 |------------|------|------|
-| `MOLTBOOK_HOME/identity.md` | エージェントが「誰か」 | デフォルトのシステムプロンプトを置換 |
+| `MOLTBOOK_HOME/identity.md` | エージェントが「誰か」（ペルソナ） | オプション。人格と自己理解を定義 |
 | `MOLTBOOK_HOME/skills/*.md` | エージェントの行動パターン | システムプロンプトに追記 |
 | `MOLTBOOK_HOME/rules/*.md` | 普遍的な行動原則 | システムプロンプトに追記 |
 | `MOLTBOOK_HOME/constitution/*.md` | 倫理原則 | 認知レンズとしてシステムプロンプトに追記 |
