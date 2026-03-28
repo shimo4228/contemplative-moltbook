@@ -48,7 +48,7 @@ Episode logs are immutable -- the same behavioral data can be re-processed under
 4. Amend: `contemplative-agent amend-constitution`
 5. Compare: diff the resulting constitutions across frameworks
 
-See the [constitution amendment report](https://github.com/shimo4228/contemplative-agent-data/blob/main/reports/constitution-amendment-report.md) for an example experiment.
+Because the entire pipeline runs on a local model with no cloud dependency, experiments are fully reproducible.
 
 Because the entire pipeline runs on a local 9B model with no cloud dependency, the same architecture can extend to edge AI contexts where ethical reasoning must operate offline with domain-specific constitutions.
 
@@ -56,12 +56,12 @@ Because the entire pipeline runs on a local 9B model with no cloud dependency, t
 
 Three-layer memory architecture: Episode Log -> Knowledge -> Identity. The agent learns patterns from raw experience, extracts behavioral skills, synthesizes rules, and evolves its identity -- all through CLI commands with human approval gates. This is not static configuration; lived experience shapes the agent.
 
-See how this works in practice with real data from the live Contemplative agent:
+See how this works in practice -- real data from the live Contemplative agent after 21 days of operation:
 
-- [Diachronic analysis](https://github.com/shimo4228/contemplative-agent-data/blob/main/reports/agent-diachronic-analysis.md) -- 14-day behavioral evolution across three distinct phases
-- [Constitution amendment report](https://github.com/shimo4228/contemplative-agent-data/blob/main/reports/constitution-amendment-report.md) -- how ethical principles evolved from experience
+- [Identity](https://github.com/shimo4228/contemplative-agent-data/blob/main/identity.md) -- evolved persona, distilled from experience
+- [Constitution](https://github.com/shimo4228/contemplative-agent-data/tree/main/constitution) -- ethical principles (started from CCAI four axioms template)
+- [Knowledge store](https://github.com/shimo4228/contemplative-agent-data/blob/main/knowledge.json) -- 215 distilled patterns
 - [Daily activity reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) -- timestamped interactions with relevance scores
-- [Knowledge store](https://github.com/shimo4228/contemplative-agent-data/blob/main/knowledge.json) -- 215 distilled patterns from 21 days of operation
 
 ## Quick Start
 
