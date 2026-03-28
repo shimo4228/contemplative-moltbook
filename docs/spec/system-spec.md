@@ -5,7 +5,7 @@ An autonomous AI agent framework. Structurally minimizes privileges, enforced vi
 > **Audience**: External researchers (interested in memory architecture and agent design) and AI agents (Claude Code, etc.)
 > **Role separation**: This document describes "how it works." For "why it was built this way," see [docs/adr/](../adr/README.md). For "which file and function," see [docs/CODEMAPS/](../CODEMAPS/INDEX.md).
 
-**Stats**: 31 modules, ~7300 LOC, Python 3.9+, 730 tests
+**Stats**: 36 modules, ~7500 LOC, Python 3.9+, 726 tests
 **Dependencies**: requests, numpy. LLM: Ollama (qwen3.5:9b, localhost)
 
 **Papers**:
@@ -44,9 +44,14 @@ core/ (14 modules)  <──  adapters/moltbook/ (11 modules)  <──  cli.py
 ```
 Layer 1: EpisodeLog     ── append-only JSONL, daily files
     ↓ (distill)
-Layer 2: KnowledgeStore  ── JSON, distilled pattern array
-    ↓ (distill-identity)
-Layer 3: Identity        ── Markdown, persona definition (system prompt foundation)
+    ↓ Step 0: LLM classifies each episode
+    ├── noise → discarded (active forgetting)
+    ├── uncategorized ──→ Layer 2: KnowledgeStore (behavioral patterns)
+    │                         ↓ distill-identity → Layer 3: Identity
+    │                         ↓ insight → skills/*.md
+    │                              ↓ rules-distill → rules/*.md
+    └── constitutional ──→ Layer 2: KnowledgeStore (ethical patterns)
+                              ↓ amend-constitution → constitution/*.md
 ```
 
 | Layer | Format | Capacity | Retrieval | Prompt Injection |
@@ -105,14 +110,15 @@ EpisodeLog (JSONL)
 
 ### Derived Pipelines
 
-| Pipeline | Input | Output | Execution |
-|----------|-------|--------|-----------|
-| **distill** | EpisodeLog | KnowledgeStore patterns | Automatic (launchd every 6h) |
-| **distill-identity** | KnowledgeStore + current Identity | Identity markdown | Manual only |
-| **insight** | KnowledgeStore patterns (uncategorized only) | skills/*.md files | Manual only |
-| **rules-distill** | KnowledgeStore patterns (uncategorized only) | rules/*.md files | Manual only |
-| **amend-constitution** | KnowledgeStore patterns (constitutional only) + current constitution | Amended constitution markdown | Manual only |
-| **meditate** | EpisodeLog | KnowledgeStore patterns | Manual only (experimental) |
+| Pipeline | Input | Output | Execution | Approval Gate (ADR-0012) |
+|----------|-------|--------|-----------|--------------------------|
+| **distill** | EpisodeLog | KnowledgeStore patterns | Automatic (launchd daily) | None (intermediate artifact) |
+| **distill-identity** | KnowledgeStore + current Identity | Identity markdown | Manual | Yes — displays result, writes on approval |
+| **insight** | KnowledgeStore patterns (uncategorized only) | skills/*.md files | Manual | Yes |
+| **rules-distill** | skills/*.md files (NOTE: code currently reads from KnowledgeStore — migration pending) | rules/*.md files | Manual | Yes |
+| **amend-constitution** | KnowledgeStore patterns (constitutional only) + current constitution | Amended constitution markdown | Manual | Yes |
+| **meditate** | EpisodeLog | KnowledgeStore patterns | Manual (experimental) | None |
+| **sync-data** | MOLTBOOK_HOME (safe subset) | contemplative-agent-data repo (ADR-0010) | Automatic (launchd daily) | None |
 
 ### Cognitive Architecture Mapping
 
@@ -306,12 +312,14 @@ This system's learning pipeline maps to the 6 phases of [AKC](https://github.com
 |-----------|------------------------------|--------|
 | Research | Feed fetch + relevance scoring | feed_manager.py |
 | Extract | `distill` (Step 0 classify + 3-step + LLM dedup gate) | distill.py |
-| Curate | `insight` (patterns → behavioral skill extraction) | insight.py |
+| Curate | `insight` (knowledge patterns → behavioral skills) | insight.py |
+| Curate | `rules-distill` (skills → behavioral rules) | rules_distill.py |
+| Curate | `amend-constitution` (constitutional patterns → ethics update) | constitution.py |
 | Promote | `distill-identity` (knowledge → persona distillation) | distill.py |
 | Measure | — (not implemented) | — |
-| Maintain | context-sync (external tool) | — |
+| Maintain | context-sync (external tool), sync-data (ADR-0010) | — |
 
 ---
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-03-28*
 *Maintained via context-sync*

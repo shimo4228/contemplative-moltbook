@@ -2,7 +2,7 @@
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-03-26 | **Codebase**: 31 modules, ~8200 LOC, 725 tests
+**Last Updated**: 2026-03-28 | **Codebase**: 36 modules, ~7500 LOC, 726 tests
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (31 modules, ~8200 LOC, 725 tests)
+- Project type & stats (36 modules, ~7500 LOC, 726 tests)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -118,15 +118,15 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 30 (14 core + 11 adapters/moltbook + 4 adapters/meditation + cli) |
-| LOC | ~6900 |
+| Total modules | 36 (15 core + 11 adapters/moltbook + 4 adapters/meditation + cli + 5 other) |
+| LOC | ~7500 |
 | Test files | 17 |
-| Test count | 725 |
+| Test count | 726 |
 | Core modules | 14 (platform-independent) |
 | Moltbook adapter modules | 11 |
 | Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) |
-| CLI commands | 12 (init, register, status, run, distill, distill-identity, insight, generate-report, solve, meditate, install-schedule, rules-distill) |
+| CLI commands | 16 (init, register, status, run, distill, distill-identity, insight, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, sync-data, + 1) |
 | Prompt templates | 23 |
 | Config templates | 2 (config/templates/constitution/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |
@@ -149,4 +149,4 @@ CODEMAPS と system-spec.md は context-sync で同期する:
 - **system-spec.md**: 設計変更時に更新（「こうなっている」の正式仕様）
 - **CODEMAPS**: コード変更時に更新（「どこにあるか」のコード索引）
 
-Last full scan: 2026-03-26 (31 modules, 725 tests verified)
+Last full scan: 2026-03-28 (36 modules, 726 tests verified)

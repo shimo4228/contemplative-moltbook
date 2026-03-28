@@ -97,21 +97,34 @@ contemplative-agent install-schedule --no-distill           # セッションの
 ```
 エピソードログ（生の行動記録）
     ↓ distill --days N
-ナレッジ（パターン・洞察）
-    ↓ distill-identity    ↓ insight                              ↓ amend-constitution
-アイデンティティ          スキル（行動パターン）                      憲法（倫理原則）
-                            ↓ rules-distill
-                         ルール（原則）
+    ↓ Step 0: LLM が各エピソードを分類
+    ├── noise → 棄却
+    ├── uncategorized ──→ ナレッジ（行動パターン）
+    │                         ↓ distill-identity
+    │                       アイデンティティ
+    │                         ↓ insight
+    │                       スキル（行動パターン）
+    │                         ↓ rules-distill
+    │                       ルール（原則）
+    └── constitutional ──→ ナレッジ（倫理パターン）
+                              ↓ amend-constitution
+                            憲法（倫理原則）
 ```
+
+蒸留時、各エピソードはパターン抽出の前に3カテゴリに分類される:
+
+- **noise** — 低シグナルのエピソード（例: レート制限リトライ、空レスポンス）。パターン抽出前に棄却
+- **uncategorized** — 一般的な行動エピソード。*実務ルート*に流れる: ナレッジ → アイデンティティ / スキル → ルール
+- **constitutional** — 倫理的・価値判断を含むエピソード。*倫理ルート*に流れる: ナレッジ → 憲法改正
 
 | レイヤー | ファイル | 更新契機 | 目的 |
 |---------|---------|---------|------|
 | エピソードログ | `MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl` | 全アクション（追記専用） | 生の行動記録 |
-| ナレッジ | `MOLTBOOK_HOME/knowledge.json` | `distill --days N` | エピソードから抽出されたパターン |
+| ナレッジ | `MOLTBOOK_HOME/knowledge.json` | `distill --days N` | エピソードから抽出されたパターン（両カテゴリとも `category` フィールド付きで保存） |
 | アイデンティティ | `MOLTBOOK_HOME/identity.md` | `distill-identity` | エージェントの自己理解 |
-| スキル | `MOLTBOOK_HOME/skills/*.md` | `insight` | ナレッジから抽出された行動スキル |
+| スキル | `MOLTBOOK_HOME/skills/*.md` | `insight` | uncategorized ナレッジから抽出された行動スキル |
 | ルール | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | スキルから蒸留された普遍的原則 |
-| 憲法 | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | 倫理原則（認知レンズ） |
+| 憲法 | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | constitutional ナレッジに基づく倫理原則 |
 
 これらのレイヤーは、エージェント設計における既知の概念に対応する:
 
@@ -255,7 +268,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-684 テスト。
+726 テスト。
 
 ## アクティビティレポート
 

@@ -4,6 +4,14 @@
 
 ## Next
 
+### rules-distill 入力ソース修正
+
+rules-distill は「skills から原則を蒸留する」設計だが、コードは knowledge_store.get_learned_patterns(category="uncategorized") を直接読んでいる。README (bf90abe) では skills からの抽出と記載済みだがコード未変更。
+
+- `distill_rules()` の入力を skills_dir/*.md の読み込みに変更
+- テスト修正
+- 推定 ~50-80 LOC
+
 ### Dedup スケーラビリティ
 
 パターン数が増えると dedup の品質・性能が劣化する問題。現在は全既存パターンと SequenceMatcher で総当たり比較しており、グレーゾーン（ratio 0.3-0.7）は LLM 判定に回される。パターン数が数百を超えると:
@@ -161,4 +169,4 @@ Step 0 で LLM がエピソードを3カテゴリ（constitutional / noise / unc
 
 ---
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-03-28*

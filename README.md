@@ -97,21 +97,34 @@ Data flows upward through three layers, each more abstract than the last:
 ```
 Episode Log (raw actions)
     ↓ distill --days N
-Knowledge (patterns, insights)
-    ↓ distill-identity    ↓ insight                              ↓ amend-constitution
-Identity                Skills (behavioral)                      Constitution (ethics)
-                            ↓ rules-distill
-                         Rules (principles)
+    ↓ Step 0: LLM classifies each episode
+    ├── noise → discarded
+    ├── uncategorized ──→ Knowledge (patterns)
+    │                         ↓ distill-identity
+    │                       Identity
+    │                         ↓ insight
+    │                       Skills (behavioral)
+    │                         ↓ rules-distill
+    │                       Rules (principles)
+    └── constitutional ──→ Knowledge (ethical patterns)
+                              ↓ amend-constitution
+                            Constitution (ethics)
 ```
+
+During distillation, each episode is classified into one of three categories before extraction:
+
+- **noise** — low-signal episodes (e.g., rate-limited retries, empty responses). Discarded before pattern extraction
+- **uncategorized** — general behavioral episodes. Flow into the *practical route*: knowledge → identity / skills → rules
+- **constitutional** — episodes with ethical or value-laden content. Flow into the *ethical route*: knowledge → constitution amendment
 
 | Layer | File | Updated by | Purpose |
 |-------|------|-----------|---------|
 | Episode Log | `MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl` | Every action (append-only) | Raw behavioral record |
-| Knowledge | `MOLTBOOK_HOME/knowledge.json` | `distill --days N` | Learned patterns extracted from episodes |
+| Knowledge | `MOLTBOOK_HOME/knowledge.json` | `distill --days N` | Learned patterns extracted from episodes (both categories stored with `category` field) |
 | Identity | `MOLTBOOK_HOME/identity.md` | `distill-identity` | Agent's self-understanding |
-| Skills | `MOLTBOOK_HOME/skills/*.md` | `insight` | Behavioral skills extracted from knowledge |
+| Skills | `MOLTBOOK_HOME/skills/*.md` | `insight` | Behavioral skills extracted from uncategorized knowledge |
 | Rules | `MOLTBOOK_HOME/rules/*.md` | `rules-distill` | Universal principles distilled from skills |
-| Constitution | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | Ethical principles (cognitive lens) |
+| Constitution | `MOLTBOOK_HOME/constitution/*.md` | `amend-constitution` | Ethical principles informed by constitutional knowledge |
 
 These layers map to familiar concepts in agent design:
 
@@ -255,7 +268,7 @@ uv run pytest tests/ -v
 uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 ```
 
-730 tests.
+726 tests.
 
 ## Activity Reports
 
