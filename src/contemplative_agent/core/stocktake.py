@@ -43,6 +43,7 @@ class StocktakeResult:
     merge_groups: Tuple[MergeGroup, ...]
     quality_issues: Tuple[QualityIssue, ...]
     total_files: int
+    items: Tuple[Tuple[str, str], ...] = ()
 
 
 def _read_files(directory: Path) -> List[Tuple[str, str]]:
@@ -66,6 +67,11 @@ def _read_files(directory: Path) -> List[Tuple[str, str]]:
     return items
 
 
+def _format_items(items: List[Tuple[str, str]]) -> str:
+    """Format (filename, body) tuples as LLM input with === separators."""
+    return "\n\n===\n\n".join(f"**{name}**\n\n{body}" for name, body in items)
+
+
 def _find_duplicate_groups(
     items: List[Tuple[str, str]],
     prompt_template: str,
@@ -82,9 +88,7 @@ def _find_duplicate_groups(
     if len(items) < MIN_FILES_FOR_DEDUP:
         return []
 
-    formatted = "\n\n===\n\n".join(
-        f"**{name}**\n\n{body}" for name, body in items
-    )
+    formatted = _format_items(items)
     prompt = prompt_template.format(items=formatted)
 
     raw = generate(prompt, system="Return only valid JSON.", max_length=4000)
@@ -108,10 +112,7 @@ def merge_group(
     Returns:
         Merged skill text, or None on LLM failure.
     """
-    formatted = "\n\n===\n\n".join(
-        f"**{name}**\n\n{body}" for name, body in items
-    )
-    prompt = prompt_template.format(candidates=formatted)
+    prompt = prompt_template.format(candidates=_format_items(items))
     return generate(prompt, system="Merge redundant skills.", max_length=4000)
 
 
@@ -221,6 +222,7 @@ def run_skill_stocktake(
         merge_groups=tuple(merge_groups),
         quality_issues=tuple(quality_issues),
         total_files=len(items),
+        items=tuple(items),
     )
 
 

@@ -234,7 +234,7 @@ def _stage_results(
     STAGED_DIR.mkdir(parents=True, exist_ok=True)
     # Clear stale files from previous runs
     for old_file in STAGED_DIR.iterdir():
-        if old_file.suffix in (".md", ".json"):
+        if old_file.is_file():
             old_file.unlink()
     staged_paths = []
     for filename, text, target_path in items:
@@ -570,17 +570,13 @@ def main() -> None:
             return
 
         # Merge phase: ask LLM to merge each duplicate group
+        from datetime import date
+
         from .core import prompts
         from .core._io import write_restricted
 
-        items_dict = {
-            name: body
-            for name, body in (
-                (p.name, p.read_text(encoding="utf-8"))
-                for p in sorted(SKILLS_DIR.glob("*.md"))
-                if not p.name.startswith(".")
-            )
-        }
+        items_dict = dict(result.items)
+        stage = getattr(args, "stage", False)
 
         print(f"\n{'='*60}")
         print(f"Merging {len(result.merge_groups)} group(s)...")
@@ -611,11 +607,10 @@ def main() -> None:
             slug = _slugify(title)
             if not slug:
                 slug = "merged-skill"
-            from datetime import date
             filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
             target_path = SKILLS_DIR / filename
 
-            if getattr(args, "stage", False):
+            if stage:
                 stage_items.append((filename, merged_text, target_path))
             elif _approve_write(target_path):
                 SKILLS_DIR.mkdir(parents=True, exist_ok=True)
@@ -630,9 +625,9 @@ def main() -> None:
             else:
                 print("  Skipped.")
 
-        if getattr(args, "stage", False) and stage_items:
+        if stage and stage_items:
             _stage_results(stage_items, command="skill-stocktake")
-        elif not getattr(args, "stage", False):
+        elif not stage:
             print(f"\n--- Summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
         return
 
