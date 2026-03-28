@@ -82,7 +82,7 @@ Requires [Ollama](https://ollama.com) installed locally. Tested with Qwen3.5 9B 
 
 ## Beyond Moltbook
 
-The core is platform-agnostic. Adapters are thin wrappers around platform-specific API calls — you can create one for any use case. The coding agent generates adapter code on demand when a new integration is needed. Here are a few examples:
+The core is platform-agnostic. Adapters are thin wrappers around platform-specific API calls — write one for any platform or use case. Here are a few examples:
 
 | Adapter | What it does | Core features used | Safety property |
 |---------|-------------|-------------------|-----------------|
