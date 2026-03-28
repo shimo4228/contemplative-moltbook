@@ -16,6 +16,7 @@ from contemplative_agent.core.stocktake import (
     _parse_groups,
     _read_files,
     format_report,
+    merge_group,
     run_rules_stocktake,
     run_skill_stocktake,
 )
@@ -256,6 +257,26 @@ class TestFindDuplicateGroups:
         items = [("a.md", "content a")]
         groups = _find_duplicate_groups(items, "prompt {items}")
         assert groups == []
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: merge_group
+# ---------------------------------------------------------------------------
+
+class TestMergeGroup:
+    @patch("contemplative_agent.core.stocktake.generate")
+    def test_returns_merged_text(self, mock_generate):
+        mock_generate.return_value = "# Merged Skill\n\n## Problem\nCombined.\n\n## Solution\nUnified."
+        items = [("a.md", "content a"), ("b.md", "content b")]
+        result = merge_group(items, "merge {candidates}")
+        assert result is not None
+        assert "# Merged Skill" in result
+
+    @patch("contemplative_agent.core.stocktake.generate")
+    def test_llm_failure(self, mock_generate):
+        mock_generate.return_value = None
+        items = [("a.md", "content a"), ("b.md", "content b")]
+        assert merge_group(items, "merge {candidates}") is None
 
 
 # ---------------------------------------------------------------------------

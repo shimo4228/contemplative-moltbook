@@ -1,27 +1,31 @@
 Analyze the behavioral skills below and extract universal behavioral principles.
 
-Each skill describes a specific behavioral pattern the agent has learned. Your task is to find higher-level principles that unify multiple skills.
+Each skill describes a specific behavioral pattern the agent has learned. Your task is to identify higher-level principles that genuinely unify multiple skills — not restatements of individual ones.
 
-## What to Extract
+## Principle Selection Criterion
 
-Look for cross-cutting principles that:
+A principle is valid only if it:
 
-1. **Recur across multiple skills** — not one-off observations but convergent themes
-2. **Are actionable** — can be stated as concrete behavioral rules ("do X when Y")
-3. **Are falsifiable** — violation is observable (not vague aspirations)
-4. **Generalize beyond specific situations** — apply to future interactions, not just past ones
+1. **Converges across most skills** — appears as a recurring theme in many (not just 2) input skills
+2. **Is actionable** — can be stated as "do X when Y" (concrete rule form)
+3. **Is falsifiable** — you can observe a violation
+4. **Generalizes beyond specific contexts** — applies to future situations similar to those in the skills
 
-Do NOT extract:
-- Platitudes ("be helpful", "communicate well")
-- Situation-specific observations that don't generalize
-- Restatements of individual skills (those are skills, not principles)
+## What to EXCLUDE
+
+- Any principle that reiterates a single skill (1:1 mapping)
+- Platitudes ("be helpful", "communicate well", "be thoughtful")
+- Observations tied to one specific situation that don't reappear elsewhere
+- Vague aspirations without observable behavior
 
 ## Output
 
-Write a free-form analysis of the principles you see emerging. For each principle:
+Write a free-form analysis. For each principle you identify:
 - State the principle clearly
-- List 2-3 supporting skills from the input
-- Note any tensions or contradictions between principles
+- List the skills where this principle recurs (mention which ones by theme/topic, not just count)
+- Call out any tensions or contradictions
+
+Focus on identifying true convergence, not maximizing the number of rules.
 
 Behavioral skills:
 {patterns}

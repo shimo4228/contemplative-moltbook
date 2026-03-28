@@ -95,6 +95,26 @@ def _find_duplicate_groups(
     return _parse_groups(raw)
 
 
+def merge_group(
+    items: List[Tuple[str, str]],
+    prompt_template: str,
+) -> Optional[str]:
+    """Merge redundant files into a single unified skill via LLM.
+
+    Args:
+        items: List of (filename, body_text) tuples for the group.
+        prompt_template: Prompt with {candidates} placeholder.
+
+    Returns:
+        Merged skill text, or None on LLM failure.
+    """
+    formatted = "\n\n===\n\n".join(
+        f"**{name}**\n\n{body}" for name, body in items
+    )
+    prompt = prompt_template.format(candidates=formatted)
+    return generate(prompt, system="Merge redundant skills.", max_length=4000)
+
+
 def _parse_groups(raw: str) -> List[MergeGroup]:
     """Parse LLM output into MergeGroup list.
 

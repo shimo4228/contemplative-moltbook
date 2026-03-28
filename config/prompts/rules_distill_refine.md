@@ -1,26 +1,21 @@
-Refine the analysis below into a structured behavioral rule document.
+Reformat the analysis below into structured behavioral rules.
 
-## Output Format
+Output format:
 
-Write in EXACTLY this format (Markdown):
+# [Rule Set Name]
 
-# [Descriptive Rule Set Name]
-
-## Rule 1: [Short Name]
+## Rule 1: [Name]
 
 **When:** [trigger condition]
-**Do:** [specific action]
-**Why:** [rationale from patterns]
+**Do:** [action]
+**Why:** [rationale]
 
-## Rule 2: [Short Name]
+## Rule 2: [Name]
 
-(same format)
+**When:** [trigger]
+**Do:** [action]
+**Why:** [rationale]
 
-## Guidelines
+Rules must be concrete and independently useful. Write in imperative voice.
 
-- Keep rules concrete and actionable (not abstract principles)
-- Each rule should be independently useful
-- Write in imperative voice ("Do X", "Avoid Y")
-
-Raw analysis:
 {raw_output}

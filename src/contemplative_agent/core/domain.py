@@ -77,6 +77,7 @@ class PromptTemplates:
     constitution_amend: str = ""
     stocktake_skills: str = ""
     stocktake_rules: str = ""
+    stocktake_merge: str = ""
 
 
 
@@ -184,6 +185,9 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         distill_classify=_read_md_file(directory / "distill_classify.md", required=False),
         distill_constitutional=_read_md_file(directory / "distill_constitutional.md", required=False),
         constitution_amend=_read_md_file(directory / "constitution_amend.md", required=False),
+        stocktake_skills=_read_md_file(directory / "stocktake_skills.md", required=False),
+        stocktake_rules=_read_md_file(directory / "stocktake_rules.md", required=False),
+        stocktake_merge=_read_md_file(directory / "stocktake_merge.md", required=False),
     )
 
 

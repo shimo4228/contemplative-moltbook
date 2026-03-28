@@ -232,6 +232,10 @@ def _stage_results(
     import json
 
     STAGED_DIR.mkdir(parents=True, exist_ok=True)
+    # Clear stale files from previous runs
+    for old_file in STAGED_DIR.iterdir():
+        if old_file.suffix in (".md", ".json"):
+            old_file.unlink()
     staged_paths = []
     for filename, text, target_path in items:
         if not target_path.resolve().is_relative_to(MOLTBOOK_DATA_DIR.resolve()):
@@ -515,7 +519,10 @@ def main() -> None:
     )
 
     # skill-stocktake
-    subparsers.add_parser("skill-stocktake", help="Audit skills for duplicates and quality issues")
+    skill_stocktake_parser = subparsers.add_parser("skill-stocktake", help="Audit skills for duplicates and quality issues")
+    skill_stocktake_parser.add_argument(
+        "--stage", action="store_true", help="Write merged skills to staging dir instead of interactive approval"
+    )
 
     # rules-stocktake
     subparsers.add_parser("rules-stocktake", help="Audit rules for duplicates and quality issues")
@@ -553,10 +560,80 @@ def main() -> None:
         return
 
     if args.command == "skill-stocktake":
-        from .core.stocktake import format_report, run_skill_stocktake
+        from .core.insight import _extract_title, _slugify
+        from .core.stocktake import format_report, merge_group, run_skill_stocktake
 
         result = run_skill_stocktake(skills_dir=SKILLS_DIR)
         print(format_report(result, "Skill"))
+
+        if not result.merge_groups:
+            return
+
+        # Merge phase: ask LLM to merge each duplicate group
+        from .core import prompts
+        from .core._io import write_restricted
+
+        items_dict = {
+            name: body
+            for name, body in (
+                (p.name, p.read_text(encoding="utf-8"))
+                for p in sorted(SKILLS_DIR.glob("*.md"))
+                if not p.name.startswith(".")
+            )
+        }
+
+        print(f"\n{'='*60}")
+        print(f"Merging {len(result.merge_groups)} group(s)...")
+
+        stage_items: list[tuple[str, str, Path]] = []
+        merged = 0
+        for i, group in enumerate(result.merge_groups, 1):
+            group_items = [
+                (name, items_dict[name])
+                for name in group.filenames
+                if name in items_dict
+            ]
+            if len(group_items) < 2:
+                continue
+
+            print(f"\n{'='*60}")
+            print(f"[Group {i}/{len(result.merge_groups)}] {', '.join(group.filenames)}")
+            print(f"  Reason: {group.reason}")
+
+            merged_text = merge_group(group_items, prompts.STOCKTAKE_MERGE_PROMPT)
+            if merged_text is None:
+                print("  Merge failed (LLM error). Skipping.")
+                continue
+
+            print(merged_text)
+
+            title = _extract_title(merged_text) or "merged-skill"
+            slug = _slugify(title)
+            if not slug:
+                slug = "merged-skill"
+            from datetime import date
+            filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
+            target_path = SKILLS_DIR / filename
+
+            if getattr(args, "stage", False):
+                stage_items.append((filename, merged_text, target_path))
+            elif _approve_write(target_path):
+                SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+                write_restricted(target_path, merged_text)
+                # Delete original files
+                for name in group.filenames:
+                    original = SKILLS_DIR / name
+                    if original.exists():
+                        original.unlink()
+                        print(f"  Deleted {name}")
+                merged += 1
+            else:
+                print("  Skipped.")
+
+        if getattr(args, "stage", False) and stage_items:
+            _stage_results(stage_items, command="skill-stocktake")
+        elif not getattr(args, "stage", False):
+            print(f"\n--- Summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
         return
 
     if args.command == "rules-stocktake":
