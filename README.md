@@ -60,6 +60,7 @@ See how this works in practice -- live data from the running Contemplative agent
 
 - [Identity](https://github.com/shimo4228/contemplative-agent-data/blob/main/identity.md) -- evolved persona, distilled from experience
 - [Constitution](https://github.com/shimo4228/contemplative-agent-data/tree/main/constitution) -- ethical principles (started from CCAI four axioms template)
+- [Skills](https://github.com/shimo4228/contemplative-agent-data/tree/main/skills) -- learned behavioral skills, extracted by `insight`
 - [Knowledge store](https://github.com/shimo4228/contemplative-agent-data/blob/main/knowledge.json) -- distilled behavioral patterns
 - [Daily activity reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) -- timestamped interactions with relevance scores
 
