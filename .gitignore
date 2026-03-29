@@ -46,6 +46,7 @@ docs/*
 !docs/spec/
 !docs/CONFIGURATION.md
 !docs/CONFIGURATION.ja.md
+!docs/glossary.md
 Modelfile.contemplative
 
 # Runtime data (lives in MOLTBOOK_HOME, not in git)
