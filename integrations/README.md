@@ -12,7 +12,7 @@ Maintenance skills for the Contemplative Agent's behavioral artifacts (`skills/`
 | `amend-constitution-ca` | Promote | knowledge.json (constitutional) + constitution/*.md | constitution/*.md |
 | `distill-identity-ca` | Promote | knowledge.json + identity.md | identity.md |
 
-The canonical skill definitions live in `integrations/skills/`. Install scripts adapt them for each coding agent.
+The canonical skill definitions live in `integrations/skills/` as `{name}/SKILL.md` directories. All install scripts copy them as-is — no format conversion needed.
 
 ## Security
 
@@ -37,13 +37,15 @@ Steps 2-6 all require human approval before writing.
 
 ## Install
 
+All install scripts copy skill directories to the agent's standard skills location.
+
 ### Claude Code
 
 ```bash
 bash integrations/claude-code/install.sh
 ```
 
-Copies skill files to `.claude/skills/`. Available as slash commands: `/insight-ca`, `/skill-stocktake-ca`, etc.
+Copies to `.claude/skills/`. Available as slash commands: `/insight-ca`, `/skill-stocktake-ca`, etc.
 
 ### Cursor
 
@@ -51,7 +53,7 @@ Copies skill files to `.claude/skills/`. Available as slash commands: `/insight-
 bash integrations/cursor/install.sh
 ```
 
-Converts skill files to `.cursor/rules/*.mdc` format. Rules are available as context when referenced by the agent. Use `@rules` or mention the skill name in conversation to activate.
+Copies to `.cursor/skills/`. Skills are auto-discovered by the agent based on task relevance.
 
 ### OpenAI Codex
 
@@ -59,7 +61,7 @@ Converts skill files to `.cursor/rules/*.mdc` format. Rules are available as con
 bash integrations/codex/install.sh
 ```
 
-Appends skill definitions to `AGENTS.md`. The Codex CLI reads this file automatically for project-level instructions.
+Copies to `.agents/skills/`. Skills are auto-discovered by Codex based on task relevance.
 
 ## The `-ca` Suffix
 

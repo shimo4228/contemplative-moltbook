@@ -11,9 +11,10 @@ TARGET_DIR=".claude/skills"
 mkdir -p "$TARGET_DIR"
 
 count=0
-for skill in "$SKILLS_DIR"/*-ca.md; do
-    cp "$skill" "$TARGET_DIR/"
-    echo "  Installed: $(basename "$skill")"
+for skill_dir in "$SKILLS_DIR"/*-ca; do
+    [ -d "$skill_dir" ] || continue
+    cp -r "$skill_dir" "$TARGET_DIR/"
+    echo "  Installed: $(basename "$skill_dir")/"
     count=$((count + 1))
 done
 
