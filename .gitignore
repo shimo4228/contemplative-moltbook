@@ -66,9 +66,8 @@ results*.json
 *.bak
 .last_insight
 
-# Coding agent skills (shelved — see ADR-0013)
-integrations/skills/
-.claude/skills/*-ca/
+# Coding agent integrations (shelved — see ADR-0013)
+integrations/
 
 # Claude Code
 .claude/
