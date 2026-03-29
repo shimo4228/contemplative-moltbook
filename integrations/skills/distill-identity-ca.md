@@ -10,7 +10,7 @@ origin: original
 AKC Promote フェーズ。knowledge.json の全パターンと現行 identity.md を読み、経験を反映した更新版を起草する。
 Opus クラスのホリスティック判断で 9B 2段パイプライン（distill.py distill-identity）を代替。
 
-> **セキュリティ**: knowledge.json, identity.md, rules/ のみ読む。`logs/*.jsonl` は絶対に Read しない（ADR-0007）。
+> **セキュリティ**: knowledge.json, identity.md, rules/, constitution/ のみ読む。`logs/*.jsonl` は絶対に Read しない（ADR-0007）。
 
 ## When to Use
 

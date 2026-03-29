@@ -1,6 +1,6 @@
 #!/bin/bash
 # Install -ca skills as Cursor rules
-# Usage: bash integrations/cursor/install.sh
+# Usage: bash integrations/cursor/install.sh (from repo root)
 
 set -euo pipefail
 
@@ -10,24 +10,30 @@ TARGET_DIR=".cursor/rules"
 
 mkdir -p "$TARGET_DIR"
 
+# Strip YAML frontmatter (first --- to second --- inclusive)
+strip_frontmatter() {
+    awk 'BEGIN{fm=0} /^---$/ && fm==0{fm=1; next} /^---$/ && fm==1{fm=2; next} fm==2' "$1"
+}
+
 count=0
 for skill in "$SKILLS_DIR"/*-ca.md; do
     basename="$(basename "$skill" .md)"
     target="$TARGET_DIR/$basename.mdc"
 
-    # Extract description from YAML frontmatter
     description=$(sed -n 's/^description: *"\(.*\)"/\1/p' "$skill" | head -1)
+    if [ -z "$description" ]; then
+        echo "  WARNING: no description found in $(basename "$skill"), skipping"
+        continue
+    fi
 
-    # Write .mdc file with Cursor metadata header + skill content (skip YAML frontmatter)
     {
         echo "---"
-        echo "description: \"$description\""
+        printf 'description: "%s"\n' "$description"
         echo "globs: []"
         echo "alwaysApply: false"
         echo "---"
         echo ""
-        # Skip original YAML frontmatter, keep the rest
-        sed '1,/^---$/{ /^---$/!d; }' "$skill" | sed '1d'
+        strip_frontmatter "$skill"
     } > "$target"
 
     echo "  Installed: $basename.mdc"
