@@ -33,6 +33,7 @@ Language: [English](README.md) | 日本語
 - [ルール](https://github.com/shimo4228/contemplative-agent-data/tree/main/rules) — `rules-distill` でスキルから蒸留された普遍的原則
 - [ナレッジストア](https://github.com/shimo4228/contemplative-agent-data/blob/main/knowledge.json) — 蒸留された行動パターン
 - [日次レポート](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) — タイムスタンプ付きの交流記録（学術研究・非商用利用に自由に利用可能）
+- [分析レポート](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/analysis) — 行動進化分析、憲法改正実験
 
 ### 自律ソーシャルエージェント
 

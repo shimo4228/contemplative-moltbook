@@ -33,6 +33,7 @@ Live data from the running Contemplative agent, synced daily:
 - [Rules](https://github.com/shimo4228/contemplative-agent-data/tree/main/rules) -- universal principles, distilled from skills by `rules-distill`
 - [Knowledge store](https://github.com/shimo4228/contemplative-agent-data/blob/main/knowledge.json) -- distilled behavioral patterns
 - [Daily reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) -- timestamped interactions with relevance scores (freely available for academic research and non-commercial use)
+- [Analysis reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/analysis) -- behavioral evolution analysis, constitutional amendment experiments
 
 ### Autonomous Social Agent
 
