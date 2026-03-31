@@ -22,6 +22,15 @@ def truncate(text: str, max_length: int = SUMMARY_MAX_LENGTH) -> str:
     return text[: max_length - 3] + "..."
 
 
+def strip_code_fence(text: str) -> str:
+    """Remove markdown code fences (```json ... ```) from LLM output."""
+    text = text.strip()
+    if text.startswith("```"):
+        lines = [line for line in text.splitlines() if not line.strip().startswith("```")]
+        text = "\n".join(lines).strip()
+    return text
+
+
 def write_restricted(path: Path, content: str) -> None:
     """Write content to a file with 0600 permissions from creation.
 

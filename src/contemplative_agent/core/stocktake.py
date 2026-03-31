@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from ._io import strip_code_fence
 from .llm import generate
 from .rules_distill import _strip_frontmatter
 
@@ -121,18 +122,7 @@ def _parse_groups(raw: str) -> List[MergeGroup]:
 
     Attempts JSON extraction. Returns empty list on parse failure.
     """
-    # Try to extract JSON from the response
-    text = raw.strip()
-
-    # Handle code fences
-    if "```" in text:
-        for block in text.split("```"):
-            block = block.strip()
-            if block.startswith("json"):
-                block = block[4:].strip()
-            if block.startswith("{"):
-                text = block
-                break
+    text = strip_code_fence(raw)
 
     try:
         data = json.loads(text)

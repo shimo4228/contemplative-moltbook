@@ -1,6 +1,9 @@
 """CLI entry point for the Contemplative Agent."""
 
+from __future__ import annotations
+
 import argparse
+from collections.abc import Callable
 import hashlib
 import json as json_mod
 import logging
@@ -11,8 +14,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
-
-logger = logging.getLogger(__name__)
 
 from .adapters.moltbook.agent import Agent, AutonomyLevel
 from .adapters.moltbook.config import (
@@ -28,6 +29,7 @@ from .adapters.moltbook.config import (
 )
 from .core.domain import (
     DEFAULT_CONFIG_DIR,
+    DomainConfig,
     get_domain_config,
     load_constitution,
     load_domain_config,
@@ -35,6 +37,8 @@ from .core.domain import (
     set_domain_config_cache,
 )
 from .core.llm import configure as configure_llm
+
+logger = logging.getLogger(__name__)
 
 
 def _setup_logging(verbose: bool = False) -> None:
@@ -363,6 +367,387 @@ def _do_init(template_name: str = "contemplative") -> None:
             print(f"Created empty {label.lower()} dir: {dst_dir}")
 
 
+def _configure_llm_and_domain(args: argparse.Namespace) -> DomainConfig | None:
+    """Load domain config, constitution, skills, and rules into LLM.
+
+    Returns the domain_config (or None) for Agent construction.
+    """
+    domain_config: DomainConfig | None = None
+    if args.domain_config is not None:
+        reset_caches()
+        domain_config = load_domain_config(args.domain_config)
+        set_domain_config_cache(domain_config)
+
+    if not args.no_axioms:
+        clauses = load_constitution(args.constitution_dir or CONSTITUTION_DIR)
+        if clauses:
+            configure_llm(axiom_prompt=clauses)
+
+    if SKILLS_DIR.is_dir():
+        configure_llm(skills_dir=SKILLS_DIR)
+    if RULES_DIR.is_dir():
+        configure_llm(rules_dir=RULES_DIR)
+
+    return domain_config
+
+
+# --- Tier 1: No LLM needed ---
+
+
+def _handle_install_schedule(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    if args.uninstall:
+        _do_uninstall_schedule()
+    else:
+        if args.interval < 1 or args.interval > 24 or 24 % args.interval != 0:
+            parser.error("--interval must evenly divide 24 (1, 2, 3, 4, 6, 8, 12, 24)")
+        if args.session < 1 or args.session > 1440:
+            parser.error("--session must be between 1 and 1440 minutes")
+        if args.distill_hour < 0 or args.distill_hour > 23:
+            parser.error("--distill-hour must be between 0 and 23")
+        _do_install_schedule(interval=args.interval, session=args.session)
+        if not args.no_distill:
+            _do_install_distill_schedule(distill_hour=args.distill_hour)
+
+
+def _handle_skill_stocktake(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.insight import _extract_title, _slugify
+    from .core.stocktake import format_report, merge_group, run_skill_stocktake
+
+    result = run_skill_stocktake(skills_dir=SKILLS_DIR)
+    print(format_report(result, "Skill"))
+
+    if not result.merge_groups:
+        return
+
+    from datetime import date
+
+    from .core import prompts
+    from .core._io import write_restricted
+
+    items_dict = dict(result.items)
+    stage = getattr(args, "stage", False)
+
+    print(f"\n{'='*60}")
+    print(f"Merging {len(result.merge_groups)} group(s)...")
+
+    stage_items: list[tuple[str, str, Path]] = []
+    merged = 0
+    for i, group in enumerate(result.merge_groups, 1):
+        group_items = [
+            (name, items_dict[name])
+            for name in group.filenames
+            if name in items_dict
+        ]
+        if len(group_items) < 2:
+            continue
+
+        print(f"\n{'='*60}")
+        print(f"[Group {i}/{len(result.merge_groups)}] {', '.join(group.filenames)}")
+        print(f"  Reason: {group.reason}")
+
+        merged_text = merge_group(group_items, prompts.STOCKTAKE_MERGE_PROMPT)
+        if merged_text is None:
+            print("  Merge failed (LLM error). Skipping.")
+            continue
+
+        print(merged_text)
+
+        title = _extract_title(merged_text) or "merged-skill"
+        slug = _slugify(title)
+        if not slug:
+            slug = "merged-skill"
+        filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
+        target_path = SKILLS_DIR / filename
+
+        if stage:
+            stage_items.append((filename, merged_text, target_path))
+        elif _approve_write(target_path):
+            SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+            write_restricted(target_path, merged_text)
+            for name in group.filenames:
+                original = SKILLS_DIR / name
+                if original.exists():
+                    original.unlink()
+                    print(f"  Deleted {name}")
+            merged += 1
+        else:
+            print("  Skipped.")
+
+    if stage and stage_items:
+        _stage_results(stage_items, command="skill-stocktake")
+    elif not stage:
+        print(f"\n--- Summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
+
+
+def _handle_rules_stocktake(_args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.stocktake import format_report, run_rules_stocktake
+
+    result = run_rules_stocktake(rules_dir=RULES_DIR)
+    print(format_report(result, "Rules"))
+
+
+def _handle_sync_data(_args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    _run_sync()
+
+
+# --- Tier 2: LLM config needed ---
+
+
+def _handle_init(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    _do_init(template_name=args.template)
+
+
+def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    from .core.distill import distill
+    from .core.memory import EpisodeLog, KnowledgeStore
+
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+    log_files = args.log_files
+    if log_files:
+        for f in log_files:
+            if not f.exists():
+                parser.error(f"File not found: {f}")
+            if f.suffix != ".jsonl":
+                parser.error(f"Not a JSONL file: {f}")
+    episode_log = EpisodeLog(log_dir=log_dir)
+    knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    result = distill(
+        days=args.days,
+        dry_run=args.dry_run,
+        episode_log=episode_log,
+        knowledge_store=knowledge_store,
+        log_files=log_files,
+    )
+    print(result)
+
+
+def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.distill import distill_identity
+    from .core.memory import KnowledgeStore
+
+    _warn_dry_run_deprecated(args)
+    knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    result = distill_identity(
+        knowledge_store=knowledge_store,
+        identity_path=IDENTITY_PATH,
+    )
+    if isinstance(result, str):
+        print(result)
+        return
+    print(result.text)
+    if getattr(args, "stage", False):
+        _stage_results(
+            [("identity.md", result.text, result.target_path)],
+            command="distill-identity",
+        )
+        return
+    if _is_dry_run(args):
+        return
+    approved = _approve_write(result.target_path)
+    _log_approval("distill-identity", result.target_path, approved, result.text)
+    if not approved:
+        print("Discarded.")
+        return
+    from .core._io import write_restricted as _wr
+    _wr(result.target_path, result.text + "\n")
+
+
+def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core._io import write_restricted
+    from .core.insight import _write_last_insight, extract_insight
+    from .core.memory import EpisodeLog, KnowledgeStore
+
+    _warn_dry_run_deprecated(args)
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+    knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    result = extract_insight(
+        knowledge_store=knowledge_store,
+        skills_dir=SKILLS_DIR,
+        episode_log=EpisodeLog(log_dir=log_dir),
+        full=args.full,
+    )
+    if isinstance(result, str):
+        print(result)
+        return
+    if getattr(args, "stage", False):
+        _stage_results(
+            [(s.filename, s.text, s.target_path) for s in result.skills],
+            command="insight",
+        )
+        return
+    written = 0
+    for i, skill in enumerate(result.skills, 1):
+        print(f"\n{'='*60}")
+        print(f"[{i}/{len(result.skills)}] {skill.filename}")
+        print(skill.text)
+        if _is_dry_run(args):
+            continue
+        approved = _approve_write(skill.target_path)
+        _log_approval("insight", skill.target_path, approved, skill.text)
+        if approved:
+            SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+            write_restricted(skill.target_path, skill.text)
+            written += 1
+        else:
+            print("Skipped.")
+    if written > 0:
+        _write_last_insight(SKILLS_DIR)
+    print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
+
+
+def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core._io import write_restricted
+    from .core.rules_distill import _write_last_run, distill_rules
+
+    _warn_dry_run_deprecated(args)
+    result = distill_rules(
+        skills_dir=SKILLS_DIR,
+        rules_dir=RULES_DIR,
+        full=args.full,
+    )
+    if isinstance(result, str):
+        print(result)
+        return
+    if getattr(args, "stage", False):
+        _stage_results(
+            [(r.filename, r.text, r.target_path) for r in result.rules],
+            command="rules-distill",
+        )
+        return
+    written = 0
+    for i, rule in enumerate(result.rules, 1):
+        print(f"\n{'='*60}")
+        print(f"[{i}/{len(result.rules)}] {rule.filename}")
+        print(rule.text)
+        if _is_dry_run(args):
+            continue
+        approved = _approve_write(rule.target_path)
+        _log_approval("rules-distill", rule.target_path, approved, rule.text)
+        if approved:
+            RULES_DIR.mkdir(parents=True, exist_ok=True)
+            write_restricted(rule.target_path, rule.text)
+            written += 1
+        else:
+            print("Skipped.")
+    if written > 0:
+        _write_last_run(RULES_DIR)
+    print(f"\n--- Summary: {written} written, {len(result.rules) - written} skipped, {result.dropped_count} dropped ---")
+
+
+def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.constitution import amend_constitution
+    from .core.memory import KnowledgeStore
+
+    _warn_dry_run_deprecated(args)
+    knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    constitution_dir = args.constitution_dir or CONSTITUTION_DIR
+    result = amend_constitution(
+        knowledge_store=knowledge_store,
+        constitution_dir=constitution_dir,
+    )
+    if isinstance(result, str):
+        print(result)
+        return
+    print(result.text)
+    if getattr(args, "stage", False):
+        _stage_results(
+            [(result.target_path.name, result.text, result.target_path)],
+            command="amend-constitution",
+        )
+        return
+    if _is_dry_run(args):
+        return
+    approved = _approve_write(result.target_path)
+    _log_approval("amend-constitution", result.target_path, approved, result.text)
+    if not approved:
+        print("Discarded.")
+        return
+    from .core._io import write_restricted as _wr
+    _wr(result.target_path, result.text + "\n")
+    marker = result.marker_dir / ".last_constitution_amend"
+    marker.write_text(
+        datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
+        encoding="utf-8",
+    )
+
+
+def _handle_report(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.memory import EpisodeLog
+    from .core.metrics import compute_metrics, format_report
+
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+    episode_log = EpisodeLog(log_dir=log_dir)
+    report = compute_metrics(episode_log, days=args.days)
+    print(format_report(report, fmt=args.format))
+
+
+def _handle_generate_report(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.report import generate_all_reports, generate_report
+
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+    output_dir = REPORTS_DIR
+
+    if args.all_dates:
+        results = generate_all_reports(log_dir, output_dir)
+        print(f"Generated {len(results)} reports in {output_dir}")
+    else:
+        result = generate_report(log_dir, output_dir, date=args.date)
+        if result:
+            print(f"Report generated: {result}")
+        else:
+            print("No log data found for the specified date.")
+
+
+def _handle_meditate(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .adapters.meditation.config import MeditationConfig
+    from .adapters.meditation.meditate import meditate as run_meditate
+    from .adapters.meditation.pomdp import build_matrices
+    from .adapters.meditation.report import interpret_and_save
+    from .core.memory import EpisodeLog
+
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+    episode_log = EpisodeLog(log_dir=log_dir)
+    results_path = MEDITATION_DIR / "results.json"
+
+    config = MeditationConfig(meditation_cycles=args.cycles)
+    matrices = build_matrices(episode_log, days=args.days, config=config)
+    result = run_meditate(matrices, config=config)
+    output = interpret_and_save(
+        result, results_path, dry_run=args.dry_run,
+    )
+    print(output)
+
+
+# --- Tier 3: Agent instance needed ---
+
+
+def _handle_agent_command(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    domain_config: DomainConfig | None,
+) -> None:
+    agent = Agent(autonomy=args.autonomy, domain_config=domain_config)
+
+    if args.command == "register":
+        result = agent.do_register()
+        print(f"Registration result: {result}")
+    elif args.command == "status":
+        result = agent.do_status()
+        print(f"Agent status: {result}")
+    elif args.command == "run":
+        if args.session <= 0 or args.session > 1440:
+            parser.error("--session must be between 1 and 1440 minutes")
+        dc = domain_config or get_domain_config()
+        session_meta = {
+            "axioms_enabled": not args.no_axioms,
+            "domain": dc.name,
+            "ollama_model": os.environ.get("OLLAMA_MODEL", "qwen3.5:9b"),
+        }
+        agent.run_session(duration_minutes=args.session, session_meta=session_meta)
+    elif args.command == "solve":
+        agent.do_solve(args.text)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="contemplative-agent",
@@ -599,374 +984,39 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    # Commands that don't need LLM or domain config — handle before loading
-    if args.command == "install-schedule":
-        if args.uninstall:
-            _do_uninstall_schedule()
-        else:
-            if args.interval < 1 or args.interval > 24 or 24 % args.interval != 0:
-                parser.error("--interval must evenly divide 24 (1, 2, 3, 4, 6, 8, 12, 24)")
-            if args.session < 1 or args.session > 1440:
-                parser.error("--session must be between 1 and 1440 minutes")
-            if args.distill_hour < 0 or args.distill_hour > 23:
-                parser.error("--distill-hour must be between 0 and 23")
-            _do_install_schedule(interval=args.interval, session=args.session)
-            if not args.no_distill:
-                _do_install_distill_schedule(distill_hour=args.distill_hour)
+    # Tier 1: Commands that don't need LLM or domain config
+    no_llm_handlers: dict[str, Callable[..., None]] = {
+        "install-schedule": _handle_install_schedule,
+        "skill-stocktake": _handle_skill_stocktake,
+        "rules-stocktake": _handle_rules_stocktake,
+        "sync-data": _handle_sync_data,
+    }
+    handler = no_llm_handlers.get(args.command)
+    if handler:
+        handler(args, parser)
         return
 
-    if args.command == "skill-stocktake":
-        from .core.insight import _extract_title, _slugify
-        from .core.stocktake import format_report, merge_group, run_skill_stocktake
+    # Tier 2: Commands that need LLM/domain config but not Agent
+    domain_config = _configure_llm_and_domain(args)
 
-        result = run_skill_stocktake(skills_dir=SKILLS_DIR)
-        print(format_report(result, "Skill"))
-
-        if not result.merge_groups:
-            return
-
-        # Merge phase: ask LLM to merge each duplicate group
-        from datetime import date
-
-        from .core import prompts
-        from .core._io import write_restricted
-
-        items_dict = dict(result.items)
-        stage = getattr(args, "stage", False)
-
-        print(f"\n{'='*60}")
-        print(f"Merging {len(result.merge_groups)} group(s)...")
-
-        stage_items: list[tuple[str, str, Path]] = []
-        merged = 0
-        for i, group in enumerate(result.merge_groups, 1):
-            group_items = [
-                (name, items_dict[name])
-                for name in group.filenames
-                if name in items_dict
-            ]
-            if len(group_items) < 2:
-                continue
-
-            print(f"\n{'='*60}")
-            print(f"[Group {i}/{len(result.merge_groups)}] {', '.join(group.filenames)}")
-            print(f"  Reason: {group.reason}")
-
-            merged_text = merge_group(group_items, prompts.STOCKTAKE_MERGE_PROMPT)
-            if merged_text is None:
-                print("  Merge failed (LLM error). Skipping.")
-                continue
-
-            print(merged_text)
-
-            title = _extract_title(merged_text) or "merged-skill"
-            slug = _slugify(title)
-            if not slug:
-                slug = "merged-skill"
-            filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
-            target_path = SKILLS_DIR / filename
-
-            if stage:
-                stage_items.append((filename, merged_text, target_path))
-            elif _approve_write(target_path):
-                SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-                write_restricted(target_path, merged_text)
-                # Delete original files
-                for name in group.filenames:
-                    original = SKILLS_DIR / name
-                    if original.exists():
-                        original.unlink()
-                        print(f"  Deleted {name}")
-                merged += 1
-            else:
-                print("  Skipped.")
-
-        if stage and stage_items:
-            _stage_results(stage_items, command="skill-stocktake")
-        elif not stage:
-            print(f"\n--- Summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
+    llm_handlers: dict[str, Callable[..., None]] = {
+        "init": _handle_init,
+        "distill": _handle_distill,
+        "distill-identity": _handle_distill_identity,
+        "insight": _handle_insight,
+        "rules-distill": _handle_rules_distill,
+        "amend-constitution": _handle_amend_constitution,
+        "report": _handle_report,
+        "generate-report": _handle_generate_report,
+        "meditate": _handle_meditate,
+    }
+    handler = llm_handlers.get(args.command)
+    if handler:
+        handler(args, parser)
         return
 
-    if args.command == "rules-stocktake":
-        from .core.stocktake import format_report, run_rules_stocktake
-
-        result = run_rules_stocktake(rules_dir=RULES_DIR)
-        print(format_report(result, "Rules"))
-        return
-
-    if args.command == "sync-data":
-        _run_sync()
-        return
-
-    # Load domain config if custom path specified
-    domain_config = None
-    if args.domain_config is not None:
-        reset_caches()
-        domain_config = load_domain_config(args.domain_config)
-        set_domain_config_cache(domain_config)
-
-    # Load and inject CCAI constitutional clauses unless --no-axioms is set
-    if not args.no_axioms:
-        clauses = load_constitution(args.constitution_dir or CONSTITUTION_DIR)
-        if clauses:
-            configure_llm(axiom_prompt=clauses)
-
-    # Inject learned skills and rules into system prompt
-    skills_dir = SKILLS_DIR
-    if skills_dir.is_dir():
-        configure_llm(skills_dir=skills_dir)
-    if RULES_DIR.is_dir():
-        configure_llm(rules_dir=RULES_DIR)
-
-    if args.command == "init":
-        _do_init(template_name=args.template)
-        return
-
-    if args.command == "distill":
-        from .core.distill import distill
-        from .core.memory import EpisodeLog, KnowledgeStore
-
-        log_dir = MOLTBOOK_DATA_DIR / "logs"
-        log_files = args.log_files
-        if log_files:
-            for f in log_files:
-                if not f.exists():
-                    parser.error(f"File not found: {f}")
-                if f.suffix != ".jsonl":
-                    parser.error(f"Not a JSONL file: {f}")
-        episode_log = EpisodeLog(log_dir=log_dir)
-        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-        result = distill(
-            days=args.days,
-            dry_run=args.dry_run,
-            episode_log=episode_log,
-            knowledge_store=knowledge_store,
-            log_files=log_files,
-        )
-        print(result)
-        return
-
-    if args.command == "distill-identity":
-        from .core.distill import distill_identity
-        from .core.memory import KnowledgeStore
-
-        _warn_dry_run_deprecated(args)
-        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-        result = distill_identity(
-            knowledge_store=knowledge_store,
-            identity_path=IDENTITY_PATH,
-        )
-        if isinstance(result, str):
-            print(result)
-            return
-        print(result.text)
-        if getattr(args, "stage", False):
-            _stage_results(
-                [("identity.md", result.text, result.target_path)],
-                command="distill-identity",
-            )
-            return
-        if _is_dry_run(args):
-            return
-        approved = _approve_write(result.target_path)
-        _log_approval("distill-identity", result.target_path, approved, result.text)
-        if not approved:
-            print("Discarded.")
-            return
-        from .core._io import write_restricted as _wr
-        _wr(result.target_path, result.text + "\n")
-        return
-
-    if args.command == "insight":
-        from .core._io import write_restricted
-        from .core.insight import _write_last_insight, extract_insight
-        from .core.memory import EpisodeLog as _EL, KnowledgeStore
-
-        _warn_dry_run_deprecated(args)
-        log_dir = MOLTBOOK_DATA_DIR / "logs"
-        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-        result = extract_insight(
-            knowledge_store=knowledge_store,
-            skills_dir=SKILLS_DIR,
-            episode_log=_EL(log_dir=log_dir),
-            full=args.full,
-        )
-        if isinstance(result, str):
-            print(result)
-            return
-        if getattr(args, "stage", False):
-            _stage_results(
-                [(s.filename, s.text, s.target_path) for s in result.skills],
-                command="insight",
-            )
-            return
-        written = 0
-        for i, skill in enumerate(result.skills, 1):
-            print(f"\n{'='*60}")
-            print(f"[{i}/{len(result.skills)}] {skill.filename}")
-            print(skill.text)
-            if _is_dry_run(args):
-                continue
-            approved = _approve_write(skill.target_path)
-            _log_approval("insight", skill.target_path, approved, skill.text)
-            if approved:
-                SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-                write_restricted(skill.target_path, skill.text)
-                written += 1
-            else:
-                print("Skipped.")
-        if written > 0:
-            _write_last_insight(SKILLS_DIR)
-        print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
-        return
-
-    if args.command == "rules-distill":
-        from .core._io import write_restricted
-        from .core.rules_distill import _write_last_run, distill_rules
-
-        _warn_dry_run_deprecated(args)
-        result = distill_rules(
-            skills_dir=SKILLS_DIR,
-            rules_dir=RULES_DIR,
-            full=args.full,
-        )
-        if isinstance(result, str):
-            print(result)
-            return
-        if getattr(args, "stage", False):
-            _stage_results(
-                [(r.filename, r.text, r.target_path) for r in result.rules],
-                command="rules-distill",
-            )
-            return
-        written = 0
-        for i, rule in enumerate(result.rules, 1):
-            print(f"\n{'='*60}")
-            print(f"[{i}/{len(result.rules)}] {rule.filename}")
-            print(rule.text)
-            if _is_dry_run(args):
-                continue
-            approved = _approve_write(rule.target_path)
-            _log_approval("rules-distill", rule.target_path, approved, rule.text)
-            if approved:
-                RULES_DIR.mkdir(parents=True, exist_ok=True)
-                write_restricted(rule.target_path, rule.text)
-                written += 1
-            else:
-                print("Skipped.")
-        if written > 0:
-            _write_last_run(RULES_DIR)
-        print(f"\n--- Summary: {written} written, {len(result.rules) - written} skipped, {result.dropped_count} dropped ---")
-        return
-
-    if args.command == "amend-constitution":
-        from .core.constitution import amend_constitution
-        from .core.memory import KnowledgeStore
-
-        _warn_dry_run_deprecated(args)
-        knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-        constitution_dir = args.constitution_dir or CONSTITUTION_DIR
-        result = amend_constitution(
-            knowledge_store=knowledge_store,
-            constitution_dir=constitution_dir,
-        )
-        if isinstance(result, str):
-            print(result)
-            return
-        print(result.text)
-        if getattr(args, "stage", False):
-            _stage_results(
-                [(result.target_path.name, result.text, result.target_path)],
-                command="amend-constitution",
-            )
-            return
-        if _is_dry_run(args):
-            return
-        approved = _approve_write(result.target_path)
-        _log_approval("amend-constitution", result.target_path, approved, result.text)
-        if not approved:
-            print("Discarded.")
-            return
-        from datetime import datetime, timezone
-        from .core._io import write_restricted as _wr
-        _wr(result.target_path, result.text + "\n")
-        marker = result.marker_dir / ".last_constitution_amend"
-        marker.write_text(
-            datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
-            encoding="utf-8",
-        )
-        return
-
-    if args.command == "report":
-        from .core.memory import EpisodeLog
-        from .core.metrics import compute_metrics, format_report
-
-        log_dir = MOLTBOOK_DATA_DIR / "logs"
-        episode_log = EpisodeLog(log_dir=log_dir)
-        report = compute_metrics(episode_log, days=args.days)
-        print(format_report(report, fmt=args.format))
-        return
-
-    if args.command == "generate-report":
-        from .core.report import generate_all_reports, generate_report
-
-        log_dir = MOLTBOOK_DATA_DIR / "logs"
-        output_dir = REPORTS_DIR
-
-        if args.all_dates:
-            results = generate_all_reports(log_dir, output_dir)
-            print(f"Generated {len(results)} reports in {output_dir}")
-        else:
-            result = generate_report(log_dir, output_dir, date=args.date)
-            if result:
-                print(f"Report generated: {result}")
-            else:
-                print("No log data found for the specified date.")
-        return
-
-    if args.command == "meditate":
-        from .adapters.meditation.config import MeditationConfig
-        from .adapters.meditation.meditate import meditate as run_meditate
-        from .adapters.meditation.pomdp import build_matrices
-        from .adapters.meditation.report import interpret_and_save
-        from .core.memory import EpisodeLog
-
-        log_dir = MOLTBOOK_DATA_DIR / "logs"
-        episode_log = EpisodeLog(log_dir=log_dir)
-        results_path = MEDITATION_DIR / "results.json"
-
-        config = MeditationConfig(meditation_cycles=args.cycles)
-        matrices = build_matrices(episode_log, days=args.days, config=config)
-        result = run_meditate(matrices, config=config)
-        output = interpret_and_save(
-            result, results_path, dry_run=args.dry_run,
-        )
-        print(output)
-        return
-
-    agent = Agent(autonomy=args.autonomy, domain_config=domain_config)
-
-    if args.command == "register":
-        result = agent.do_register()
-        print(f"Registration result: {result}")
-
-    elif args.command == "status":
-        result = agent.do_status()
-        print(f"Agent status: {result}")
-
-    elif args.command == "run":
-        if args.session <= 0 or args.session > 1440:
-            parser.error("--session must be between 1 and 1440 minutes")
-        dc = domain_config or get_domain_config()
-        session_meta = {
-            "axioms_enabled": not args.no_axioms,
-            "domain": dc.name,
-            "ollama_model": os.environ.get("OLLAMA_MODEL", "qwen3.5:9b"),
-        }
-        agent.run_session(duration_minutes=args.session, session_meta=session_meta)
-
-    elif args.command == "solve":
-        agent.do_solve(args.text)
+    # Tier 3: Commands that need an Agent instance
+    _handle_agent_command(args, parser, domain_config)
 
 
 if __name__ == "__main__":

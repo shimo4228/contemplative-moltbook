@@ -1,5 +1,7 @@
 """HTTP client wrapper for Moltbook API with auth and rate limit handling."""
 
+from __future__ import annotations
+
 import logging
 import re
 import time

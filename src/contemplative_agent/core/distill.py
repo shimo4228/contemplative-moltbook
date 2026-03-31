@@ -12,6 +12,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from ._io import strip_code_fence
 from .llm import generate, get_axiom_prompt, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .knowledge_store import effective_importance
 from .memory import EpisodeLog, KnowledgeStore
@@ -204,14 +205,6 @@ def distill_identity(
     return IdentityResult(text=identity_text, target_path=identity_path)
 
 
-def _strip_code_fence(text: str) -> str:
-    """Remove markdown code fences (```json ... ```) from LLM output."""
-    text = text.strip()
-    if text.startswith("```"):
-        lines = [line for line in text.splitlines() if not line.strip().startswith("```")]
-        text = "\n".join(lines).strip()
-    return text
-
 
 def _parse_importance_scores(raw: str, expected_count: int) -> List[float]:
     """Parse {"scores": [8, 5, ...]} into [0.8, 0.5, ...].
@@ -219,7 +212,7 @@ def _parse_importance_scores(raw: str, expected_count: int) -> List[float]:
     Falls back to comma-separated integers, then 0.5 defaults.
     """
     defaults = [0.5] * expected_count
-    text = _strip_code_fence(raw)
+    text = strip_code_fence(raw)
 
     # Try JSON parse
     scores_raw: list = []
@@ -398,7 +391,7 @@ def _distill_category(
         all_results.append(refined)
 
         raw_patterns: List[str] = []
-        json_text = _strip_code_fence(refined)
+        json_text = strip_code_fence(refined)
         try:
             parsed = json_mod.loads(json_text)
             for item in parsed.get("patterns", []):
@@ -696,7 +689,7 @@ def _parse_dedup_decisions(raw: Optional[str], expected_count: int) -> List[str]
         logger.warning("LLM dedup gate returned empty, falling back to ADD all")
         return fallback
 
-    text = _strip_code_fence(raw)
+    text = strip_code_fence(raw)
 
     # Try direct JSON parse
     try:
