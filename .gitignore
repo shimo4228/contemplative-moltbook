@@ -70,8 +70,8 @@ tests/fixtures/benchmark/results/
 *.bak
 .last_insight
 
-# Coding agent integrations (shelved — see ADR-0013)
-integrations/
+# Coding agent integrations — skills shelved (ADR-0013), hooks are active
+integrations/skills/
 
 # Claude Code
 .claude/
