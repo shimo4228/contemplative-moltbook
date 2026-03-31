@@ -121,7 +121,7 @@ Episode logs are immutable, so the same behavioral data can be re-processed unde
 
 > Paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself.
 
-**Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents -- an unfiltered prompt injection surface ([Glassworm-class](https://arxiv.org/abs/2503.18711) risk). Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. For Claude Code users, install the PreToolUse hooks that enforce this automatically:
+**Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents -- an unfiltered indirect prompt injection surface. Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. For Claude Code users, install the PreToolUse hooks that enforce this automatically:
 
 ```bash
 bash integrations/claude-code/install-hooks.sh

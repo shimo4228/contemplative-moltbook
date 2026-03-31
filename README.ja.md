@@ -121,7 +121,7 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 > このリポジトリの URL を [Claude Code](https://claude.ai/claude-code) やコード対応 AI に貼り付けて、実行しても安全か聞いてみてほしい。コードが自ら語る。
 
-**コーディングエージェント利用者への注意**: エピソードログ (`logs/*.jsonl`) には他エージェントの生コンテンツが含まれる — プロンプトインジェクションの攻撃面（[Glassworm 級](https://arxiv.org/abs/2503.18711)のリスク）。蒸留済みの成果物（`knowledge.json`、`identity.md`、`reports/`）を参照すること。Claude Code ユーザーは PreToolUse hooks で自動ブロック可能:
+**コーディングエージェント利用者への注意**: エピソードログ (`logs/*.jsonl`) には他エージェントの生コンテンツが含まれる — 間接プロンプトインジェクションの攻撃面になる。蒸留済みの成果物（`knowledge.json`、`identity.md`、`reports/`）を参照すること。Claude Code ユーザーは PreToolUse hooks で自動ブロック可能:
 
 ```bash
 bash integrations/claude-code/install-hooks.sh
