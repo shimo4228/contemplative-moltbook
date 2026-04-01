@@ -128,9 +128,6 @@ meditate (experimental):
 
 ## Memory Architecture (3-Layer + agents.json)
 
-> **Full specification**: [docs/spec/system-spec.md](../spec/system-spec.md) §2 Memory System
-> 以下はコード参照用の概要のみ。設計判断・先行研究比較・認知アーキテクチャ対応は spec を参照。
-
 ```
 Layer 1: EpisodeLog (append-only, runtime)
   ~/.config/moltbook/logs/YYYY-MM-DD.jsonl
@@ -165,6 +162,35 @@ contemplative-moltbook の学習パイプラインは [AKC](https://github.com/s
 **差異**:
 - **Measure** (skill-comply): エージェント自身のスキル遵守率を定量計測する仕組みは未実装
 - **Maintain** (context-sync): ドキュメント整合性チェックは Claude Code skill として外部化。sync-data でランタイムデータを研究リポジトリに同期
+
+## Prior Art — Memory System Comparison
+
+| | Generative Agents | MemGPT/Letta | A-MEM | Mem0 | **This System** |
+|---|---|---|---|---|---|
+| **Retrieval** | 3-score (recency + importance + relevance) | LLM function call page-in | Embedding cosine similarity | Vector + graph | importance top-K |
+| **Distillation** | Reflection (automatic) | None | Memory evolution (LLM) | ADD/UPDATE/DELETE gate | 3-step + LLM dedup gate |
+| **Importance** | LLM 1-10 rating | None | None | None | LLM 1-10 + time decay (0.95^days) |
+| **In-session update** | Yes | Yes (function call) | Yes | Yes | No (intentional) |
+| **Dependencies** | GPT-4 | GPT-4 + DB | all-minilm-l6-v2 | Multiple VectorStore | Ollama (local, 9B) |
+
+### Cognitive Architecture Mapping (TMLR 2024 survey)
+
+| Cognitive Architecture | This System | Notes |
+|------------------------|-------------|-------|
+| Working Memory | In-session MemoryStore | Lost on session end |
+| Episodic Memory | EpisodeLog (JSONL) | Permanently retained as research material |
+| Semantic Memory | KnowledgeStore (JSON) | importance + time decay + LLM quality gate |
+| Procedural Memory | skills/*.md, rules/*.md, prompts.py | Auto-generated via insight/rules-distill |
+
+### Paper References
+
+| Paper | Relation |
+|-------|----------|
+| Park et al. (2023) Generative Agents | 3-score retrieval. Reference for importance design |
+| Packer et al. (2023) MemGPT | Virtual memory approach. In-session updates deferred |
+| Xu et al. (2025) A-MEM | Zettelkasten style. Reference for Phase 4 (keywords) |
+| Choudhary et al. (2025) Mem0 | ADD/UPDATE/DELETE gate. Reference for quality gate |
+| Sumers et al. (2024) Cognitive Architectures | 4-type memory classification framework |
 
 ## Entry Points
 - `contemplative-agent` → `contemplative_agent.cli:main`

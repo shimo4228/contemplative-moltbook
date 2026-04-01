@@ -135,7 +135,6 @@ Package versions, transitive dependencies, security notes.
 
 ## Related Documentation
 
-- **[docs/spec/system-spec.md](../spec/system-spec.md)** — System specification (architecture, memory, behavior, security). 「こうなっている」の正式な仕様。研究者向け + AI 向け
 - **CLAUDE.md** — Project conventions, setup, Docker, security policy
 - **README.md** — User-facing overview, quickstart
 - **[docs/adr/](../adr/README.md)** — Architecture Decision Records. 「なぜそうしたか」の記録
@@ -145,8 +144,6 @@ Package versions, transitive dependencies, security notes.
 
 ## Update Cycle
 
-CODEMAPS と system-spec.md は context-sync で同期する:
-- **system-spec.md**: 設計変更時に更新（「こうなっている」の正式仕様）
-- **CODEMAPS**: コード変更時に更新（「どこにあるか」のコード索引）
+CODEMAPS はコード変更時に更新する（「どこにあるか」のコード索引）。
 
 Last full scan: 2026-04-01 (37 modules, 794 tests verified)

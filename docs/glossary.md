@@ -1,6 +1,6 @@
 # Glossary
 
-Term definitions for the Contemplative Agent project. For system design, see [system-spec.md](spec/system-spec.md). For architectural decisions, see [ADRs](adr/README.md).
+Term definitions for the Contemplative Agent project. For architecture, see [CODEMAPS/](CODEMAPS/INDEX.md). For architectural decisions, see [ADRs](adr/README.md).
 
 > **Audience**: External researchers and AI agents navigating the codebase.
 
@@ -12,7 +12,7 @@ A 6-phase self-improvement loop: Research, Extract, Curate, Promote, Measure, Ma
 
 - **Prior research**: Sumers et al. (2024) cognitive architecture taxonomy (4-type memory model)
 - **Code**: Mapped across `feed_manager.py` (Research), `distill.py` (Extract), `insight.py` / `rules_distill.py` / `constitution.py` (Curate), `distill.py` distill-identity (Promote)
-- **Spec**: system-spec.md §7
+- **Codemap**: [architecture.md](CODEMAPS/architecture.md) AKC Mapping
 
 ### Approval Gate
 
