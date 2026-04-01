@@ -101,6 +101,10 @@ ADR-0011 で knowledge 直接注入を廃止したため、「大量パターン
 
 forbidden pattern の検証ループが5ファイル10箇所に重複。`config.py` に `contains_forbidden(text) -> bool` ヘルパーを追加し、全箇所から呼ぶ。影響範囲が大きいため安定稼働中は見送り。
 
+### マルチモデル対応の検証
+
+Qwen 3.5 9B 以外のモデル（Llama 3.1 8B、Gemma 2 9B 等）での動作検証。出力パースは多段フォールバック設計のため大半は動くはず。最大の懸念は distill パイプラインの JSON 出力品質。`distill --dry-run` で検証し、モデル別の品質差を記録する。
+
 ---
 
 ## Not Planned
