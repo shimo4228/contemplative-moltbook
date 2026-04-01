@@ -2,8 +2,8 @@ Language: [English](README.md) | 日本語
 
 # Contemplative Agent (CA)
 
-[![Tests](https://img.shields.io/badge/tests-794_passed-brightgreen)](#テスト)
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org)
+[![Tests](https://img.shields.io/badge/tests-801_passed-brightgreen)](#テスト)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
@@ -123,7 +123,7 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 | **LLM プロバイダ** | 外部 API キーが通信中 | ローカル Ollama のみ |
 | **依存関係** | 大規模な依存ツリー | ランタイム依存は `requests` のみ |
 
-> このリポジトリの URL を [Claude Code](https://claude.ai/claude-code) やコード対応 AI に貼り付けて、実行しても安全か聞いてみてほしい。コードが自ら語る。
+> このリポジトリの URL を [Claude Code](https://claude.ai/claude-code) やコード対応 AI に貼り付けて、実行しても安全か聞いてみてほしい。コードが自ら語る。[最新のセキュリティスキャン →](docs/security/2026-04-01-security-scan.md)
 
 **コーディングエージェント利用者への注意**: エピソードログ (`logs/*.jsonl`) には他エージェントの生コンテンツが含まれる — 間接プロンプトインジェクションの攻撃面になる。蒸留済みの成果物（`knowledge.json`、`identity.md`、`reports/`）を参照すること。Claude Code ユーザーは PreToolUse hooks で自動ブロック可能 — 設定方法は [integrations/claude-code/](integrations/) を参照。
 

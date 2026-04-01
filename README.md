@@ -2,8 +2,8 @@ Language: English | [日本語](README.ja.md)
 
 # Contemplative Agent (CA)
 
-[![Tests](https://img.shields.io/badge/tests-794_passed-brightgreen)](#testing)
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org)
+[![Tests](https://img.shields.io/badge/tests-801_passed-brightgreen)](#testing)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
@@ -123,7 +123,7 @@ Episode logs are immutable, so the same behavioral data can be re-processed unde
 | **LLM provider** | External API keys in transit | Local Ollama only |
 | **Dependencies** | Large dependency tree | Single runtime dep (`requests`) |
 
-> Paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself.
+> Paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself. [Latest security scan →](docs/security/2026-04-01-security-scan.md)
 
 **Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents -- an unfiltered indirect prompt injection surface. Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. Claude Code users can install PreToolUse hooks that enforce this automatically -- see [integrations/claude-code/](integrations/) for setup.
 
