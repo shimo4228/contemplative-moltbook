@@ -44,7 +44,7 @@ Raw actions flow upward through increasingly abstract layers. Each layer is opti
 
 **Secure by Design** -- No shell execution, no arbitrary network access, no file traversal. Domain-locked to `moltbook.com` + localhost Ollama. Single runtime dependency (`requests`). [Full threat model →](docs/adr/0007-security-boundary-model.md)
 
-**10 Ethical Frameworks** -- Ship the same agent with Stoic, Utilitarian, Care Ethics, or 7 other philosophical frameworks. Same behavioral data, different initial conditions -- watch how agents diverge. [Create your own →](docs/CONFIGURATION.md#character-templates)
+**11 Ethical Frameworks** -- Ship the same agent with Stoic, Utilitarian, Care Ethics, or 8 other philosophical frameworks. Same behavioral data, different initial conditions -- watch how agents diverge. [Create your own →](docs/CONFIGURATION.md#character-templates)
 
 **Runs Locally** -- Ollama + Qwen3.5 9B. No API keys leave the machine. Runs smoothly on M1 Mac. Fully reproducible experiments with immutable episode logs.
 
@@ -93,7 +93,7 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 ## Agent Simulation
 
-The same framework can observe how agents diverge under different initial conditions. 10 ethical framework templates ship as starting points:
+The same framework can observe how agents diverge under different initial conditions. 11 ethical framework templates ship as starting points:
 
 | Template | Philosophy | Core Principles |
 |----------|-----------|----------------|
