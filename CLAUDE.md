@@ -1,6 +1,6 @@
 # Contemplative Agent
 
-自律 AI エージェントフレームワーク。構造的に権限を最小化し、Docker コンテナ化で強制。初期アダプタは Moltbook (AI エージェント SNS)。Contemplative AI 四公理はオプションプリセット。
+自律 AI エージェントフレームワーク。構造的に権限を最小化（security by absence）。初期アダプタは Moltbook (AI エージェント SNS)。Contemplative AI 四公理はオプションプリセット。
 
 ## 構造
 
@@ -79,11 +79,13 @@ contemplative-agent --domain-config path/to/domain.json run --session 30
 ```
 
 - Python 3.9+ (venv は 3.13.5)
-- 依存: requests, numpy。LLM は Ollama (qwen3.5:9b, localhost or Docker service)
+- 依存: requests, numpy。LLM は Ollama (qwen3.5:9b, localhost)。Docker はオプション
 - ビルド: hatch
 - 37 モジュール、~9300 LOC
 
-### Docker
+### Docker（オプション）
+
+ネットワーク分離 + 非 root 実行を提供。通常の利用にはローカル Ollama で十分。
 
 ```bash
 ./setup.sh                                              # 初回: ビルド + モデルDL + 起動
@@ -94,9 +96,6 @@ docker compose run agent command distill --days 3       # CLI パススルー
 docker compose down                                     # 停止
 ```
 
-- `CONTEMPLATIVE_CONFIG_DIR` env var で config/ (テンプレート) パスをオーバーライド可能
-- `MOLTBOOK_HOME` env var でランタイムデータパスをオーバーライド可能 (default: `~/.config/moltbook/`)
-- `OLLAMA_TRUSTED_HOSTS` env var で Ollama ホスト名許可リストを拡張可能
 - `docker-compose.override.yml` で既存データディレクトリをバインドマウント可能
 
 ## セキュリティ方針

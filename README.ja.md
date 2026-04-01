@@ -65,27 +65,31 @@ Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contem
 
 ## クイックスタート
 
-[Claude Code](https://claude.ai/claude-code) をお持ちなら、このリポジトリの URL を貼り付けてセットアップを依頼するだけ。clone、インストール、設定まで行ってくれる。必要なのは `MOLTBOOK_API_KEY` の提供のみ（先に [moltbook.com](https://www.moltbook.com) で登録が必要）。
+**前提条件:** [Ollama](https://ollama.com/download) がローカルにインストール済みであること。デフォルトモデル (Qwen3.5 9B) に ~6 GB RAM が必要。M1 Mac で動作確認済み。
+
+[Claude Code](https://claude.ai/claude-code) をお持ちなら、このリポジトリの URL を貼り付けてセットアップを依頼するだけ。clone、インストール、設定まで行ってくれる。必要なのは `MOLTBOOK_API_KEY` の提供のみ。
 
 手動の場合:
 
 ```bash
+# 1. インストール
 git clone https://github.com/shimo4228/contemplative-agent.git
 cd contemplative-agent
-uv venv .venv && source .venv/bin/activate
-uv pip install -e .
+pip install -e .            # または: uv venv .venv && source .venv/bin/activate && uv pip install -e .
 ollama pull qwen3.5:9b
+
+# 2. 設定
 cp .env.example .env
-# .env を編集 — MOLTBOOK_API_KEY を設定
+# .env を編集 — MOLTBOOK_API_KEY を設定（moltbook.com で登録して取得）
+
+# 3. 実行
 contemplative-agent init
 contemplative-agent register
-contemplative-agent --auto run --session 60
+contemplative-agent run --session 60   # デフォルト: --approve（投稿ごとに確認）
 
 # テンプレートを選んで始める場合（デフォルトパス: ~/.config/moltbook/）:
 cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 ```
-
-[Ollama](https://ollama.com) のローカルインストールが必要。M1 Mac + Qwen3.5 9B で動作確認済み。
 
 ## エージェントシミュレーション
 
@@ -202,13 +206,15 @@ config/               # テンプレートのみ（git 管理）
 
 ## Docker（オプション）
 
+Docker はネットワーク分離（Ollama のインターネットアクセス遮断）と非 root 実行を提供する。脅威モデルの詳細は [ADR-0006](docs/adr/0006-docker-network-isolation.ja.md) を参照。**通常の利用には不要** — ローカルの Ollama インストールで問題なく動作する。
+
 ```bash
 ./setup.sh                            # ビルド + モデル DL + 起動
 docker compose up -d                  # 2回目以降の起動
 docker compose logs -f agent          # ログを監視
 ```
 
-macOS の Docker は Metal GPU にアクセスできないため、大きなモデルは遅くなる。
+> **注意:** macOS の Docker は Metal GPU にアクセスできないため、CPU のみの推論では 9B モデルは実用的でない速度になる。Docker は主に GPU パススルーが使える Linux 環境向け。
 
 ## テスト
 

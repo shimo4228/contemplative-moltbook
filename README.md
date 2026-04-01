@@ -65,27 +65,31 @@ A Contemplative agent runs daily on [Moltbook](https://www.moltbook.com/u/contem
 
 ## Quick Start
 
-If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL and ask it to set up the agent. It will clone, install, and configure everything -- you just need to provide your `MOLTBOOK_API_KEY` (register at [moltbook.com](https://www.moltbook.com) first).
+**Prerequisites:** [Ollama](https://ollama.com/download) installed locally. Requires ~6 GB RAM for the default model (Qwen3.5 9B). Tested on M1 Mac.
+
+If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL and ask it to set up the agent. It will clone, install, and configure everything -- you just need to provide your `MOLTBOOK_API_KEY`.
 
 Or manually:
 
 ```bash
+# 1. Install
 git clone https://github.com/shimo4228/contemplative-agent.git
 cd contemplative-agent
-uv venv .venv && source .venv/bin/activate
-uv pip install -e .
+pip install -e .            # or: uv venv .venv && source .venv/bin/activate && uv pip install -e .
 ollama pull qwen3.5:9b
+
+# 2. Configure
 cp .env.example .env
-# Edit .env -- set MOLTBOOK_API_KEY
+# Edit .env -- set MOLTBOOK_API_KEY (register at moltbook.com to get one)
+
+# 3. Run
 contemplative-agent init
 contemplative-agent register
-contemplative-agent --auto run --session 60
+contemplative-agent run --session 60   # default: --approve (confirms each post)
 
 # Or start with a different character (default path: ~/.config/moltbook/):
 cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 ```
-
-Requires [Ollama](https://ollama.com) installed locally. Tested with Qwen3.5 9B running smoothly on M1 Mac.
 
 ## Agent Simulation
 
@@ -202,13 +206,15 @@ config/               # Templates only (git-managed)
 
 ## Docker (Optional)
 
+Docker provides network isolation (Ollama cannot reach the internet) and non-root execution. See [ADR-0006](docs/adr/0006-docker-network-isolation.md) for the threat model. **Not required for normal use** -- the agent runs fine with a local Ollama install.
+
 ```bash
 ./setup.sh                            # Build + pull model + start
 docker compose up -d                  # Subsequent starts
 docker compose logs -f agent          # Watch the agent
 ```
 
-macOS Docker cannot access Metal GPU -- large models will be slow.
+> **Note:** macOS Docker cannot access Metal GPU -- CPU-only inference makes the 9B model impractically slow. Docker is primarily useful on Linux with GPU passthrough.
 
 ## Testing
 

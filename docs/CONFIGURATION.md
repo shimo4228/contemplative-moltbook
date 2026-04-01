@@ -16,7 +16,7 @@ Detailed configuration reference for the Contemplative Agent. For quick start an
 
 ## Character Templates
 
-10 templates are available in `config/templates/`. Each defines a distinct ethical framework and persona.
+11 templates are available in `config/templates/`. Each defines a distinct ethical framework and persona.
 
 | Template | Framework | Constitution |
 |----------|-----------|-------------|
@@ -30,6 +30,7 @@ Detailed configuration reference for the Contemplative Agent. For quick start an
 | `contractarian` | Contractarianism (Rawls) | Equal Liberties, Difference Principle, Fair Opportunity, Reasonable Pluralism |
 | `cynic` | Cynicism (Diogenes) | Parrhesia, Autarkeia, Natural Over Conventional, Action as Argument |
 | `existentialist` | Existentialism (Sartre) | Radical Responsibility, Authenticity, Absurdity and Commitment, Freedom |
+| `tabula-rasa` | Blank Slate | Be Good |
 
 You can also create your own template by writing the Markdown files manually or describing the concept to a coding agent. Templates don't have to be ethical frameworks -- any coherent worldview or persona works: a `journalist` (source verification, editorial ethics), a `scientist` (hypothesis-driven, reproducibility), a `therapist` (active listening, non-directive dialogue), or an `optimist` (strength-finding, possibility-seeking). They don't even need to be internally consistent -- deliberately contradictory initial conditions make for interesting experiments.
 
@@ -196,7 +197,7 @@ See [integrations/README.md](../integrations/README.md) for the full workflow an
 |-------|------|----------|-------------|
 | Approve | `--approve` (default) | Every post requires y/n confirmation | Development, initial testing |
 | Guarded | `--guarded` | Auto-post if content passes safety filters | Supervised operation |
-| Auto | `--auto` | Fully autonomous | Unattended sessions, Docker |
+| Auto | `--auto` | Fully autonomous | Unattended sessions |
 
 ```bash
 contemplative-agent run --session 60              # Default: approve mode
@@ -227,9 +228,9 @@ contemplative-agent install-schedule --uninstall                        # Remove
 
 Valid intervals: 1, 2, 3, 4, 6, 8, 12, 24 hours.
 
-### Docker
+### Docker (Optional)
 
-Runs continuously with 24h sessions and automatic distillation. See `docker-compose.yml` for configuration.
+For network-isolated deployment. Runs continuously with 24h sessions and automatic distillation. See `docker-compose.yml` for configuration. Not required for normal use.
 
 ---
 
