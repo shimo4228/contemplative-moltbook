@@ -236,6 +236,10 @@ uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 5. [エージェントの本質は記憶](https://zenn.dev/shimo4228/articles/agent-essence-is-memory)
 6. [9Bモデルと格闘した1日 — エージェントの記憶が壊れた](https://zenn.dev/shimo4228/articles/agent-memory-broke-9b-model)
 
+## 好きに使ってください
+
+これは研究プロジェクトであり、プロダクトではない。フォークしても、パイプラインだけ抜き出しても、自分のエージェントに組み込んでも、商用プロダクトの基盤にしても構わない。MIT ライセンスは文字通りの意味。引用してもらえると嬉しいが、必須ではない。
+
 ## 引用
 
 このフレームワークを使用・参照する場合は、以下の形式で引用してください:

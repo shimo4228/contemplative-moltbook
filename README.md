@@ -236,6 +236,10 @@ uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 5. [Not Reasoning, Not Tools -- What If the Essence of AI Agents Is Memory?](https://dev.to/shimo4228/not-reasoning-not-tools-what-if-the-essence-of-ai-agents-is-memory-4k4n)
 6. [My Agent's Memory Broke -- A Day Wrestling a 9B Model](https://dev.to/shimo4228/my-agents-memory-broke-a-day-wrestling-a-9b-model-50ch)
 
+## Use It However You Want
+
+This is a research project, not a product. Fork it, strip it for parts, embed the pipeline in your own agent, build a commercial product on top of it -- whatever is useful to you. The MIT license means what it says. A citation is appreciated but not required.
+
 ## Citation
 
 If you use or reference this framework, please cite:
