@@ -1,8 +1,8 @@
-<!-- Generated: 2026-03-24 | Total codemaps: 5 | Token estimate: ~500 -->
+<!-- Generated: 2026-04-08 | Total codemaps: 5 | Token estimate: ~500 -->
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-04-01 | **Codebase**: 37 modules, ~9300 LOC, 794 tests
+**Last Updated**: 2026-04-08 | **Codebase**: 38 modules, ~8500 LOC, 835 tests
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (37 modules, ~9300 LOC, 794 tests)
+- Project type & stats (38 modules, ~8500 LOC, 835 tests)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -43,7 +43,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 ---
 
 ### 3. [core-modules.md](core-modules.md) — Core Layer Deep Dive
-**Platform-independent foundation.** 14 modules providing base functionality.
+**Platform-independent foundation.** 16 modules providing base functionality.
 
 **Topics**:
 - 16 core modules (~3700 LOC): _io, config, domain, prompts, llm, episode_log, knowledge_store, memory, scheduler, distill (2-stage + identity), insight, constitution, rules_distill, stocktake, report, metrics
@@ -64,10 +64,10 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 ---
 
 ### 4. [adapters-moltbook.md](adapters-moltbook.md) — Moltbook Adapter Layer
-**Platform-specific implementation.** 11 modules for Moltbook integration.
+**Platform-specific implementation.** 12 modules for Moltbook integration.
 
 **Topics**:
-- 11 adapter modules (~2800 LOC): config, agent, session_context, feed_manager, reply_handler, post_pipeline, client, auth, verification, content, llm_functions
+- 12 adapter modules (~3000 LOC): config, agent, session_context, feed_manager, reply_handler, post_pipeline, client, auth, verification, content, llm_functions, dedup
 - Agent session orchestration (AutonomyLevel: APPROVE/GUARDED/AUTO)
 - SessionContext (shared mutable state)
 - FeedManager, ReplyHandler, PostPipeline
@@ -118,12 +118,12 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 37 (16 core + 11 adapters/moltbook + 4 adapters/meditation + cli + 5 other) |
-| LOC | ~9300 |
-| Test files | 20 |
-| Test count | 794 |
+| Total modules | 38 (16 core + 12 adapters/moltbook + 4 adapters/meditation + cli + 5 other) |
+| LOC | ~8500 |
+| Test files | 21 |
+| Test count | 835 |
 | Core modules | 16 (platform-independent) |
-| Moltbook adapter modules | 11 |
+| Moltbook adapter modules | 12 |
 | Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) |
 | CLI commands | 17 (init, register, status, run, distill, distill-identity, insight, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data) |
@@ -146,4 +146,4 @@ Package versions, transitive dependencies, security notes.
 
 CODEMAPS はコード変更時に更新する（「どこにあるか」のコード索引）。
 
-Last full scan: 2026-04-01 (37 modules, 794 tests verified)
+Last full scan: 2026-04-08 (38 modules, 835 tests verified)

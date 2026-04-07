@@ -23,12 +23,12 @@ Python application: Contemplative AI agent with core/adapter separation + 3-laye
   +-----------------------------------------------------+
   | src/contemplative_agent/                             |
   |                                                      |
-  |  core/  (platform-independent, 15 modules)          |
+  |  core/  (platform-independent, 16 modules)          |
   |    _io.py  config.py  domain.py  prompts.py         |
   |    llm.py  episode_log.py  knowledge_store.py       |
   |    memory.py  distill.py  insight.py                |
   |    constitution.py  rules_distill.py                |
-  |    report.py  scheduler.py  metrics.py              |
+  |    report.py  scheduler.py  metrics.py  stocktake.py |
   |                                                      |
   |  adapters/moltbook/  (platform-specific, 12 modules)|
   |    agent.py  session_context.py  feed_manager.py    |

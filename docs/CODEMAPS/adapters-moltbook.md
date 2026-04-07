@@ -7,20 +7,20 @@ Platform-specific implementations. Dependency: adapters → core.
 
 | Module | LOC | Purpose |
 |--------|-----|---------|
-| `config.py` | 91 | URLs, paths, timeouts, rate limits, constants |
-| `agent.py` | 653 | Session orchestrator (feed/reply/post cycles, AutonomyLevel) |
+| `config.py` | 82 | URLs, paths, timeouts, rate limits, constants |
+| `agent.py` | 609 | Session orchestrator (feed/reply/post cycles, AutonomyLevel) |
 | `session_context.py` | 53 | Shared mutable state (memory, rate_limited, actions) |
 | `feed_manager.py` | 326 | Feed fetch, relevance scoring, engagement, ID dedup, promo filter, per-author rate limit |
-| `reply_handler.py` | 384 | Notification handling, reply generation, posting |
+| `reply_handler.py` | 382 | Notification handling, reply generation, posting |
 | `post_pipeline.py` | 195 | Topic extraction, novelty check, test-content gate, Jaccard dedup, dynamic post gen |
-| `client.py` | 446 | HTTP client (auth, domain lock, retry/429-backoff) |
+| `client.py` | 448 | HTTP client (auth, domain lock, retry/429-backoff) |
 | `auth.py` | 111 | Credential management, agent registration |
 | `verification.py` | 236 | Math challenge solver, failure tracking, auto-stop |
-| `content.py` | 130 | Rules-based content, dedup, axiom intro injection |
-| `llm_functions.py` | 236 | Moltbook-specific LLM (select_submolt, context builders) |
+| `content.py` | 64 | Rules-based content, dedup, axiom intro injection |
+| `llm_functions.py` | 217 | Moltbook-specific LLM (select_submolt, context builders) |
 | `dedup.py` | 154 | Deterministic gates: prefix-5 stem + Jaccard, test-content blocklist, promotional URL regex |
 
-## Session Orchestration (agent.py, 653L)
+## Session Orchestration (agent.py, 609L)
 
 **AutonomyLevel** enum: APPROVE / GUARDED / AUTO
 
@@ -56,7 +56,7 @@ Rate limiting: proactive wait via `scheduler.has_read_budget()`.
 Per-author cap: max 3 sent comments per agent_id in any 24h window
 (prevents engagement-farming loops on identical reposts).
 
-## ReplyHandler (reply_handler.py, 384L)
+## ReplyHandler (reply_handler.py, 382L)
 
 Notifications → context → reply → post → record.
 Verification fallback: `VerificationTracker.solve()` on challenge.
@@ -70,7 +70,7 @@ against the past ~50 self-posts. Both gates are silent: blocks return without
 retry so the agent cannot evade by synonym-swapping. Also tracks own_post_ids
 for ID-level dedup.
 
-## MoltbookClient (client.py, 446L)
+## MoltbookClient (client.py, 448L)
 
 Domain lock (www.moltbook.com), `allow_redirects=False`, 429 backoff (cap 300s).
 
@@ -78,7 +78,7 @@ Domain lock (www.moltbook.com), `allow_redirects=False`, 429 backoff (cap 300s).
 
 Obfuscated math solver. 7 consecutive failures → auto-stop session.
 
-## ContentManager (content.py, 130L)
+## ContentManager (content.py, 64L)
 
 Axiom injection, content dedup (similarity >0.8 → skip).
 

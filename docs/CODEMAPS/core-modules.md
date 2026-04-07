@@ -7,24 +7,24 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 
 | Module | LOC | Purpose |
 |--------|-----|---------|
-| `_io.py` | 37 | write_restricted(path, mode, content), truncate(path), archive_before_write(path, history_dir) |
-| `config.py` | 26 | FORBIDDEN_SUBSTRING_PATTERNS, VALID_ID_PATTERN, MAX_COMMENT_LENGTH |
-| `domain.py` | 290 | DomainConfig, PromptTemplates, constitution loader |
-| `prompts.py` | 62 | Lazy-load proxy to config/prompts/*.md (24 templates) + placeholder resolution |
-| `llm.py` | 390 | Ollama interface, LLM functions, circuit breaker, sanitization |
-| `episode_log.py` | 127 | EpisodeLog (append-only JSONL, read_range with record_type filter) |
-| `knowledge_store.py` | 234 | KnowledgeStore (patterns JSON, learned pattern add/retrieve) |
+| `_io.py` | 46 | write_restricted(path, mode, content), truncate(path), archive_before_write(path, history_dir) |
+| `config.py` | 28 | FORBIDDEN_SUBSTRING_PATTERNS, VALID_ID_PATTERN, MAX_COMMENT_LENGTH |
+| `domain.py` | 295 | DomainConfig, PromptTemplates, constitution loader |
+| `prompts.py` | 65 | Lazy-load proxy to config/prompts/*.md (28 templates) + placeholder resolution |
+| `llm.py` | 403 | Ollama interface, LLM functions, circuit breaker, sanitization |
+| `episode_log.py` | 98 | EpisodeLog (append-only JSONL, read_range with record_type filter) |
+| `knowledge_store.py` | 242 | KnowledgeStore (patterns JSON, learned pattern add/retrieve) |
 | `memory.py` | 460 | MemoryStore facade, Interaction/PostRecord/Insight dataclasses, recent-post + per-author-comment query helpers |
 | `scheduler.py` | 165 | Scheduler (rate limit state, has_read/write_budget, persistence) |
-| `constitution.py` | 104 | amend_constitution() → AmendmentResult |
-| `distill.py` | 686 | distill(), distill_identity() → IdentityResult, episode classification + dedup |
+| `constitution.py` | 106 | amend_constitution() → AmendmentResult |
+| `distill.py` | 737 | distill(), distill_identity() → IdentityResult, episode classification + dedup |
 | `insight.py` | 225 | extract_insight() → InsightResult (SkillResult per batch). Input: KnowledgeStore (uncategorized) |
-| `rules_distill.py` | 242 | distill_rules() → RulesDistillResult (RuleResult per batch). Input: skills/*.md |
-| `report.py` | 223 | generate_report() JSONL → Markdown activity summary |
+| `rules_distill.py` | 279 | distill_rules() → RulesDistillResult (RuleResult per batch). Input: skills/*.md |
+| `report.py` | 256 | generate_report() JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
-| `stocktake.py` | 300 | Skill/rule audit: LLM duplicate detection, merge_group(), quality checks |
+| `stocktake.py` | 290 | Skill/rule audit: LLM duplicate detection, merge_group(), quality checks |
 
-**Total: ~3700 LOC (16 modules)**
+**Total: ~3855 LOC (16 modules)**
 
 ## Key Dataclasses
 

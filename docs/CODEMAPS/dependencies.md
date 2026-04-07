@@ -1,11 +1,11 @@
-<!-- Generated: 2026-03-22 | Files scanned: 1 pyproject.toml | Token estimate: ~250 -->
+<!-- Generated: 2026-04-08 | Files scanned: 1 pyproject.toml | Token estimate: ~250 -->
 # Dependencies
 
 ## Runtime
 
 | Dependency | Version | Purpose |
 |-----------|---------|---------|
-| requests | >=2.28.0 | HTTP client for Moltbook API |
+| requests | >=2.33.0 | HTTP client for Moltbook API |
 | numpy | >=1.24.0 | Matrix operations for meditation adapter (POMDP) |
 
 ## Dev
@@ -26,4 +26,4 @@
 ## Build System
 
 Uses **hatchling** as build backend with `uv` for dependency management.
-Python >=3.9 required. Version: 0.2.0.
+Python >=3.9 required. Version: 1.3.0.
