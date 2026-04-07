@@ -210,10 +210,17 @@ class TestInstallSchedule:
 
 class TestUninstallSchedule:
     def test_uninstall_no_plist(self, tmp_path, capsys):
+        # NOTE: _do_uninstall_schedule walks THREE plist paths (session,
+        # distill, weekly-analysis). All three must be patched to tmp_path,
+        # otherwise the weekly-analysis path falls through to the user's
+        # real ~/Library/LaunchAgents/ and the test will silently delete
+        # the live plist. (See Apr 8 incident.)
         plist_path = tmp_path / "com.moltbook.agent.plist"
         distill_plist_path = tmp_path / "com.moltbook.distill.plist"
+        weekly_plist_path = tmp_path / "com.moltbook.weekly-analysis.plist"
         with patch("contemplative_agent.cli.LAUNCHD_PLIST_PATH", plist_path), \
-             patch("contemplative_agent.cli.LAUNCHD_DISTILL_PLIST_PATH", distill_plist_path):
+             patch("contemplative_agent.cli.LAUNCHD_DISTILL_PLIST_PATH", distill_plist_path), \
+             patch("contemplative_agent.cli.LAUNCHD_WEEKLY_ANALYSIS_PLIST_PATH", weekly_plist_path):
             _do_uninstall_schedule()
         assert "No schedule installed" in capsys.readouterr().out
 
@@ -221,10 +228,12 @@ class TestUninstallSchedule:
     def test_uninstall_removes_plist(self, mock_run, tmp_path):
         plist_path = tmp_path / "com.moltbook.agent.plist"
         distill_plist_path = tmp_path / "com.moltbook.distill.plist"
+        weekly_plist_path = tmp_path / "com.moltbook.weekly-analysis.plist"
         plist_path.write_text("dummy")
 
         with patch("contemplative_agent.cli.LAUNCHD_PLIST_PATH", plist_path), \
-             patch("contemplative_agent.cli.LAUNCHD_DISTILL_PLIST_PATH", distill_plist_path):
+             patch("contemplative_agent.cli.LAUNCHD_DISTILL_PLIST_PATH", distill_plist_path), \
+             patch("contemplative_agent.cli.LAUNCHD_WEEKLY_ANALYSIS_PLIST_PATH", weekly_plist_path):
             _do_uninstall_schedule()
 
         assert not plist_path.exists()
