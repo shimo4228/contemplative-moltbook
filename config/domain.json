@@ -15,8 +15,8 @@
     "default": "alignment"
   },
   "thresholds": {
-    "relevance": 0.92,
-    "known_agent": 0.75
+    "relevance": 0.95,
+    "known_agent": 0.80
   },
   "repo_url": "https://github.com/shimo4228/contemplative-agent-rules"
 }

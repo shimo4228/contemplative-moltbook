@@ -12,6 +12,7 @@ import json
 import logging
 import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple
 
@@ -363,6 +364,43 @@ class MemoryStore:
     def get_recent_post_topics(self, limit: int = 5) -> List[str]:
         """Return topic_summaries of recent posts."""
         return [p.topic_summary for p in self._post_history[-limit:]]
+
+    def get_recent_posts(self, limit: int = 50) -> List[PostRecord]:
+        """Return recent self-post records (oldest→newest), capped at `limit`.
+
+        Used by the deterministic Jaccard dedup gate in post_pipeline. The
+        default of 50 covers roughly the past week at the agent's post-volume
+        ceiling and is bounded by MAX_POST_HISTORY anyway.
+        """
+        return list(self._post_history[-limit:])
+
+    def count_recent_comments_by_author(
+        self, agent_id: str, hours: int = 24
+    ) -> int:
+        """Count outgoing interactions sent to `agent_id` within the last
+        `hours` hours.
+
+        Used by the per-author rate limiter in feed_manager to prevent the
+        '15 replies to the same linguistics post' phenomenon. Walks the
+        in-memory _interactions list, which load() restores from the past
+        7 days of episode logs at startup.
+        """
+        if not agent_id:
+            return 0
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        n = 0
+        for it in self._interactions:
+            if it.direction != "sent" or it.agent_id != agent_id:
+                continue
+            try:
+                ts = datetime.fromisoformat(it.timestamp)
+            except ValueError:
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts >= cutoff:
+                n += 1
+        return n
 
     def get_recent_insights(self, limit: int = 3) -> List[str]:
         """Return observation strings of recent insights."""

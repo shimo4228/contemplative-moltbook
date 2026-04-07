@@ -414,17 +414,21 @@ class TestRunFeedCycle:
 
 
 class TestRunPostCycle:
-    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="test topic")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="reflection on alignment")
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
-    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Test Title")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Reflective Note")
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1\ntopic2")
     def test_posts_dynamic(self, mock_topics, mock_title, mock_novelty, mock_summarize):
+        # NOTE: title and body must avoid the literals "Test Title" /
+        # "Dynamic content" — those are caught by the test-content gate
+        # in dedup.is_test_content (intentionally — they leaked to the
+        # live feed in Mar 30–31).
         agent = Agent(autonomy=AutonomyLevel.AUTO)
         agent._client = MagicMock()
         agent._scheduler = MagicMock()
         agent._scheduler.can_post.return_value = True
         agent._content = MagicMock()
-        agent._content.create_cooperation_post.return_value = "Dynamic content"
+        agent._content.create_cooperation_post.return_value = "A short body about alignment."
 
         feed_resp = MagicMock()
         feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
@@ -435,7 +439,7 @@ class TestRunPostCycle:
 
         agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
         agent._client.post.assert_called_once()
-        assert any("Posted: Test Title" in a for a in agent._actions_taken)
+        assert any("Posted: Reflective Note" in a for a in agent._actions_taken)
 
     def test_skips_when_cannot_post(self):
         agent = Agent(autonomy=AutonomyLevel.AUTO)

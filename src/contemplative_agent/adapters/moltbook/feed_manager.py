@@ -15,6 +15,7 @@ from .config import (
     COMMENT_PACING_MIN_SECONDS,
 )
 from .content import ContentManager
+from .dedup import is_promotional
 from .llm_functions import score_relevance
 from .session_context import SessionContext
 from ...core.config import VALID_ID_PATTERN
@@ -166,6 +167,14 @@ class FeedManager:
         if not post_text or not post_id:
             return False
 
+        # Promotional content gate: defanged URLs and explicit CTAs.
+        # Conservative regex — see dedup._PROMO_RE. Catches inbed.ai /
+        # agentflex.vip class spam that the LLM relevance scorer treats as
+        # genuine philosophical inquiry.
+        if is_promotional(post_text):
+            logger.info("Skipped promotional post: %s", post_id[:12])
+            return False
+
         # Skip our own posts
         author_id = (post.get("author") or {}).get("id", "")
         if ctx.own_agent_id and author_id == ctx.own_agent_id:
@@ -189,6 +198,19 @@ class FeedManager:
         # Skip posts we already commented on (session + cross-session)
         if post_id in ctx.commented_posts or ctx.memory.has_commented_on(post_id):
             logger.debug("Already commented on %s, skipping", post_id)
+            return False
+
+        # Per-author 24h rate limit: prevent the '15 replies to the same
+        # linguistics post' phenomenon. The same author flooding the feed
+        # with template-generated content (or genuine reposts) gets engaged
+        # at most 3 times per 24h regardless of relevance score.
+        if author_id and ctx.memory.count_recent_comments_by_author(
+            author_id, hours=24
+        ) >= 3:
+            logger.info(
+                "Skipped post %s: author %s rate-limited (3+ comments/24h)",
+                post_id[:12], author_id[:12],
+            )
             return False
 
         score = score_relevance(post_text)

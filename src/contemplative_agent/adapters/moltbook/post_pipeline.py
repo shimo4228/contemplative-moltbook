@@ -9,6 +9,7 @@ from typing import Callable, List
 from .client import MoltbookClient, MoltbookClientError
 from .config import ADAPTIVE_BACKOFF
 from .content import ContentManager, _content_hash
+from .dedup import is_duplicate_title, is_test_content
 from .llm_functions import (
     check_topic_novelty,
     extract_topics,
@@ -85,6 +86,34 @@ class PostPipeline:
             return
 
         title = generate_post_title(topics) or f"Contemplative Note — {topics[:40]}"
+
+        # --- Deterministic gates ---
+        # These complement (not replace) the LLM-based check_topic_novelty
+        # gate above. The LLM gate is too lax in practice — see weekly
+        # report 2026-04-05, where 40 near-identical self-posts slipped
+        # through over 7 days. The gates here are silent: when blocked we
+        # `return` without retry so the agent does not learn to evade them
+        # by swapping synonyms.
+
+        # Test-content gate: catches leftover scaffold output like
+        # "Test Title" / "Dynamic content" that leaked in Mar 30–31.
+        if is_test_content(title, content):
+            logger.warning("Blocked test-content self-post: %r", title)
+            return
+
+        # Jaccard self-post dedup gate: token-set similarity over
+        # (title ∪ topic_summary) against the past ~50 self-posts.
+        draft_summary = summarize_post_topic(content)
+        recent_posts = ctx.memory.get_recent_posts(limit=50)
+        is_dup, sim, prior_title = is_duplicate_title(
+            title, draft_summary, recent_posts,
+        )
+        if is_dup:
+            logger.warning(
+                "Blocked duplicate self-post (jaccard=%.2f vs %r): %r",
+                sim, prior_title, title,
+            )
+            return
 
         if not self._confirm_action(f"Dynamic Post: {title}", content):
             return
