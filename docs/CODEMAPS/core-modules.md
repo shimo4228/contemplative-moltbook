@@ -119,14 +119,19 @@ Step 2: LLM(IDENTITY_REFINE_PROMPT) → 簡潔なペルソナ
 → validate_identity_content() → IdentityResult（書き込みは cli.py が承認後に実行）
 ```
 
-## Insight Pipeline (core/insight.py, 225L)
+## Insight Pipeline (core/insight.py, 343L)
 
 `extract_insight() → InsightResult`
 
-1. KnowledgeStore から uncategorized パターンをバッチ処理
-2. LLM(INSIGHT_EXTRACTION_PROMPT) → スキル Markdown
-3. validate + slugify → SkillResult のリスト
-4. 書き込みは cli.py が個別承認後に実行
+2段階方式: グルーピング → 個別スキル生成
+
+1. KnowledgeStore から uncategorized パターンをサブカテゴリ別バッチに分割
+2. `_group_patterns()`: LLM(INSIGHT_GROUP_PROMPT) でバッチ内パターンをテーマ別グループに分割（JSON constrained decoding）。少量バッチはスキップ
+3. `_extract_skill()`: 各グループに対し LLM(INSIGHT_EXTRACTION_PROMPT) → 1スキル Markdown
+4. validate + slugify → SkillResult のリスト
+5. 書き込みは cli.py が個別承認後に実行
+
+ソート: importance × rarity 複合スコア降順。品質管理は skill-stocktake に委任。
 
 ## Rules Distill Pipeline (core/rules_distill.py, 242L)
 

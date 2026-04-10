@@ -6,6 +6,7 @@ Quality control is deferred to skill-stocktake (external).
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
@@ -18,7 +19,7 @@ from typing import List, Optional, Tuple, Union
 from .llm import generate, validate_identity_content
 from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
-from .prompts import INSIGHT_EXTRACTION_PROMPT
+from .prompts import INSIGHT_EXTRACTION_PROMPT, INSIGHT_GROUP_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +63,20 @@ def _extract_title(skill_text: str) -> Optional[str]:
     return None
 
 
-_SKILL_SEPARATOR = "---SKILL---"
+_GROUP_SKIP_THRESHOLD = 10
+_GROUP_SCHEMA = {
+    "type": "object",
+    "properties": {"groups": {"type": "object"}},
+    "required": ["groups"],
+}
 
 
-def _extract_skills(
+def _extract_skill(
     patterns: List[str], insights: List[str], subcategory: str = "mixed"
-) -> List[str]:
-    """Extract one or more skills from patterns and insights via LLM.
+) -> Optional[str]:
+    """Extract one skill from patterns and insights via LLM.
 
-    The LLM decides how many skills the patterns naturally support.
-    Returns a list of valid Markdown skill texts (may be empty on failure).
+    Returns valid Markdown skill text, or None on failure.
     """
     prompt = INSIGHT_EXTRACTION_PROMPT.format(
         subcategory=subcategory,
@@ -79,27 +84,63 @@ def _extract_skills(
         insights="\n".join(f"- {i}" for i in insights) if insights else "(none)",
     )
 
-    result = generate(prompt, max_length=8000)
+    result = generate(prompt, max_length=4000)
     if result is None:
         logger.warning("LLM failed to generate skill extraction.")
-        return []
+        return None
 
-    raw_skills = result.split(_SKILL_SEPARATOR)
-    valid: List[str] = []
-    for raw in raw_skills:
-        text = raw.strip()
-        if not text:
-            continue
-        if _extract_title(text) is None:
-            logger.debug("Skill chunk has no title, dropping: %.100s", text)
-            continue
-        valid.append(text)
-
-    if not valid:
-        logger.warning("No valid skills extracted from LLM output.")
+    text = result.strip()
+    if _extract_title(text) is None:
+        logger.warning("Skill has no title, dropping.")
         logger.debug("Raw LLM output (first 300 chars): %.300s", result)
+        return None
 
-    return valid
+    return text
+
+
+def _group_patterns(patterns: List[str]) -> List[List[str]]:
+    """Group patterns by theme via LLM. Returns list of pattern groups.
+
+    Skips grouping for small batches (< _GROUP_SKIP_THRESHOLD).
+    Falls back to a single group containing all patterns on parse failure.
+    """
+    if len(patterns) < _GROUP_SKIP_THRESHOLD:
+        return [patterns]
+
+    prompt = INSIGHT_GROUP_PROMPT.format(
+        patterns="\n".join(f"{i+1}. {p}" for i, p in enumerate(patterns)),
+    )
+
+    result = generate(
+        prompt,
+        max_length=1000,
+        format=_GROUP_SCHEMA,
+    )
+    if result is None:
+        logger.warning("Grouping LLM call failed, using single group fallback.")
+        return [patterns]
+
+    try:
+        parsed = json.loads(result)
+        groups_dict = parsed["groups"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        logger.warning("Failed to parse grouping JSON, using single group fallback.")
+        return [patterns]
+
+    grouped: List[List[str]] = []
+    for indices in groups_dict.values():
+        group = []
+        for idx in indices:
+            if isinstance(idx, int) and 1 <= idx <= len(patterns):
+                group.append(patterns[idx - 1])
+        if group:
+            grouped.append(group)
+
+    if not grouped:
+        logger.warning("Grouping produced no valid groups, using single group fallback.")
+        return [patterns]
+
+    return grouped
 
 
 def _build_subcategory_batches(
@@ -133,7 +174,10 @@ def _build_subcategory_batches(
 
     for key in sorted(groups.keys()):
         group = groups[key]
-        group.sort(key=lambda pat: pat.get("rarity", _FALLBACK_RARITY), reverse=True)
+        group.sort(
+            key=lambda pat: pat.get("importance", 0.5) * pat.get("rarity", _FALLBACK_RARITY),
+            reverse=True,
+        )
         texts = [p["pattern"] for p in group[:batch_size]]
         if len(texts) < min_batch_size:
             small.extend(texts)
@@ -244,22 +288,31 @@ def extract_insight(
             batch_idx + 1, len(batches), subcategory, len(batch),
         )
 
-        skill_texts = _extract_skills(batch, insights, subcategory=subcategory)
-        if not skill_texts:
-            logger.warning("Batch %d/%d: extraction failed", batch_idx + 1, len(batches))
-            dropped_count += 1
-            continue
+        groups = _group_patterns(batch)
+        logger.info(
+            "Batch %d/%d: %d groups from %d patterns",
+            batch_idx + 1, len(batches), len(groups), len(batch),
+        )
 
-        for skill_text in skill_texts:
+        for group_idx, group in enumerate(groups):
+            skill_text = _extract_skill(group, insights, subcategory=subcategory)
+            if skill_text is None:
+                logger.warning(
+                    "Batch %d/%d group %d: extraction failed",
+                    batch_idx + 1, len(batches), group_idx + 1,
+                )
+                dropped_count += 1
+                continue
+
             if not validate_identity_content(skill_text):
-                logger.warning("Batch %d/%d: forbidden pattern detected", batch_idx + 1, len(batches))
+                logger.warning("Batch %d/%d group %d: forbidden pattern detected", batch_idx + 1, len(batches), group_idx + 1)
                 dropped_count += 1
                 continue
 
             title = _extract_title(skill_text) or ""
             slug = _slugify(title)
             if not slug:
-                logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
+                logger.warning("Batch %d/%d group %d: empty slug, dropping", batch_idx + 1, len(batches), group_idx + 1)
                 dropped_count += 1
                 continue
 
