@@ -550,6 +550,17 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     print(result)
 
 
+def _handle_enrich(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core.distill import enrich
+    from .core.memory import KnowledgeStore
+
+    knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    knowledge_store.load()
+
+    sub_count, rarity_count = enrich(knowledge_store, dry_run=args.dry_run)
+    print(f"Subcategorized: {sub_count}, Rarity scored: {rarity_count}")
+
+
 def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     from .core.distill import distill_identity
     from .core.memory import KnowledgeStore
@@ -1009,6 +1020,14 @@ def main() -> None:
     # rules-stocktake
     subparsers.add_parser("rules-stocktake", help="Audit rules for duplicates and quality issues")
 
+    # enrich
+    enrich_parser = subparsers.add_parser(
+        "enrich", help="Enrich existing patterns with subcategories and rarity scores"
+    )
+    enrich_parser.add_argument(
+        "--dry-run", action="store_true", help="Show results without writing"
+    )
+
     # sync-data
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
 
@@ -1043,6 +1062,7 @@ def main() -> None:
     llm_handlers: dict[str, Callable[..., None]] = {
         "init": _handle_init,
         "distill": _handle_distill,
+        "enrich": _handle_enrich,
         "distill-identity": _handle_distill_identity,
         "insight": _handle_insight,
         "rules-distill": _handle_rules_distill,

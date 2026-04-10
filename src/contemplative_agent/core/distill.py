@@ -20,9 +20,11 @@ from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
     DISTILL_IMPORTANCE_PROMPT,
+    DISTILL_RARITY_PROMPT,
     DISTILL_DEDUP_PROMPT,
     DISTILL_CLASSIFY_PROMPT,
     DISTILL_CONSTITUTIONAL_PROMPT,
+    DISTILL_SUBCATEGORIZE_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
 )
@@ -46,6 +48,12 @@ DEDUP_SCHEMA: Dict = {
     "properties": {"decisions": {"type": "array", "items": {"type": "string"}}},
     "required": ["decisions"],
 }
+SUBCATEGORIZE_SCHEMA: Dict = {
+    "type": "string",
+    "enum": ["communication", "reasoning", "social", "content",
+             "self-reflection", "technical", "other"],
+}
+VALID_SUBCATEGORIES = frozenset(SUBCATEGORIZE_SCHEMA["enum"])
 
 def distill(
     days: int = 1,
@@ -118,11 +126,39 @@ def distill(
         total_added += cat_results.added
         total_updated += cat_results.updated
 
-    if not dry_run and (total_added or total_updated):
+    # Enrich: subcategorize and score rarity for new patterns
+    sub_count = _subcategorize_patterns(knowledge, dry_run=dry_run)
+    rarity_count = _score_rarity_existing(knowledge, dry_run=dry_run)
+    if sub_count or rarity_count:
+        logger.info("Enrich: %d subcategorized, %d rarity scored", sub_count, rarity_count)
+
+    if not dry_run and (total_added or total_updated or sub_count or rarity_count):
         knowledge.save()
         logger.info("Distill complete: %d added, %d updated", total_added, total_updated)
 
     return "\n\n".join(all_results)
+
+
+def enrich(
+    knowledge_store: KnowledgeStore,
+    dry_run: bool = False,
+) -> Tuple[int, int]:
+    """Enrich existing patterns with subcategories and rarity scores.
+
+    Args:
+        knowledge_store: Loaded KnowledgeStore instance.
+        dry_run: If True, compute but don't persist changes.
+
+    Returns:
+        (subcategorized_count, rarity_scored_count)
+    """
+    sub_count = _subcategorize_patterns(knowledge_store, dry_run=dry_run)
+    rarity_count = _score_rarity_existing(knowledge_store, dry_run=dry_run)
+
+    if not dry_run and (sub_count or rarity_count):
+        knowledge_store.save()
+
+    return sub_count, rarity_count
 
 
 @dataclass(frozen=True)
@@ -354,7 +390,11 @@ def _distill_category(
 
     all_patterns: List[str] = []
     all_importances: List[float] = []
+    all_rarities: List[float] = []
     all_results: List[str] = []
+
+    # Pre-fetch existing pattern texts for rarity comparison (stable across batches)
+    rarity_reference_texts = knowledge.get_learned_patterns(category=category)[:30] if DISTILL_RARITY_PROMPT else []
 
     for batch_idx, batch in enumerate(batches):
         episode_lines = []
@@ -420,12 +460,21 @@ def _distill_category(
             if importance_result:
                 batch_importances = _parse_importance_scores(importance_result, len(batch_patterns))
 
+        # Step 3b: Rarity scoring — separate LLM call
+        if batch_patterns and DISTILL_RARITY_PROMPT:
+            batch_rarities = _score_rarity_batch(rarity_reference_texts, batch_patterns)
+        else:
+            batch_rarities = [0.5] * len(batch_patterns)
+
         all_patterns.extend(batch_patterns)
         all_importances.extend(batch_importances)
+        all_rarities.extend(batch_rarities)
         imp_summary = ", ".join(f"{i:.1f}" for i in batch_importances) if batch_importances else "none"
+        rar_summary = ", ".join(f"{r:.1f}" for r in batch_rarities) if batch_rarities else "none"
         logger.info(
-            "[%s] Batch %d/%d: %d episodes → %d patterns (%d rejected) [importance: %s]",
-            category, batch_idx + 1, len(batches), len(batch), len(batch_patterns), rejected, imp_summary,
+            "[%s] Batch %d/%d: %d episodes → %d patterns (%d rejected) [importance: %s] [rarity: %s]",
+            category, batch_idx + 1, len(batches), len(batch), len(batch_patterns), rejected,
+            imp_summary, rar_summary,
         )
 
     if not all_patterns:
@@ -446,6 +495,10 @@ def _distill_category(
     if pre_filter > len(existing_same_cat):
         logger.info("[%s] Dedup scope: %d/%d patterns (importance floor %.2f)",
                     category, len(existing_same_cat), pre_filter, DEDUP_IMPORTANCE_FLOOR)
+
+    # _dedup_patterns returns a filtered subset of all_patterns;
+    # map pattern text → rarity so we can recover per-pattern rarity after dedup.
+    rarity_map = dict(zip(all_patterns, all_rarities))
 
     if dry_run:
         existing_copy = copy.deepcopy(existing_same_cat)
@@ -476,8 +529,13 @@ def _distill_category(
         logger.info("[%s] Dedup: %d update (importance boosted)", category, updated)
 
     for pattern, importance in zip(add_patterns, add_importances):
-        knowledge.add_learned_pattern(pattern, source=source_date, importance=importance, category=category)
-        logger.info("[%s] Added pattern (importance=%.1f): %s", category, importance, pattern[:80])
+        rarity = rarity_map.get(pattern, 0.5)
+        knowledge.add_learned_pattern(
+            pattern, source=source_date, importance=importance,
+            rarity=rarity, category=category,
+        )
+        logger.info("[%s] Added pattern (importance=%.1f, rarity=%.1f): %s",
+                     category, importance, rarity, pattern[:80])
 
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)
 
@@ -605,6 +663,135 @@ def _is_valid_pattern(pattern: str) -> bool:
     if pattern.count(" ") < 3:
         return False
     return True
+
+
+def _score_rarity_batch(
+    existing_texts: List[str],
+    new_texts: List[str],
+) -> List[float]:
+    """Score rarity of new patterns relative to existing ones.
+
+    Returns list of floats in [0.0, 1.0]. Falls back to 0.5 on LLM failure.
+    Returns [1.0, ...] if no existing patterns (all novel by definition).
+    """
+    if not new_texts:
+        return []
+    if not existing_texts:
+        return [1.0] * len(new_texts)
+
+    existing_formatted = "\n".join(f"- {t}" for t in existing_texts)
+    new_formatted = "\n".join(f"- {t}" for t in new_texts)
+    prompt = DISTILL_RARITY_PROMPT.format(
+        existing_patterns=existing_formatted,
+        new_patterns=new_formatted,
+    )
+    result = generate(prompt, max_length=4000, format=IMPORTANCE_SCHEMA)
+    if result:
+        return _parse_importance_scores(result, len(new_texts))
+    return [0.5] * len(new_texts)
+
+
+def _subcategorize_patterns(
+    knowledge: KnowledgeStore,
+    dry_run: bool = False,
+) -> int:
+    """Assign subcategories to uncategorized patterns that lack one.
+
+    One LLM call per pattern. Returns the number of patterns subcategorized.
+    """
+    if not DISTILL_SUBCATEGORIZE_PROMPT:
+        logger.warning("No subcategorize prompt template found, skipping")
+        return 0
+
+    targets = [
+        p for p in knowledge.get_raw_patterns()
+        if p.get("category", "uncategorized") == "uncategorized"
+        and p.get("subcategory") is None
+    ]
+    if not targets:
+        logger.info("No patterns need subcategorization")
+        return 0
+
+    logger.info("Subcategorizing %d patterns", len(targets))
+    count = 0
+    for i, pattern_dict in enumerate(targets):
+        prompt = DISTILL_SUBCATEGORIZE_PROMPT.format(pattern=pattern_dict["pattern"])
+        result = generate(prompt, max_length=50, format=SUBCATEGORIZE_SCHEMA)
+        if result:
+            subcategory = result.strip().lower().strip('"')
+            if subcategory in VALID_SUBCATEGORIES:
+                if not dry_run:
+                    pattern_dict["subcategory"] = subcategory
+                count += 1
+                logger.debug("Pattern %d/%d → %s", i + 1, len(targets), subcategory)
+            else:
+                logger.debug("Pattern %d/%d: invalid subcategory '%s', skipping", i + 1, len(targets), subcategory)
+        else:
+            logger.debug("Pattern %d/%d: LLM returned empty, skipping", i + 1, len(targets))
+
+    logger.info("Subcategorized %d/%d patterns%s", count, len(targets), " (dry run)" if dry_run else "")
+    return count
+
+
+def _score_rarity_existing(
+    knowledge: KnowledgeStore,
+    dry_run: bool = False,
+) -> int:
+    """Score rarity for patterns that lack a rarity score.
+
+    Groups patterns by subcategory, then scores each group against
+    existing patterns in the same subcategory. One LLM call per batch.
+    Returns the number of patterns scored.
+    """
+    if not DISTILL_RARITY_PROMPT:
+        logger.warning("No rarity prompt template found, skipping")
+        return 0
+
+    targets = [
+        p for p in knowledge.get_raw_patterns()
+        if p.get("category", "uncategorized") == "uncategorized"
+        and p.get("rarity") is None
+    ]
+    if not targets:
+        logger.info("No patterns need rarity scoring")
+        return 0
+
+    # Group targets by subcategory
+    by_subcategory: Dict[str, List[dict]] = {}
+    for p in targets:
+        subcat = p.get("subcategory", "other")
+        by_subcategory.setdefault(subcat, []).append(p)
+
+    logger.info("Scoring rarity for %d patterns across %d subcategories",
+                len(targets), len(by_subcategory))
+    total_scored = 0
+
+    # Pre-build existing scored texts by subcategory (one scan)
+    existing_by_subcat: Dict[str, List[str]] = {}
+    for p in knowledge.get_raw_patterns():
+        if (p.get("category", "uncategorized") == "uncategorized"
+                and p.get("rarity") is not None):
+            subcat_key = p.get("subcategory", "other")
+            existing_by_subcat.setdefault(subcat_key, []).append(p["pattern"])
+
+    for subcat, subcat_targets in by_subcategory.items():
+        existing_texts = existing_by_subcat.get(subcat, [])[:30]
+
+        for batch_start in range(0, len(subcat_targets), BATCH_SIZE):
+            batch = subcat_targets[batch_start:batch_start + BATCH_SIZE]
+            new_texts = [p["pattern"] for p in batch]
+            scores = _score_rarity_batch(existing_texts, new_texts)
+
+            for pattern_dict, score in zip(batch, scores):
+                if not dry_run:
+                    pattern_dict["rarity"] = score
+                total_scored += 1
+                logger.debug("Rarity %.1f: %s", score, pattern_dict["pattern"][:60])
+
+        logger.info("[%s] Scored %d patterns%s", subcat, len(subcat_targets),
+                    " (dry run)" if dry_run else "")
+
+    return total_scored
 
 
 def _llm_quality_gate(

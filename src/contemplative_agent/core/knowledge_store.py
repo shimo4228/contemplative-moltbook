@@ -54,6 +54,8 @@ class KnowledgeStore:
         source: Optional[str] = None,
         importance: float = 0.5,
         category: str = "uncategorized",
+        subcategory: Optional[str] = None,
+        rarity: Optional[float] = None,
     ) -> None:
         entry: dict = {
             "pattern": pattern,
@@ -63,6 +65,10 @@ class KnowledgeStore:
         }
         if source:
             entry["source"] = source
+        if subcategory is not None:
+            entry["subcategory"] = subcategory
+        if rarity is not None:
+            entry["rarity"] = rarity
         self._learned_patterns.append(entry)
 
     def get_raw_patterns(self) -> List[dict]:
@@ -80,6 +86,14 @@ class KnowledgeStore:
         if category is not None:
             pool = [p for p in pool if p.get("category", "uncategorized") == category]
         return [p["pattern"] for p in pool]
+
+    def get_learned_patterns_by_subcategory(self, subcategory: str) -> List[dict]:
+        """Return raw pattern dicts for a specific subcategory (uncategorized only)."""
+        return [
+            p for p in self._learned_patterns
+            if p.get("category", "uncategorized") == "uncategorized"
+            and p.get("subcategory") == subcategory
+        ]
 
     def get_learned_patterns_since(self, since: str, category: Optional[str] = None) -> List[str]:
         """Return patterns distilled after the given ISO timestamp.
@@ -215,6 +229,10 @@ class KnowledgeStore:
                     entry["last_accessed"] = item["last_accessed"]
                 if item.get("category") is not None:
                     entry["category"] = item["category"]
+                if item.get("subcategory") is not None:
+                    entry["subcategory"] = item["subcategory"]
+                if item.get("rarity") is not None:
+                    entry["rarity"] = item["rarity"]
                 self._learned_patterns.append(entry)
             elif isinstance(item, str):
                 # Bare string — legacy format

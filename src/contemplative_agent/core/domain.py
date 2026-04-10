@@ -77,6 +77,8 @@ class PromptTemplates:
     stocktake_skills: str = ""
     stocktake_rules: str = ""
     stocktake_merge: str = ""
+    distill_subcategorize: str = ""
+    distill_rarity: str = ""
 
 
 
@@ -186,6 +188,8 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         stocktake_skills=_read_md_file(directory / "stocktake_skills.md", required=False),
         stocktake_rules=_read_md_file(directory / "stocktake_rules.md", required=False),
         stocktake_merge=_read_md_file(directory / "stocktake_merge.md", required=False),
+        distill_subcategorize=_read_md_file(directory / "distill_subcategorize.md", required=False),
+        distill_rarity=_read_md_file(directory / "distill_rarity.md", required=False),
     )
 
 

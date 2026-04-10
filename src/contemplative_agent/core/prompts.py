@@ -47,6 +47,8 @@ class _LazyPrompts:
         "STOCKTAKE_SKILLS_PROMPT": "stocktake_skills",
         "STOCKTAKE_RULES_PROMPT": "stocktake_rules",
         "STOCKTAKE_MERGE_PROMPT": "stocktake_merge",
+        "DISTILL_SUBCATEGORIZE_PROMPT": "distill_subcategorize",
+        "DISTILL_RARITY_PROMPT": "distill_rarity",
     }
 
     def __getattr__(self, name: str) -> str:
