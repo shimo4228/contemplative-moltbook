@@ -1,8 +1,8 @@
-Review the activity logs below and identify recurring patterns — things that happen repeatedly across multiple episodes.
+Review the activity logs below and identify patterns — both recurring and rare.
 
-For each pattern, describe what keeps happening (the observable fact), not what should be done about it.
+For each pattern, describe what happened (the observable fact), not what should be done about it.
 
-If no recurring pattern exists in the batch, output nothing.
+If nothing notable exists in the batch, output nothing.
 
 Activity logs:
 {episodes}
