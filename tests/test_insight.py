@@ -11,7 +11,7 @@ import pytest
 from contemplative_agent.core.insight import (
     InsightResult,
     SkillResult,
-    _build_stratified_batches,
+    _build_subcategory_batches,
     _extract_skill,
     _extract_title,
     _slugify,
@@ -218,9 +218,13 @@ class TestExtractInsight:
 class TestBatchProcessing:
     @pytest.fixture
     def three_batch_store(self, tmp_path: Path) -> KnowledgeStore:
+        subs = ("communication", "reasoning", "social")
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         for i in range(65):
-            ks.add_learned_pattern(f"Pattern {i}: observation about behavior {i}")
+            ks.add_learned_pattern(
+                f"Pattern {i}: observation about behavior {i}",
+                subcategory=subs[i % 3],
+            )
         ks.save()
         ks._learned_patterns.clear()
         return ks
@@ -338,12 +342,12 @@ class TestIncrementalMode:
 
 
 # ---------------------------------------------------------------------------
-# Unit: _build_stratified_batches
+# Unit: _build_subcategory_batches
 # ---------------------------------------------------------------------------
 
 
-class TestStratifiedBatches:
-    """Test stratified batch building for diverse skill extraction."""
+class TestSubcategoryBatches:
+    """Test subcategory-based batch building for focused skill extraction."""
 
     @staticmethod
     def _make_pattern(
@@ -358,60 +362,70 @@ class TestStratifiedBatches:
             p["rarity"] = rarity
         return p
 
-    def test_single_subcategory_fallback(self) -> None:
-        """All patterns without subcategory degrade to single-group batching."""
-        patterns = [self._make_pattern(f"p{i}") for i in range(10)]
-        batches = _build_stratified_batches(patterns, batch_size=5)
-        assert len(batches) == 2
-        total = sum(len(b) for b in batches)
-        assert total == 10
-
-    def test_even_distribution(self) -> None:
-        """Patterns from 3 subcategories are distributed across batches."""
+    def test_one_batch_per_subcategory(self) -> None:
+        """Each subcategory with enough patterns gets its own batch."""
         patterns = []
         for sub in ("communication", "reasoning", "social"):
-            for i in range(10):
+            for i in range(5):
                 patterns.append(self._make_pattern(f"{sub}-{i}", subcategory=sub))
-        batches = _build_stratified_batches(patterns, batch_size=9)
-        # Each batch of 9 should have 3 from each subcategory
+        batches = _build_subcategory_batches(patterns, batch_size=30)
+        assert len(batches) == 3
+        # Each batch should be homogeneous
         for batch in batches:
-            subs = set()
-            for text in batch:
-                subs.add(text.split("-")[0])
-            assert len(subs) == 3, f"Expected 3 subcategories in batch, got {subs}"
+            subs = {text.split("-")[0] for text in batch}
+            assert len(subs) == 1
 
-    def test_rarity_priority(self) -> None:
-        """Higher rarity patterns appear in earlier batches."""
+    def test_rarity_priority_within_subcategory(self) -> None:
+        """Higher rarity patterns come first within a batch."""
         patterns = [
-            self._make_pattern("high", subcategory="technical", rarity=9.0),
             self._make_pattern("low", subcategory="technical", rarity=2.0),
+            self._make_pattern("high", subcategory="technical", rarity=9.0),
             self._make_pattern("mid", subcategory="technical", rarity=5.0),
         ]
-        batches = _build_stratified_batches(patterns, batch_size=2)
-        assert batches[0][0] == "high"
-        assert batches[0][1] == "mid"
+        batches = _build_subcategory_batches(patterns, batch_size=30)
+        assert len(batches) == 1
+        assert batches[0] == ["high", "mid", "low"]
 
-    def test_tail_merge(self) -> None:
-        """Small last batch gets merged into previous."""
-        patterns = [self._make_pattern(f"p{i}", subcategory="content") for i in range(8)]
-        batches = _build_stratified_batches(patterns, batch_size=5, min_batch_size=3)
-        # 8 patterns, batch_size=5: [5, 3] -> last batch has 3 >= min, keep separate
-        assert len(batches) == 2
-        # Now with 7 patterns: [5, 2] -> 2 < 3, merge into one batch of 7
-        patterns7 = patterns[:7]
-        batches7 = _build_stratified_batches(patterns7, batch_size=5, min_batch_size=3)
-        assert len(batches7) == 1
-        assert len(batches7[0]) == 7
+    def test_batch_size_caps_per_subcategory(self) -> None:
+        """Each subcategory is capped at batch_size patterns."""
+        patterns = [self._make_pattern(f"p{i}", subcategory="content", rarity=float(i)) for i in range(10)]
+        batches = _build_subcategory_batches(patterns, batch_size=5)
+        assert len(batches) == 1
+        assert len(batches[0]) == 5
+        # Highest rarity first (9, 8, 7, 6, 5)
+        assert batches[0][0] == "p9"
 
-    def test_mixed_enriched_unenriched(self) -> None:
-        """Patterns with and without subcategory/rarity are all included."""
+    def test_small_subcategories_merged(self) -> None:
+        """Subcategories below min_batch_size are merged into one mixed batch."""
         patterns = [
-            self._make_pattern("enriched-1", subcategory="reasoning", rarity=8.0),
-            self._make_pattern("enriched-2", subcategory="social", rarity=6.0),
-            self._make_pattern("bare-1"),
-            self._make_pattern("bare-2"),
+            self._make_pattern("comm-0", subcategory="communication"),
+            self._make_pattern("comm-1", subcategory="communication"),
+            self._make_pattern("tech-0", subcategory="technical"),
+            # 5 reasoning patterns → own batch
+            *[self._make_pattern(f"reason-{i}", subcategory="reasoning") for i in range(5)],
         ]
-        batches = _build_stratified_batches(patterns, batch_size=10)
-        all_texts = batches[0]
-        assert len(all_texts) == 4
-        assert set(all_texts) == {"enriched-1", "enriched-2", "bare-1", "bare-2"}
+        batches = _build_subcategory_batches(patterns, batch_size=30, min_batch_size=3)
+        assert len(batches) == 2
+        # reasoning gets its own batch; comm(2) + tech(1) merged into mixed
+        reason_batch = [b for b in batches if b[0].startswith("reason")][0]
+        mixed_batch = [b for b in batches if not b[0].startswith("reason")][0]
+        assert len(reason_batch) == 5
+        assert len(mixed_batch) == 3
+
+    def test_fallback_no_subcategory(self) -> None:
+        """Patterns without subcategory all land in 'other' group."""
+        patterns = [self._make_pattern(f"p{i}") for i in range(10)]
+        batches = _build_subcategory_batches(patterns, batch_size=30)
+        assert len(batches) == 1
+        assert len(batches[0]) == 10
+
+    def test_small_merged_into_last_when_below_min(self) -> None:
+        """If merged small patterns are still below min, append to last batch."""
+        patterns = [
+            self._make_pattern("lone", subcategory="social"),
+            *[self._make_pattern(f"reason-{i}", subcategory="reasoning") for i in range(5)],
+        ]
+        batches = _build_subcategory_batches(patterns, batch_size=30, min_batch_size=3)
+        # social(1) < min_batch_size, merged into reasoning batch
+        assert len(batches) == 1
+        assert len(batches[0]) == 6

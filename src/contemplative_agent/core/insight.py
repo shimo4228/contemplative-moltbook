@@ -87,48 +87,47 @@ def _extract_skill(
     return result
 
 
-def _build_stratified_batches(
+def _build_subcategory_batches(
     raw_patterns: List[dict],
     batch_size: int = BATCH_SIZE,
     min_batch_size: int = MIN_PATTERNS_REQUIRED,
 ) -> List[List[str]]:
-    """Build batches with diverse subcategory mix, prioritizing high rarity.
+    """Build one batch per subcategory, prioritizing high rarity within each.
 
-    Round-robin deals patterns from each subcategory group (sorted by rarity
-    descending) into batches, ensuring each batch contains a mix of topics.
+    Each batch contains patterns from a single subcategory so the LLM can
+    synthesize a focused, thematically coherent skill. Cross-category synthesis
+    is deferred to skill-stocktake.
+
+    Within each subcategory, patterns are sorted by rarity descending and
+    capped at batch_size. Subcategories with fewer than min_batch_size
+    patterns are merged into a single "mixed" batch.
 
     Falls back gracefully when subcategory/rarity are missing (enrich not run):
-    all patterns land in "other" group, sorted by neutral rarity.
+    all patterns land in "other" group.
     """
     groups: dict[str, list[dict]] = defaultdict(list)
     for p in raw_patterns:
         sub = p.get("subcategory", _FALLBACK_SUBCATEGORY) or _FALLBACK_SUBCATEGORY
         groups[sub].append(p)
 
-    sorted_keys = sorted(groups.keys())
-    for key in sorted_keys:
-        groups[key].sort(key=lambda pat: pat.get("rarity", _FALLBACK_RARITY), reverse=True)
-
-    queues: List[List[dict]] = [groups[k] for k in sorted_keys]
-
     batches: List[List[str]] = []
-    current_batch: List[str] = []
+    small: List[str] = []
 
-    while queues:
-        for q in queues:
-            p = q.pop(0)
-            current_batch.append(p["pattern"])
-            if len(current_batch) >= batch_size:
-                batches.append(current_batch)
-                current_batch = []
-        queues = [q for q in queues if q]
+    for key in sorted(groups.keys()):
+        group = groups[key]
+        group.sort(key=lambda pat: pat.get("rarity", _FALLBACK_RARITY), reverse=True)
+        texts = [p["pattern"] for p in group[:batch_size]]
+        if len(texts) < min_batch_size:
+            small.extend(texts)
+        else:
+            batches.append(texts)
 
-    if current_batch:
-        batches.append(current_batch)
-
-    if len(batches) > 1 and len(batches[-1]) < min_batch_size:
-        batches[-2].extend(batches[-1])
-        batches.pop()
+    # Merge small subcategories into one mixed batch
+    if small:
+        if len(small) >= min_batch_size:
+            batches.append(small)
+        elif batches:
+            batches[-1].extend(small)
 
     return batches
 
@@ -208,7 +207,7 @@ def extract_insight(
             f"Run more sessions and distill first."
         )
 
-    batches = _build_stratified_batches(raw_patterns)
+    batches = _build_subcategory_batches(raw_patterns)
 
     logger.info(
         "Processing %d patterns in %d batches (stratified)",
