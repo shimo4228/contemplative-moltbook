@@ -11,8 +11,9 @@ import pytest
 from contemplative_agent.core.insight import (
     InsightResult,
     SkillResult,
+    _SKILL_SEPARATOR,
     _build_subcategory_batches,
-    _extract_skill,
+    _extract_skills,
     _extract_title,
     _slugify,
     extract_insight,
@@ -105,27 +106,48 @@ class TestSlugify:
 
 
 # ---------------------------------------------------------------------------
-# Integration: _extract_skill
+# Integration: _extract_skills
 # ---------------------------------------------------------------------------
 
+SECOND_SKILL = GOOD_SKILL_RESPONSE.replace(
+    "Ask Before Reacting", "Adapt Tone"
+).replace("ask-before-reacting", "adapt-tone")
 
-class TestExtractSkill:
+TWO_SKILLS_RESPONSE = GOOD_SKILL_RESPONSE + "\n---SKILL---\n" + SECOND_SKILL
+
+
+class TestExtractSkills:
     @patch("contemplative_agent.core.insight.generate")
-    def test_success(self, mock_generate) -> None:
+    def test_single_skill(self, mock_generate) -> None:
         mock_generate.return_value = GOOD_SKILL_RESPONSE
-        result = _extract_skill(["p1", "p2"], ["i1"])
-        assert result is not None
-        assert "# Ask Before Reacting" in result
+        result = _extract_skills(["p1", "p2"], ["i1"])
+        assert len(result) == 1
+        assert "# Ask Before Reacting" in result[0]
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_multiple_skills(self, mock_generate) -> None:
+        mock_generate.return_value = TWO_SKILLS_RESPONSE
+        result = _extract_skills(["p1", "p2", "p3"], ["i1"])
+        assert len(result) == 2
+        assert "Ask Before Reacting" in result[0]
+        assert "Adapt Tone" in result[1]
 
     @patch("contemplative_agent.core.insight.generate")
     def test_llm_failure(self, mock_generate) -> None:
         mock_generate.return_value = None
-        assert _extract_skill(["p1"], []) is None
+        assert _extract_skills(["p1"], []) == []
 
     @patch("contemplative_agent.core.insight.generate")
     def test_no_title_drops(self, mock_generate) -> None:
         mock_generate.return_value = "some text without a title line"
-        assert _extract_skill(["p1"], []) is None
+        assert _extract_skills(["p1"], []) == []
+
+    @patch("contemplative_agent.core.insight.generate")
+    def test_mixed_valid_invalid(self, mock_generate) -> None:
+        """Valid skills are kept, title-less chunks are dropped."""
+        mock_generate.return_value = GOOD_SKILL_RESPONSE + "\n---SKILL---\nno title here"
+        result = _extract_skills(["p1", "p2"], [])
+        assert len(result) == 1
 
 
 # ---------------------------------------------------------------------------

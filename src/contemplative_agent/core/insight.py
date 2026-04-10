@@ -62,12 +62,16 @@ def _extract_title(skill_text: str) -> Optional[str]:
     return None
 
 
-def _extract_skill(
-    patterns: List[str], insights: List[str], subcategory: str = "mixed"
-) -> Optional[str]:
-    """Extract a skill from patterns and insights via LLM.
+_SKILL_SEPARATOR = "---SKILL---"
 
-    Returns the raw Markdown skill text, or None on failure.
+
+def _extract_skills(
+    patterns: List[str], insights: List[str], subcategory: str = "mixed"
+) -> List[str]:
+    """Extract one or more skills from patterns and insights via LLM.
+
+    The LLM decides how many skills the patterns naturally support.
+    Returns a list of valid Markdown skill texts (may be empty on failure).
     """
     prompt = INSIGHT_EXTRACTION_PROMPT.format(
         subcategory=subcategory,
@@ -75,17 +79,27 @@ def _extract_skill(
         insights="\n".join(f"- {i}" for i in insights) if insights else "(none)",
     )
 
-    result = generate(prompt, max_length=3000)
+    result = generate(prompt, max_length=8000)
     if result is None:
         logger.warning("LLM failed to generate skill extraction.")
-        return None
+        return []
 
-    if _extract_title(result) is None:
-        logger.warning("Skill extraction has no title (# line). Dropping.")
-        logger.debug("Raw LLM output (first 200 chars): %.200s", result)
-        return None
+    raw_skills = result.split(_SKILL_SEPARATOR)
+    valid: List[str] = []
+    for raw in raw_skills:
+        text = raw.strip()
+        if not text:
+            continue
+        if _extract_title(text) is None:
+            logger.debug("Skill chunk has no title, dropping: %.100s", text)
+            continue
+        valid.append(text)
 
-    return result
+    if not valid:
+        logger.warning("No valid skills extracted from LLM output.")
+        logger.debug("Raw LLM output (first 300 chars): %.300s", result)
+
+    return valid
 
 
 def _build_subcategory_batches(
@@ -222,47 +236,49 @@ def extract_insight(
     skill_results: List[SkillResult] = []
     dropped_count = 0
 
+    today = date.today().strftime("%Y%m%d")
+
     for batch_idx, (subcategory, batch) in enumerate(batches):
         logger.info(
             "Batch %d/%d [%s]: %d patterns",
             batch_idx + 1, len(batches), subcategory, len(batch),
         )
 
-        skill_text = _extract_skill(batch, insights, subcategory=subcategory)
-        if skill_text is None:
+        skill_texts = _extract_skills(batch, insights, subcategory=subcategory)
+        if not skill_texts:
             logger.warning("Batch %d/%d: extraction failed", batch_idx + 1, len(batches))
             dropped_count += 1
             continue
 
-        if not validate_identity_content(skill_text):
-            logger.warning("Batch %d/%d: forbidden pattern detected", batch_idx + 1, len(batches))
-            dropped_count += 1
-            continue
-
-        title = _extract_title(skill_text) or ""
-        slug = _slugify(title)
-        if not slug:
-            logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
-            dropped_count += 1
-            continue
-
-        today = date.today().strftime("%Y%m%d")
-        filename = f"{slug}-{today}.md"
-
-        if skills_dir is not None:
-            file_path = skills_dir / filename
-            if not file_path.resolve().is_relative_to(skills_dir.resolve()):
-                logger.error("Skill path escape attempt: %s", file_path)
+        for skill_text in skill_texts:
+            if not validate_identity_content(skill_text):
+                logger.warning("Batch %d/%d: forbidden pattern detected", batch_idx + 1, len(batches))
                 dropped_count += 1
                 continue
-        else:
-            file_path = Path(filename)
 
-        skill_results.append(SkillResult(
-            text=skill_text,
-            filename=filename,
-            target_path=file_path,
-        ))
+            title = _extract_title(skill_text) or ""
+            slug = _slugify(title)
+            if not slug:
+                logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
+                dropped_count += 1
+                continue
+
+            filename = f"{slug}-{today}.md"
+
+            if skills_dir is not None:
+                file_path = skills_dir / filename
+                if not file_path.resolve().is_relative_to(skills_dir.resolve()):
+                    logger.error("Skill path escape attempt: %s", file_path)
+                    dropped_count += 1
+                    continue
+            else:
+                file_path = Path(filename)
+
+            skill_results.append(SkillResult(
+                text=skill_text,
+                filename=filename,
+                target_path=file_path,
+            ))
 
     if not skill_results:
         return "Failed to extract skill from knowledge."

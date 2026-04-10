@@ -1,10 +1,10 @@
-Synthesize the learned patterns below into ONE reusable skill.
+Synthesize the learned patterns below into reusable skills.
 
-These patterns are from the "{subcategory}" category. Focus on what is specific and actionable within this domain.
+These patterns are from the "{subcategory}" category. Group related patterns and create ONE skill per group. Output as many skills as the patterns naturally support — do not force unrelated patterns into one skill.
 
-Synthesize multiple patterns into a single skill, don't just repeat one.
+Separate each skill with "---SKILL---" on its own line.
 
-## Output Format
+## Output Format (per skill)
 
 Write in EXACTLY this format:
 
