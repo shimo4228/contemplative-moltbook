@@ -25,10 +25,6 @@ MIN_SKILLS_REQUIRED = 3
 # breadth of input across which the LLM searches for cross-cutting universal
 # principles. Renamed from BATCH_SIZE to avoid confusion with insight.py.
 SKILLS_PER_BATCH = 10
-# Cap on rules produced per batch. Enforced via prompt ("at most 2") plus
-# post-filter in _split_rules. Keeping this tight is a deliberate Emptiness-
-# axiom constraint: prefer 0 weak rules over many trivial ones.
-MAX_RULES_PER_BATCH = 2
 
 
 @dataclass(frozen=True)
@@ -173,11 +169,6 @@ def _split_rules(text: str) -> List[str]:
 
     This splits on ``## Rule`` boundaries and gives each chunk
     a ``# Rule: {name}`` title for independent use.
-
-    Enforces ``MAX_RULES_PER_BATCH`` as a hard cap: if the LLM disregards
-    the prompt constraint and returns more rules, only the first N are
-    kept and a warning is logged. This preserves the narrow-generation
-    discipline regardless of model compliance.
     """
     import re
 
@@ -194,17 +185,6 @@ def _split_rules(text: str) -> List[str]:
         rule_text = f"# {name}\n\n" + re.sub(r"^## Rule \d+:.*\n*", "", part, count=1).strip()
         if rule_text.strip():
             rules.append(rule_text)
-
-    if len(rules) > MAX_RULES_PER_BATCH:
-        logger.warning(
-            "LLM returned %d rules, exceeding MAX_RULES_PER_BATCH=%d. "
-            "Keeping only the first %d.",
-            len(rules),
-            MAX_RULES_PER_BATCH,
-            MAX_RULES_PER_BATCH,
-        )
-        rules = rules[:MAX_RULES_PER_BATCH]
-
     return rules
 
 

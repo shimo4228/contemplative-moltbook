@@ -1,62 +1,98 @@
-Analyze the behavioral skills below and extract universal behavioral principles.
+# Extract Standing Practices from Skills
 
-Each skill describes a specific behavioral pattern the agent has learned. Your task is to identify higher-level principles that genuinely unify ALL skills — not restatements of individual ones.
+You are analyzing a set of skill documents to extract **standing practices** — standing methodologies the agent holds across situations.
 
-## Four Universality Tests
+## What is a Practice?
 
-Every candidate principle MUST pass all four tests. If it fails any one, discard it.
+A practice is a directive that sits between abstract values and concrete procedures:
+- **VALUES**: Too vague ("be honest", "be thoughtful"). Do not extract these.
+- **PRACTICES**: Standing methodologies ("Always X", "Prefer Y over Z", "Before Z, do [steps]", "Treat X as Y").
+- **PROCEDURES**: Trigger-action forms ("When X happens, do Y"). Do not extract these.
 
-### 1. Necessity Test
-"If this principle were removed, would ALL input skills break?"
-- Only one skill breaks → this is a restatement of that skill (FAIL)
-- All skills break → this is a true universal principle (PASS)
+Examples of valid practices:
+- "Always validate input at system boundaries"
+- "Prefer immutable data structures over mutation"
+- "Before implementing a new feature, search for existing solutions"
+- "Treat all external data as untrusted"
+- "Never retry with the same inputs—capture error context and feed it forward"
 
-### 2. Intersection Test
-"Imagine each skill as a circle in a Venn diagram. Does this principle sit at the center where ALL circles overlap?"
-- Overlaps only 2 circles → too local (FAIL)
-- Sits in the common center of all circles → universal (PASS)
+## Input Format
 
-### 3. Independence Test
-"Can this principle be understood without knowing the names or domains of the input skills?"
-- Requires skill-specific context to make sense → restatement (FAIL)
-- Stands on its own as a general behavioral rule → universal (PASS)
+You will receive a numbered list of skill documents, each with a title marked with `#`.
 
-### 4. Principle vs Tactic Test
-"Is this a foundational commitment about HOW to approach situations, or a specific operational step about WHAT to do?"
-- Describes a trigger-action procedure ("when X is detected, do Y") → tactic (FAIL)
-- Describes an orientation or value that shapes many possible actions ("prioritize Z over W") → principle (PASS)
+## Extraction Process
 
-Tactics belong in the skill layer. Rules are the values behind tactics.
+**Step 1: Generate Candidates**
+From all input skills, extract 3–10 candidate practices. Write each as a concise imperative or declarative statement.
 
-## Examples
+**Step 2: Coverage Map**
+For each candidate, list which input skills (by their `#` title) it directly applies to or grounds. Count the number of skills covered. If **fewer than half** are covered, mark **Necessity: FAIL** and stop evaluating that candidate.
 
-**FAIL (tactic dressed as rule):**
-"When repetitive patterns are detected in the conversation, pause before generating a response to allow integration."
-→ This is a specific detect-then-act procedure. It's HOW one might behave, not a foundational commitment. Belongs in skills.
+**Step 3: Apply Three Tests**
 
-**FAIL (restatement of a skill):**
-"Monitor activity logs for breaks in thematic connection and reformat the engagement cycle."
-→ Drawn from a single skill. Domain-specific. Not cross-skill universal.
+For each candidate that passes coverage (≥50% of skills):
 
-**PASS (true principle):**
-"Prioritize alleviating suffering over following procedural correctness when the two conflict."
-→ A foundational commitment that shapes any action the agent might take. Not tied to any single skill. Passes all four tests.
+1. **Necessity**: If removed, would most input skills lose their grounding?
+   - PASS: The practice appears across multiple skills and the skills would become incoherent without it.
+   - FAIL: The skills stand independently; removing the practice leaves them intact.
+   - Write one sentence justifying your verdict.
 
-## Additional Exclusions
+2. **Intersection**: Does it sit at the common ground where skills overlap, not in skill-specific details?
+   - PASS: The practice is stated without skill-specific vocabulary; it generalizes across all covered skills.
+   - FAIL: The practice requires understanding one particular skill's context or domain.
+   - Write one sentence justifying your verdict.
 
-- Platitudes ("be helpful", "communicate well", "be thoughtful")
-- Observations tied to one specific situation
-- Vague aspirations without observable behavior
-- Paraphrases of contemplative axioms without grounding in actual skill content
+3. **Independence**: Can it be stated without referring to skill-specific vocabulary or procedural details?
+   - PASS: The statement uses generic, domain-neutral language.
+   - FAIL: The statement includes task-specific jargon, tool names, or references to particular skills.
+   - Write one sentence justifying your verdict.
 
-## Output
+Keep only practices that **PASS all three tests**.
 
-Write a free-form analysis. For each candidate principle:
-1. State the principle clearly
-2. Run each of the four tests explicitly — write PASS or FAIL for each
-3. Only keep principles that pass all four
+## Worked Example
 
-**Output at most 2 principles per batch.** Few strong principles are better than many weak ones. It is perfectly acceptable to output only 1 principle, or even 0 if nothing passes all four tests. Prefer 0 to trivial.
+Suppose the input skills are:
+- `# Error Recovery`: "Capture error output and feed it to the next attempt. Retry up to 3 times."
+- `# API Integration`: "When an API call fails, log the response and use the log in the next request."
+- `# Data Import`: "Save import errors to a file and reference it on re-run."
+
+**Candidate Practice**: "Always capture failure context and feed it to subsequent attempts."
+
+**Coverage Map**: Applies to all three skills (Error Recovery, API Integration, Data Import). Coverage: 3/3 = 100%. ✓
+
+**Necessity Test**: PASS. All three skills depend on the idea of carrying context forward; without it, each becomes a disconnected error handler.
+
+**Intersection Test**: PASS. This practice sits at the overlap of all three skills—they all do error capture + reuse, just in different domains.
+
+**Independence Test**: PASS. Stated using generic language ("capture", "feed", "subsequent attempts") with no domain vocabulary.
+
+**Verdict**: ACCEPT this practice.
+
+---
+
+## Exclusions
+
+Do NOT extract practices that are:
+- **Paraphrases of a single skill** (e.g., "use pytest" from a testing skill)
+- **Platitudes or aspirations** (e.g., "be collaborative", "think deeply")
+- **Trigger-action procedures** (e.g., "when X, do Y")
+- **Vague or unfalsifiable** (e.g., "consider alternatives")
+- **Domain-specific jargon** that won't generalize (e.g., "use async/await in Python")
+
+## Output Requirements
+
+- Accept **zero practices as valid**. Few strong practices beat many weak ones.
+- No numeric cap. Scale naturally with input. If you extract 2, that's fine. If 8, that's fine.
+- List each practice as a single clear sentence.
+- Include the coverage count and PASS/FAIL result for each test.
+
+Format each accepted practice as:
+
+    **Practice**: [statement]
+    - Coverage: [n/total skills]
+    - Necessity: PASS — [one-sentence justification]
+    - Intersection: PASS — [one-sentence justification]
+    - Independence: PASS — [one-sentence justification]
 
 Behavioral skills:
 {patterns}

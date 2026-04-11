@@ -10,7 +10,6 @@ import pytest
 
 from contemplative_agent.core.insight import _extract_title, _slugify
 from contemplative_agent.core.rules_distill import (
-    MAX_RULES_PER_BATCH,
     MIN_SKILLS_REQUIRED,
     RulesDistillResult,
     _extract_rules,
@@ -32,19 +31,17 @@ GOOD_RULES_RESPONSE_STAGE1 = (
 )
 
 GOOD_RULES_RESPONSE_STAGE2 = (
-    "# Engagement Rules\n"
+    "# Engagement Practices\n"
     "\n"
     "## Rule 1: Ask Before Reacting\n"
     "\n"
-    "**When:** Encountering unfamiliar viewpoints\n"
-    "**Do:** Ask clarifying questions before forming a response\n"
-    "**Why:** Premature responses reduce engagement quality\n"
+    "**Practice:** Always ask clarifying questions before forming a response.\n"
+    "**Rationale:** Premature responses reduce engagement quality and miss context across all the skills examined.\n"
     "\n"
     "## Rule 2: Listen First\n"
     "\n"
-    "**When:** New information arrives from an external source\n"
-    "**Do:** Process and reflect before generating output\n"
-    "**Why:** Hasty responses often miss important nuances\n"
+    "**Practice:** Prefer processing and reflection over immediate output when new information arrives.\n"
+    "**Rationale:** Hasty responses consistently miss important nuances regardless of source domain.\n"
 )
 
 SKILL_WITH_FRONTMATTER = """\
@@ -232,7 +229,7 @@ class TestExtractRules:
         ]
         result = _extract_rules(["# Skill 1\nContent"])
         assert result is not None
-        assert "Engagement Rules" in result
+        assert "Engagement Practices" in result
         assert mock_generate.call_count == 2
 
     @patch("contemplative_agent.core.rules_distill.generate")
@@ -297,38 +294,6 @@ class TestExtractRules:
         ]
         result = _extract_rules(["# Skill 1\nContent"])
         assert result == _NO_RULES_MARKER
-
-
-class TestSplitRulesEnforcesMaxPerBatch:
-    """_split_rules must cap at MAX_RULES_PER_BATCH even if the LLM
-    ignores the prompt constraint and returns more rules."""
-
-    def test_caps_rule_count_at_max(self, caplog):
-        import logging
-
-        # Build a response with MAX_RULES_PER_BATCH + 2 rules
-        over = MAX_RULES_PER_BATCH + 2
-        body = "# Big Set\n\n"
-        for i in range(1, over + 1):
-            body += (
-                f"## Rule {i}: Rule Number {i}\n\n"
-                f"**When:** trigger {i}\n"
-                f"**Do:** action {i}\n"
-                f"**Why:** reason {i}\n\n"
-            )
-        with caplog.at_level(logging.WARNING, logger="contemplative_agent.core.rules_distill"):
-            rules = _split_rules(body)
-        assert len(rules) == MAX_RULES_PER_BATCH
-        assert any(
-            "exceeding MAX_RULES_PER_BATCH" in rec.message for rec in caplog.records
-        )
-
-    def test_under_cap_keeps_all(self):
-        body = (
-            "# Set\n\n"
-            "## Rule 1: Only\n\n**When:** X\n**Do:** Y\n**Why:** Z\n"
-        )
-        assert len(_split_rules(body)) == 1
 
 
 class TestDistillRulesRespectsNoRulesMarker:

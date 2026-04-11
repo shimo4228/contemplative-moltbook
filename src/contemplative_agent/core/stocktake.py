@@ -168,13 +168,19 @@ def _check_skill_quality(filename: str, body: str) -> Optional[QualityIssue]:
 
 
 def _check_rule_quality(filename: str, body: str) -> Optional[QualityIssue]:
-    """Check a rule file for structural quality issues."""
+    """Check a rule file for structural quality issues.
+
+    Rules use the B-layer Practice/Rationale format (standing methodology),
+    distinct from skill's trigger-action Problem/Solution format and from
+    constitution's axiomatic clauses. A rule must declare an imperative or
+    declarative practice and its rationale.
+    """
     if len(body) < 200:
         return QualityIssue(filename=filename, reason="body < 200 chars")
-    if "**When:**" not in body:
-        return QualityIssue(filename=filename, reason='missing "**When:**" section')
-    if "**Do:**" not in body:
-        return QualityIssue(filename=filename, reason='missing "**Do:**" section')
+    if "**Practice:**" not in body:
+        return QualityIssue(filename=filename, reason='missing "**Practice:**" section')
+    if "**Rationale:**" not in body:
+        return QualityIssue(filename=filename, reason='missing "**Rationale:**" section')
     return None
 
 

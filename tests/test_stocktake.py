@@ -83,29 +83,26 @@ Even more padding to ensure we exceed the 200 character minimum threshold for th
 """
 
 GOOD_RULE = """\
-# Engagement Rules
+# Engagement Practices
 
 ## Rule 1: Ask Before Reacting
 
-**When:** Encountering unfamiliar viewpoints in conversation.
-**Do:** Ask clarifying questions before forming a response.
-**Why:** Premature responses reduce engagement quality and miss context.
+**Practice:** Always ask clarifying questions before forming a response when encountering unfamiliar viewpoints.
+**Rationale:** Premature responses reduce engagement quality and miss important context across nearly every conversational skill the agent has learned.
 
 ## Rule 2: Listen First
 
-**When:** New information arrives from an external source.
-**Do:** Process and reflect before generating output.
-**Why:** Hasty responses often miss important nuances.
+**Practice:** Process and reflect before generating output whenever new information arrives from an external source.
+**Rationale:** Hasty responses consistently miss important nuances, regardless of the specific domain of the input.
 """
 
-MISSING_WHEN_RULE = """\
+MISSING_PRACTICE_RULE = """\
 # Incomplete Rule
 
 ## Rule 1: Some Rule
 
-**Do:** Do something without knowing when.
-**Why:** Because reasons that span enough text to pass length check.
-More content here to ensure we exceed the minimum character threshold.
+**Rationale:** Because reasons that span enough text to pass the length check.
+More content here to ensure we exceed the minimum character threshold of two hundred chars for the quality check.
 """
 
 LLM_MERGE_RESPONSE = json.dumps({
@@ -227,10 +224,10 @@ class TestRuleQuality:
         assert issue is not None
         assert "200 chars" in issue.reason
 
-    def test_missing_when(self):
-        issue = _check_rule_quality("no-when.md", MISSING_WHEN_RULE)
+    def test_missing_practice(self):
+        issue = _check_rule_quality("no-practice.md", MISSING_PRACTICE_RULE)
         assert issue is not None
-        assert "When" in issue.reason
+        assert "Practice" in issue.reason
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +328,7 @@ class TestRunRulesStocktake:
         mock_generate.return_value = LLM_NO_MERGE_RESPONSE
         rules_dir = _make_rules_dir(tmp_path, {
             "good.md": GOOD_RULE,
-            "bad.md": MISSING_WHEN_RULE,
+            "bad.md": MISSING_PRACTICE_RULE,
         })
         result = run_rules_stocktake(rules_dir=rules_dir)
         assert len(result.quality_issues) >= 1
