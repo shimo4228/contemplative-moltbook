@@ -222,7 +222,7 @@ _APPROVAL_GATE_COMMANDS = frozenset({
 AUDIT_LOG_PATH = MOLTBOOK_DATA_DIR / "logs" / "audit.jsonl"
 
 
-AuditSource = Literal["direct", "stage", "stage-adopted"]
+AuditSource = Literal["direct", "stage", "stage-adopted", "stage-adopted-auto"]
 
 
 def _log_approval(
@@ -243,7 +243,9 @@ def _log_approval(
         source: Execution path identifier.
             - "direct": approval gate was invoked inline during the command run.
             - "stage": written to staging dir (decision deferred).
-            - "stage-adopted": adopted from staging via `adopt-staged` command.
+            - "stage-adopted": adopted interactively from staging via `adopt-staged`.
+            - "stage-adopted-auto": adopted from staging via `adopt-staged --yes`
+              (no human prompt; used by non-TTY coding-agent workflows).
     """
     if approved is None:
         decision = "staged"
@@ -281,6 +283,16 @@ def _approve_write(path: Path) -> bool:
         return False
 
 
+def _approve_delete(path: Path) -> bool:
+    """Prompt user for delete approval. Default is N (safe side)."""
+    print(f"\nDelete {path}? [y/N] ", end="", flush=True)
+    try:
+        return input().strip().lower() == "y"
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+
 def _is_dry_run(args: argparse.Namespace) -> bool:
     """Check if --dry-run was passed."""
     return getattr(args, "dry_run", False)
@@ -307,12 +319,22 @@ class StageItem:
     `sources` is only set by skill-stocktake merges: it lists original
     skill filenames that `adopt-staged` should delete when the merged
     result is accepted. All other commands leave it empty.
+
+    `action` distinguishes merge (write) from drop (delete) operations.
+
+    `command` overrides the batch command name passed to `_stage_results`.
+    Used by stocktake handlers to mix merge ("skill-stocktake") and drop
+    ("skill-stocktake-drop") items in a single staging batch — needed
+    because `_stage_results` wipes the staging dir on every call, so a
+    second call would erase the first batch.
     """
 
     filename: str
     text: str
     target_path: Path
     sources: list[str] = field(default_factory=list)
+    action: Literal["merge", "drop"] = "merge"
+    command: str | None = None
 
 
 def _stage_results(items: list[StageItem], command: str) -> None:
@@ -335,18 +357,21 @@ def _stage_results(items: list[StageItem], command: str) -> None:
                 file=sys.stderr,
             )
             continue
+        item_command = item.command or command
         staged_file = STAGED_DIR / item.filename
         staged_file.write_text(item.text + "\n", encoding="utf-8")
         meta: dict[str, object] = {
             "target": str(item.target_path),
-            "command": command,
+            "command": item_command,
         }
         if item.sources:
             meta["sources"] = list(item.sources)
+        if item.action != "merge":
+            meta["action"] = item.action
         meta_file = STAGED_DIR / f"{item.filename}.meta.json"
         meta_file.write_text(json_mod.dumps(meta, indent=2) + "\n", encoding="utf-8")
         staged_paths.append((staged_file, item.target_path))
-        _log_approval(command, item.target_path, None, item.text, source="stage")
+        _log_approval(item_command, item.target_path, None, item.text, source="stage")
 
     print(f"Staged {len(staged_paths)} file(s) in {STAGED_DIR}/")
     for staged, target in staged_paths:
@@ -481,213 +506,235 @@ def _handle_install_schedule(args: argparse.Namespace, parser: argparse.Argument
             )
 
 
-def _handle_skill_stocktake(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    from .core.insight import _extract_title, _slugify
-    from .core.stocktake import format_report, merge_group, run_skill_stocktake
+def _handle_stocktake_result(
+    args: argparse.Namespace,
+    result,
+    *,
+    target_dir: Path,
+    label: str,
+    merge_prompt: str,
+    command_prefix: str,
+    fallback_title: str,
+) -> None:
+    """Shared body for _handle_skill_stocktake and _handle_rules_stocktake.
 
-    result = run_skill_stocktake(skills_dir=SKILLS_DIR)
-    print(format_report(result, "Skill"))
+    Both handlers diff only in:
+      - target_dir       (SKILLS_DIR vs RULES_DIR)
+      - label            ("Skill" vs "Rules")
+      - merge_prompt     (skill vs rules merge prompt template)
+      - command_prefix   ("skill-stocktake" vs "rules-stocktake")
+      - fallback_title   ("merged-skill" vs "merged-rule")
 
-    if not result.merge_groups:
-        return
+    Drop items use `f"{command_prefix}-drop"` for audit/meta consistency.
 
+    Self-delete guard: when the merged title slugifies to one of the source
+    filenames, target_path collides with an original. The guard skips the
+    matching name so we don't delete the file we just wrote. See commit
+    542f0b2 for the bug history.
+
+    Single staging batch for merge + drop: `_stage_results` wipes STAGED_DIR
+    on every call, so calling it twice (once for merges, once for drops)
+    would erase the first batch. Per-item `command` lets us mix
+    "<prefix>" and "<prefix>-drop" in one batch.
+    """
     from datetime import date
 
-    from .core import prompts
     from .core._io import write_restricted
+    from .core.insight import _extract_title, _slugify
+    from .core.stocktake import format_report, merge_group
+
+    print(format_report(result, label))
+
+    if not result.merge_groups and not result.quality_issues:
+        return
 
     items_dict = dict(result.items)
     stage = getattr(args, "stage", False)
+    drop_command = f"{command_prefix}-drop"
 
-    print(f"\n{'='*60}")
-    print(f"Merging {len(result.merge_groups)} group(s)...")
+    staged_batch: list[StageItem] = []
 
-    stage_items: list[StageItem] = []
+    # --- Merge duplicates ---
     merged = 0
-    for i, group in enumerate(result.merge_groups, 1):
-        group_items = [
-            (name, items_dict[name])
-            for name in group.filenames
-            if name in items_dict
-        ]
-        if len(group_items) < 2:
-            continue
-
+    if result.merge_groups:
         print(f"\n{'='*60}")
-        print(f"[Group {i}/{len(result.merge_groups)}] {', '.join(group.filenames)}")
-        print(f"  Reason: {group.reason}")
+        print(f"Merging {len(result.merge_groups)} group(s)...")
 
-        merged_text = merge_group(group_items, prompts.STOCKTAKE_MERGE_PROMPT)
-        if merged_text is None:
-            print("  Merge failed (LLM error). Skipping.")
-            continue
+        for i, group in enumerate(result.merge_groups, 1):
+            group_items = [
+                (name, items_dict[name])
+                for name in group.filenames
+                if name in items_dict
+            ]
+            if len(group_items) < 2:
+                continue
 
-        print(merged_text)
+            print(f"\n{'='*60}")
+            print(f"[Group {i}/{len(result.merge_groups)}] {', '.join(group.filenames)}")
+            print(f"  Reason: {group.reason}")
 
-        title = _extract_title(merged_text) or "merged-skill"
-        slug = _slugify(title)
-        if not slug:
-            slug = "merged-skill"
-        filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
-        target_path = SKILLS_DIR / filename
+            merged_text = merge_group(group_items, merge_prompt)
+            if merged_text is None:
+                print("  Merge failed (LLM error). Skipping.")
+                continue
 
-        if stage:
-            # Record original filenames so adopt-staged can delete them on approval.
-            stage_items.append(
-                StageItem(
-                    filename=filename,
-                    text=merged_text,
-                    target_path=target_path,
-                    sources=list(group.filenames),
+            print(merged_text)
+
+            title = _extract_title(merged_text) or fallback_title
+            slug = _slugify(title) or fallback_title
+            filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
+            target_path = target_dir / filename
+
+            if stage:
+                # Record original filenames so adopt-staged can delete them on approval.
+                staged_batch.append(
+                    StageItem(
+                        filename=filename,
+                        text=merged_text,
+                        target_path=target_path,
+                        sources=list(group.filenames),
+                    )
                 )
-            )
-            continue
+                continue
 
-        approved = _approve_write(target_path)
-        _log_approval("skill-stocktake", target_path, approved, merged_text)
-        if approved:
-            SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-            write_restricted(target_path, merged_text)
-            # Guard: when the merged title slugifies to one of the source
-            # filenames, target_path collides with an original. Skip the
-            # matching name so we don't delete the file we just wrote.
-            try:
-                target_resolved = target_path.resolve()
-            except OSError:
-                target_resolved = target_path
-            for name in group.filenames:
-                original = SKILLS_DIR / name
+            approved = _approve_write(target_path)
+            _log_approval(command_prefix, target_path, approved, merged_text)
+            if approved:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                write_restricted(target_path, merged_text)
                 try:
-                    same_as_target = original.resolve() == target_resolved
+                    target_resolved = target_path.resolve()
                 except OSError:
-                    same_as_target = original == target_path
-                if same_as_target:
-                    continue
-                if original.exists():
-                    original.unlink()
-                    print(f"  Deleted {name}")
-            merged += 1
-        else:
-            print("  Skipped.")
+                    target_resolved = target_path
+                for name in group.filenames:
+                    original = target_dir / name
+                    try:
+                        same_as_target = original.resolve() == target_resolved
+                    except OSError:
+                        same_as_target = original == target_path
+                    if same_as_target:
+                        continue
+                    if original.exists():
+                        original.unlink()
+                        print(f"  Deleted {name}")
+                merged += 1
+            else:
+                print("  Skipped.")
 
-    if stage and stage_items:
-        _stage_results(stage_items, command="skill-stocktake")
-    elif not stage:
-        print(f"\n--- Summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
+        if not stage:
+            print(f"\n--- Merge summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
+
+    # --- Drop low-quality files ---
+    if result.quality_issues:
+        print(f"\n{'='*60}")
+        print(f"Low-quality files: {len(result.quality_issues)}")
+
+        dropped = 0
+        for issue in result.quality_issues:
+            target_path = target_dir / issue.filename
+            if not target_path.exists():
+                continue
+            body = items_dict.get(issue.filename, "")
+            if not body:
+                # Defensive: quality_issues and items both come from
+                # _read_files, so they should agree. Skip rather than
+                # stage an empty artifact if they ever drift.
+                print(f"  Skipped (empty body): {issue.filename}")
+                continue
+
+            print(f"\n{'='*60}")
+            print(f"[Drop candidate] {issue.filename}")
+            print(f"  Reason: {issue.reason}")
+            print(body[:500])
+
+            if stage:
+                staged_batch.append(
+                    StageItem(
+                        filename=issue.filename,
+                        text=body,
+                        target_path=target_path,
+                        action="drop",
+                        command=drop_command,
+                    )
+                )
+                continue
+
+            approved = _approve_delete(target_path)
+            _log_approval(drop_command, target_path, approved, body)
+            if approved:
+                target_path.unlink()
+                print(f"  Deleted {issue.filename}")
+                dropped += 1
+            else:
+                print("  Kept.")
+
+        if not stage:
+            print(f"\n--- Drop summary: {dropped} deleted, {len(result.quality_issues) - dropped} kept ---")
+
+    if stage and staged_batch:
+        _stage_results(staged_batch, command=command_prefix)
+
+
+def _handle_skill_stocktake(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    """Audit skills and merge duplicates / drop low-quality files."""
+    from .core import prompts
+    from .core.stocktake import run_skill_stocktake
+
+    result = run_skill_stocktake(skills_dir=SKILLS_DIR)
+    _handle_stocktake_result(
+        args,
+        result,
+        target_dir=SKILLS_DIR,
+        label="Skill",
+        merge_prompt=prompts.STOCKTAKE_MERGE_PROMPT,
+        command_prefix="skill-stocktake",
+        fallback_title="merged-skill",
+    )
 
 
 def _handle_rules_stocktake(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """Audit rules and merge duplicates. Mirrors _handle_skill_stocktake.
+    """Audit rules and merge duplicates / drop low-quality files.
 
-    Uses STOCKTAKE_MERGE_RULES_PROMPT (When/Do/Why structure) instead of
-    the skill-oriented STOCKTAKE_MERGE_PROMPT. Shares approval gate,
-    audit logging, self-delete guard, and staging support with the skill
-    variant — see commit 542f0b2 for the bug history the guard protects.
+    Uses STOCKTAKE_MERGE_RULES_PROMPT (Practice/Rationale structure) instead
+    of the skill-oriented STOCKTAKE_MERGE_PROMPT. All other behavior is
+    shared via `_handle_stocktake_result`.
     """
-    from .core.insight import _extract_title, _slugify
-    from .core.stocktake import format_report, merge_group, run_rules_stocktake
+    from .core import prompts
+    from .core.stocktake import run_rules_stocktake
 
     result = run_rules_stocktake(rules_dir=RULES_DIR)
-    print(format_report(result, "Rules"))
-
-    if not result.merge_groups:
-        return
-
-    from datetime import date
-
-    from .core import prompts
-    from .core._io import write_restricted
-
-    items_dict = dict(result.items)
-    stage = getattr(args, "stage", False)
-
-    print(f"\n{'='*60}")
-    print(f"Merging {len(result.merge_groups)} group(s)...")
-
-    stage_items: list[StageItem] = []
-    merged = 0
-    for i, group in enumerate(result.merge_groups, 1):
-        group_items = [
-            (name, items_dict[name])
-            for name in group.filenames
-            if name in items_dict
-        ]
-        if len(group_items) < 2:
-            continue
-
-        print(f"\n{'='*60}")
-        print(f"[Group {i}/{len(result.merge_groups)}] {', '.join(group.filenames)}")
-        print(f"  Reason: {group.reason}")
-
-        merged_text = merge_group(group_items, prompts.STOCKTAKE_MERGE_RULES_PROMPT)
-        if merged_text is None:
-            print("  Merge failed (LLM error). Skipping.")
-            continue
-
-        print(merged_text)
-
-        title = _extract_title(merged_text) or "merged-rule"
-        slug = _slugify(title)
-        if not slug:
-            slug = "merged-rule"
-        filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
-        target_path = RULES_DIR / filename
-
-        if stage:
-            stage_items.append(
-                StageItem(
-                    filename=filename,
-                    text=merged_text,
-                    target_path=target_path,
-                    sources=list(group.filenames),
-                )
-            )
-            continue
-
-        approved = _approve_write(target_path)
-        _log_approval("rules-stocktake", target_path, approved, merged_text)
-        if approved:
-            RULES_DIR.mkdir(parents=True, exist_ok=True)
-            write_restricted(target_path, merged_text)
-            # Self-delete guard: when the merged title slugifies to one of
-            # the source filenames, target_path collides with an original.
-            # Skip the matching name so we don't delete the file we just
-            # wrote. See commit 542f0b2 for the bug history.
-            try:
-                target_resolved = target_path.resolve()
-            except OSError:
-                target_resolved = target_path
-            for name in group.filenames:
-                original = RULES_DIR / name
-                try:
-                    same_as_target = original.resolve() == target_resolved
-                except OSError:
-                    same_as_target = original == target_path
-                if same_as_target:
-                    continue
-                if original.exists():
-                    original.unlink()
-                    print(f"  Deleted {name}")
-            merged += 1
-        else:
-            print("  Skipped.")
-
-    if stage and stage_items:
-        _stage_results(stage_items, command="rules-stocktake")
-    elif not stage:
-        print(f"\n--- Summary: {merged} merged, {len(result.merge_groups) - merged} skipped ---")
+    _handle_stocktake_result(
+        args,
+        result,
+        target_dir=RULES_DIR,
+        label="Rules",
+        merge_prompt=prompts.STOCKTAKE_MERGE_RULES_PROMPT,
+        command_prefix="rules-stocktake",
+        fallback_title="merged-rule",
+    )
 
 
 def _handle_sync_data(_args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     _run_sync()
 
 
-def _handle_adopt_staged(_args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+def _handle_adopt_staged(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     """Walk the staging dir, run each staged file through the approval gate,
     and write accepted files to their target paths. Rejected and accepted
     items are both removed from staging to avoid repeated prompts on rerun.
+
+    With ``--yes`` (``args.yes == True``) the interactive prompts are
+    skipped and every staged item is auto-approved. This is the path that
+    coding agents (Claude Code, etc.) use because their bash sandbox is
+    non-TTY: ``input()`` would otherwise return EOF and reject everything.
+    Auto-approved entries are recorded in the audit log with
+    ``source="stage-adopted-auto"`` so they can be distinguished from
+    interactively reviewed adoptions.
     """
     from .core._io import write_restricted
+
+    yes = getattr(args, "yes", False)
+    audit_source: AuditSource = "stage-adopted-auto" if yes else "stage-adopted"
 
     if not STAGED_DIR.exists():
         print("No staging directory.")
@@ -697,6 +744,9 @@ def _handle_adopt_staged(_args: argparse.Namespace, _parser: argparse.ArgumentPa
     if not meta_files:
         print("No staged files.")
         return
+
+    if yes:
+        print(f"Auto-approve mode (--yes): adopting {len(meta_files)} staged item(s) without prompts.")
 
     adopted = 0
     rejected = 0
@@ -713,6 +763,7 @@ def _handle_adopt_staged(_args: argparse.Namespace, _parser: argparse.ArgumentPa
         target_str = meta.get("target")
         command = meta.get("command")
         sources = meta.get("sources") or []
+        action = meta.get("action", "merge")
         if not target_str or not command:
             print(f"  Skipped (invalid meta): {meta_file.name}")
             skipped += 1
@@ -750,43 +801,56 @@ def _handle_adopt_staged(_args: argparse.Namespace, _parser: argparse.ArgumentPa
         print(f"[{command}] {content_file.name} -> {target}")
         print(text)
 
-        approved = _approve_write(target)
-        _log_approval(command, target, approved, text, source="stage-adopted")
-
-        if approved:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            to_write = text if text.endswith("\n") else text + "\n"
-            write_restricted(target, to_write)
-            # skill-stocktake merges pass the original filenames in `sources`
-            # so they get deleted once the merged result is adopted.
-            target_parent = target.parent.resolve()
-            try:
-                target_resolved = target.resolve()
-            except OSError:
-                target_resolved = target
-            for src_name in sources:
-                src_path = (target.parent / src_name).resolve()
-                try:
-                    same_dir = src_path.parent == target_parent
-                except OSError:
-                    same_dir = False
-                if not same_dir:
-                    print(
-                        f"  Skipped source delete (outside target dir): {src_name}"
-                    )
-                    continue
-                # Guard: when the merged title collides with an original
-                # filename, src_path == target. Skip so we don't delete
-                # the file we just wrote.
-                if src_path == target_resolved:
-                    continue
-                if src_path.exists():
-                    src_path.unlink()
-                    print(f"  Deleted {src_name}")
-            adopted += 1
+        if action == "drop":
+            approved = True if yes else _approve_delete(target)
+            _log_approval(command, target, approved, text, source=audit_source)
+            if approved:
+                if target.exists():
+                    target.unlink()
+                    print(f"  Deleted {target.name}")
+                else:
+                    print(f"  Already absent: {target.name}")
+                adopted += 1
+            else:
+                print("  Kept.")
+                rejected += 1
         else:
-            print("Skipped.")
-            rejected += 1
+            approved = True if yes else _approve_write(target)
+            _log_approval(command, target, approved, text, source=audit_source)
+            if approved:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                to_write = text if text.endswith("\n") else text + "\n"
+                write_restricted(target, to_write)
+                # skill-stocktake merges pass the original filenames in `sources`
+                # so they get deleted once the merged result is adopted.
+                target_parent = target.parent.resolve()
+                try:
+                    target_resolved = target.resolve()
+                except OSError:
+                    target_resolved = target
+                for src_name in sources:
+                    src_path = (target.parent / src_name).resolve()
+                    try:
+                        same_dir = src_path.parent == target_parent
+                    except OSError:
+                        same_dir = False
+                    if not same_dir:
+                        print(
+                            f"  Skipped source delete (outside target dir): {src_name}"
+                        )
+                        continue
+                    # Guard: when the merged title collides with an original
+                    # filename, src_path == target. Skip so we don't delete
+                    # the file we just wrote.
+                    if src_path == target_resolved:
+                        continue
+                    if src_path.exists():
+                        src_path.unlink()
+                        print(f"  Deleted {src_name}")
+                adopted += 1
+            else:
+                print("Skipped.")
+                rejected += 1
 
         content_file.unlink(missing_ok=True)
         meta_file.unlink(missing_ok=True)
@@ -1317,9 +1381,16 @@ def main() -> None:
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
 
     # adopt-staged
-    subparsers.add_parser(
+    adopt_p = subparsers.add_parser(
         "adopt-staged",
         help="Review files in the staging dir through the approval gate and adopt accepted ones",
+    )
+    adopt_p.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Auto-approve all staged items without prompting "
+             "(for non-TTY / coding-agent workflows where stdin is not interactive)",
     )
 
     # solve

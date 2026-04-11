@@ -3,12 +3,14 @@
 import json
 import logging
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from contemplative_agent.cli import (
     main,
+    _approve_delete,
     _handle_adopt_staged,
     _handle_rules_stocktake,
     _handle_skill_stocktake,
@@ -630,11 +632,15 @@ class TestAdoptStaged:
 
     def _run_adopt(self, tmp_path, staged_dir, *, inputs: list[str]):
         audit = tmp_path / "logs" / "audit.jsonl"
+        # MagicMock attributes return MagicMock (truthy) by default, so set
+        # `yes` explicitly to exercise the interactive prompt path.
+        args = MagicMock()
+        args.yes = False
         with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
              patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
              patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit), \
              patch("builtins.input", side_effect=inputs):
-            _handle_adopt_staged(MagicMock(), MagicMock())
+            _handle_adopt_staged(args, MagicMock())
 
     def test_empty_staging_dir_is_noop(self, tmp_path, capsys):
         staged_dir = tmp_path / ".staged"
@@ -1020,3 +1026,596 @@ class TestRulesStocktakeDirectMerge:
         assert target.exists(), "merge output was deleted by self-delete bug"
         assert merged_text in target.read_text()
         assert not (rules_dir / "b.md").exists()
+
+
+# ---- Drop feature tests ----
+
+
+class TestStageItemAction:
+    """StageItem.action field tests."""
+
+    def test_default_action_is_merge(self):
+        item = StageItem("a.md", "# A", Path("/tmp/a.md"))
+        assert item.action == "merge"
+
+    def test_drop_action(self):
+        item = StageItem("a.md", "# A", Path("/tmp/a.md"), action="drop")
+        assert item.action == "drop"
+
+
+class TestStageResultsDropAction:
+    """Drop items in _stage_results should record action in meta.json."""
+
+    def test_stages_drop_item_with_action_in_meta(self, tmp_path):
+        staged_dir = tmp_path / ".staged"
+        target = tmp_path / "skills" / "low-quality.md"
+        audit = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit):
+            _stage_results(
+                [StageItem("low-quality.md", "# LQ", target, action="drop")],
+                command="skill-stocktake-drop",
+            )
+        meta = json.loads((staged_dir / "low-quality.md.meta.json").read_text())
+        assert meta["action"] == "drop"
+        assert meta["command"] == "skill-stocktake-drop"
+        assert "sources" not in meta
+
+    def test_merge_item_omits_action_key(self, tmp_path):
+        staged_dir = tmp_path / ".staged"
+        target = tmp_path / "skills" / "merged.md"
+        audit = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit):
+            _stage_results(
+                [StageItem("merged.md", "# M", target)],
+                command="skill-stocktake",
+            )
+        meta = json.loads((staged_dir / "merged.md.meta.json").read_text())
+        assert "action" not in meta
+
+
+class TestApproveDelete:
+    """Tests for _approve_delete helper."""
+
+    def test_approve_on_y(self):
+        with patch("builtins.input", return_value="y"):
+            assert _approve_delete(Path("/tmp/x.md")) is True
+
+    def test_reject_on_n(self):
+        with patch("builtins.input", return_value="n"):
+            assert _approve_delete(Path("/tmp/x.md")) is False
+
+    def test_reject_on_empty(self):
+        with patch("builtins.input", return_value=""):
+            assert _approve_delete(Path("/tmp/x.md")) is False
+
+    def test_reject_on_eof(self):
+        with patch("builtins.input", side_effect=EOFError):
+            assert _approve_delete(Path("/tmp/x.md")) is False
+
+
+class TestAdoptStagedDrop:
+    """Tests for adopt-staged handling of drop actions."""
+
+    def _stage_one(
+        self,
+        tmp_path,
+        *,
+        filename: str,
+        text: str,
+        target: Path,
+        command: str = "skill-stocktake-drop",
+        action: Literal["merge", "drop"] = "drop",
+    ) -> Path:
+        staged_dir = tmp_path / ".staged"
+        audit = tmp_path / "logs" / "audit.jsonl"
+        item = StageItem(filename, text, target, action=action)
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit):
+            _stage_results([item], command=command)
+        return staged_dir
+
+    def _run_adopt(self, tmp_path, staged_dir, *, inputs: list[str]):
+        audit = tmp_path / "logs" / "audit.jsonl"
+        args = MagicMock()
+        args.yes = False
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit), \
+             patch("builtins.input", side_effect=inputs):
+            _handle_adopt_staged(args, MagicMock())
+
+    def test_adopt_drop_approved_deletes_target(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        target = skills_dir / "low-quality.md"
+        target.write_text("# Low quality skill\nshort")
+
+        staged = self._stage_one(
+            tmp_path, filename="low-quality.md", text="# Low quality skill\nshort",
+            target=target,
+        )
+        self._run_adopt(tmp_path, staged, inputs=["y"])
+        assert not target.exists(), "target should be deleted on drop approval"
+
+    def test_adopt_drop_rejected_keeps_target(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        target = skills_dir / "low-quality.md"
+        target.write_text("# Low quality skill\nshort")
+
+        staged = self._stage_one(
+            tmp_path, filename="low-quality.md", text="# Low quality skill\nshort",
+            target=target,
+        )
+        self._run_adopt(tmp_path, staged, inputs=["n"])
+        assert target.exists(), "target should be kept on drop rejection"
+
+    def test_adopt_drop_logs_audit(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        target = skills_dir / "low-quality.md"
+        target.write_text("# LQ")
+
+        audit = tmp_path / "logs" / "audit.jsonl"
+        staged = self._stage_one(
+            tmp_path, filename="low-quality.md", text="# LQ", target=target,
+        )
+        self._run_adopt(tmp_path, staged, inputs=["y"])
+
+        lines = audit.read_text().strip().splitlines()
+        decisions = [json.loads(line) for line in lines]
+        adopted = [d for d in decisions if d["source"] == "stage-adopted"]
+        assert len(adopted) >= 1
+        assert adopted[-1]["decision"] == "approved"
+        assert adopted[-1]["command"] == "skill-stocktake-drop"
+
+    def test_adopt_drop_already_absent_is_noop(self, tmp_path):
+        """Drop of non-existent file should not error."""
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        target = skills_dir / "gone.md"  # does not exist
+
+        staged = self._stage_one(
+            tmp_path, filename="gone.md", text="# Ghost", target=target,
+        )
+        # Should not raise
+        self._run_adopt(tmp_path, staged, inputs=["y"])
+
+    def test_adopt_mixed_merge_and_drop(self, tmp_path):
+        """Merge + drop items coexist in the same staging batch."""
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        merge_target = skills_dir / "merged.md"
+        drop_target = skills_dir / "low-q.md"
+        drop_target.write_text("# low quality")
+
+        staged_dir = tmp_path / ".staged"
+        audit = tmp_path / "logs" / "audit.jsonl"
+        merge_item = StageItem("merged.md", "# Merged body", merge_target)
+        drop_item = StageItem(
+            "low-q.md",
+            "# low quality",
+            drop_target,
+            action="drop",
+            command="skill-stocktake-drop",
+        )
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit):
+            _stage_results([merge_item, drop_item], command="skill-stocktake")
+
+        self._run_adopt(tmp_path, staged_dir, inputs=["y", "y"])
+        assert merge_target.exists(), "merged file should be written"
+        assert not drop_target.exists(), "drop target should be deleted"
+
+
+class TestAdoptStagedYesFlag:
+    """Tests for `adopt-staged --yes` non-interactive auto-approval.
+
+    Coding agents (Claude Code, etc.) run the CLI in a non-TTY bash sandbox
+    where `input()` returns EOF and rejects everything. The `--yes` flag
+    skips the prompts entirely and records adoptions in the audit log with
+    `source="stage-adopted-auto"` so they can be distinguished from
+    interactively reviewed adoptions.
+    """
+
+    def _run_adopt_yes(self, tmp_path, staged_dir):
+        audit = tmp_path / "logs" / "audit.jsonl"
+        args = MagicMock()
+        args.yes = True
+        # Patch input() with a sentinel that fails the test if called.
+        # If --yes works correctly, the prompt path should never run.
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit), \
+             patch("builtins.input") as mock_input:
+            _handle_adopt_staged(args, MagicMock())
+            mock_input.assert_not_called()
+
+    def test_yes_flag_approves_merge_without_prompt(self, tmp_path):
+        target = tmp_path / "skills" / "a.md"
+        staged_dir = tmp_path / ".staged"
+        item = StageItem("a.md", "# Auto-approved A", target)
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch(
+                 "contemplative_agent.cli.AUDIT_LOG_PATH",
+                 tmp_path / "logs" / "audit.jsonl",
+             ):
+            _stage_results([item], command="insight")
+
+        self._run_adopt_yes(tmp_path, staged_dir)
+
+        assert target.exists()
+        assert target.read_text().startswith("# Auto-approved A")
+        # staging cleared
+        assert not (staged_dir / "a.md").exists()
+        assert not (staged_dir / "a.md.meta.json").exists()
+
+        # Audit log records the adoption with the auto source value
+        audit_lines = (tmp_path / "logs" / "audit.jsonl").read_text().strip().splitlines()
+        decisions = [json.loads(line) for line in audit_lines]
+        adopted = [d for d in decisions if d["source"] == "stage-adopted-auto"]
+        assert len(adopted) == 1
+        assert adopted[0]["decision"] == "approved"
+        assert adopted[0]["command"] == "insight"
+
+    def test_yes_flag_approves_drop_without_prompt(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        target = skills_dir / "low-quality.md"
+        target.write_text("# low quality body")
+        staged_dir = tmp_path / ".staged"
+        item = StageItem(
+            "low-quality.md",
+            "# low quality body",
+            target,
+            action="drop",
+            command="skill-stocktake-drop",
+        )
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch(
+                 "contemplative_agent.cli.AUDIT_LOG_PATH",
+                 tmp_path / "logs" / "audit.jsonl",
+             ):
+            _stage_results([item], command="skill-stocktake")
+
+        self._run_adopt_yes(tmp_path, staged_dir)
+
+        assert not target.exists(), "drop target should be deleted under --yes"
+        assert not (staged_dir / "low-quality.md.meta.json").exists()
+
+        audit_lines = (tmp_path / "logs" / "audit.jsonl").read_text().strip().splitlines()
+        decisions = [json.loads(line) for line in audit_lines]
+        adopted = [d for d in decisions if d["source"] == "stage-adopted-auto"]
+        assert len(adopted) == 1
+        assert adopted[0]["decision"] == "approved"
+        assert adopted[0]["command"] == "skill-stocktake-drop"
+
+    def test_yes_flag_approves_mixed_merge_and_drop(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        merge_target = skills_dir / "merged.md"
+        drop_target = skills_dir / "low-q.md"
+        drop_target.write_text("# low quality")
+        staged_dir = tmp_path / ".staged"
+
+        merge_item = StageItem("merged.md", "# Merged body", merge_target)
+        drop_item = StageItem(
+            "low-q.md",
+            "# low quality",
+            drop_target,
+            action="drop",
+            command="skill-stocktake-drop",
+        )
+        with patch("contemplative_agent.cli.STAGED_DIR", staged_dir), \
+             patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch(
+                 "contemplative_agent.cli.AUDIT_LOG_PATH",
+                 tmp_path / "logs" / "audit.jsonl",
+             ):
+            _stage_results([merge_item, drop_item], command="skill-stocktake")
+
+        self._run_adopt_yes(tmp_path, staged_dir)
+
+        assert merge_target.exists(), "merge should be written under --yes"
+        assert not drop_target.exists(), "drop should be deleted under --yes"
+        # staging fully cleared
+        assert list(staged_dir.glob("*.meta.json")) == []
+
+        audit_lines = (tmp_path / "logs" / "audit.jsonl").read_text().strip().splitlines()
+        decisions = [json.loads(line) for line in audit_lines]
+        adopted = [d for d in decisions if d["source"] == "stage-adopted-auto"]
+        assert len(adopted) == 2
+        commands = sorted(d["command"] for d in adopted)
+        assert commands == ["skill-stocktake", "skill-stocktake-drop"]
+        assert all(d["decision"] == "approved" for d in adopted)
+
+
+class TestSkillStocktakeDirectDrop:
+    """Tests for skill-stocktake direct-mode drop (quality issue deletion)."""
+
+    def _make_result_with_quality_issues(self, quality_files, body="short"):
+        from contemplative_agent.core.stocktake import QualityIssue, StocktakeResult
+
+        return StocktakeResult(
+            merge_groups=(),
+            quality_issues=tuple(
+                QualityIssue(filename=f, reason="body < 200 chars")
+                for f in quality_files
+            ),
+            total_files=len(quality_files),
+            items=tuple((f, body) for f in quality_files),
+        )
+
+    def _run_direct_drop(self, tmp_path, inputs, *, quality_files=("lq.md",)):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        for f in quality_files:
+            (skills_dir / f).write_text("# short")
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        args = MagicMock()
+        args.stage = False
+
+        fake_result = self._make_result_with_quality_issues(quality_files)
+        with patch(
+            "contemplative_agent.core.stocktake.run_skill_stocktake",
+            return_value=fake_result,
+        ), patch("contemplative_agent.cli.SKILLS_DIR", skills_dir), patch(
+            "contemplative_agent.cli.AUDIT_LOG_PATH", audit
+        ), patch("builtins.input", side_effect=inputs):
+            _handle_skill_stocktake(args, MagicMock())
+
+        return skills_dir, audit
+
+    def test_direct_drop_approved_deletes_file(self, tmp_path):
+        skills_dir, audit = self._run_direct_drop(tmp_path, inputs=["y"])
+        assert not (skills_dir / "lq.md").exists()
+
+    def test_direct_drop_rejected_keeps_file(self, tmp_path):
+        skills_dir, audit = self._run_direct_drop(tmp_path, inputs=["n"])
+        assert (skills_dir / "lq.md").exists()
+
+    def test_direct_drop_logs_audit(self, tmp_path):
+        skills_dir, audit = self._run_direct_drop(tmp_path, inputs=["y"])
+        assert audit.exists()
+        record = json.loads(audit.read_text().strip())
+        assert record["command"] == "skill-stocktake-drop"
+        assert record["decision"] == "approved"
+        assert record["source"] == "direct"
+
+    def test_staged_drop_creates_staging_entry(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "lq.md").write_text("# short")
+        staged_dir = tmp_path / ".staged"
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        args = MagicMock()
+        args.stage = True
+
+        fake_result = self._make_result_with_quality_issues(["lq.md"])
+        with patch(
+            "contemplative_agent.core.stocktake.run_skill_stocktake",
+            return_value=fake_result,
+        ), patch("contemplative_agent.cli.SKILLS_DIR", skills_dir), patch(
+            "contemplative_agent.cli.STAGED_DIR", staged_dir
+        ), patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), patch(
+            "contemplative_agent.cli.AUDIT_LOG_PATH", audit
+        ):
+            _handle_skill_stocktake(args, MagicMock())
+
+        meta = json.loads((staged_dir / "lq.md.meta.json").read_text())
+        assert meta["command"] == "skill-stocktake-drop"
+        assert meta["action"] == "drop"
+
+
+class TestRulesStocktakeDirectDrop:
+    """Tests for rules-stocktake direct-mode drop (quality issue deletion)."""
+
+    def _make_result_with_quality_issues(self, quality_files, body="short"):
+        from contemplative_agent.core.stocktake import QualityIssue, StocktakeResult
+
+        return StocktakeResult(
+            merge_groups=(),
+            quality_issues=tuple(
+                QualityIssue(filename=f, reason='missing "**Practice:**" section')
+                for f in quality_files
+            ),
+            total_files=len(quality_files),
+            items=tuple((f, body) for f in quality_files),
+        )
+
+    def _run_direct_drop(self, tmp_path, inputs, *, quality_files=("old-rule.md",)):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        for f in quality_files:
+            (rules_dir / f).write_text("# old rule without Practice/Rationale")
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        args = MagicMock()
+        args.stage = False
+
+        fake_result = self._make_result_with_quality_issues(quality_files)
+        with patch(
+            "contemplative_agent.core.stocktake.run_rules_stocktake",
+            return_value=fake_result,
+        ), patch("contemplative_agent.cli.RULES_DIR", rules_dir), patch(
+            "contemplative_agent.cli.AUDIT_LOG_PATH", audit
+        ), patch("builtins.input", side_effect=inputs):
+            _handle_rules_stocktake(args, MagicMock())
+
+        return rules_dir, audit
+
+    def test_direct_drop_approved_deletes_file(self, tmp_path):
+        rules_dir, audit = self._run_direct_drop(tmp_path, inputs=["y"])
+        assert not (rules_dir / "old-rule.md").exists()
+
+    def test_direct_drop_rejected_keeps_file(self, tmp_path):
+        rules_dir, audit = self._run_direct_drop(tmp_path, inputs=["n"])
+        assert (rules_dir / "old-rule.md").exists()
+
+    def test_direct_drop_logs_audit(self, tmp_path):
+        rules_dir, audit = self._run_direct_drop(tmp_path, inputs=["y"])
+        assert audit.exists()
+        record = json.loads(audit.read_text().strip())
+        assert record["command"] == "rules-stocktake-drop"
+        assert record["decision"] == "approved"
+        assert record["source"] == "direct"
+
+    def test_staged_drop_creates_staging_entry(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        (rules_dir / "old-rule.md").write_text("# old")
+        staged_dir = tmp_path / ".staged"
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        args = MagicMock()
+        args.stage = True
+
+        fake_result = self._make_result_with_quality_issues(["old-rule.md"])
+        with patch(
+            "contemplative_agent.core.stocktake.run_rules_stocktake",
+            return_value=fake_result,
+        ), patch("contemplative_agent.cli.RULES_DIR", rules_dir), patch(
+            "contemplative_agent.cli.STAGED_DIR", staged_dir
+        ), patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), patch(
+            "contemplative_agent.cli.AUDIT_LOG_PATH", audit
+        ):
+            _handle_rules_stocktake(args, MagicMock())
+
+        meta = json.loads((staged_dir / "old-rule.md.meta.json").read_text())
+        assert meta["command"] == "rules-stocktake-drop"
+        assert meta["action"] == "drop"
+
+
+class TestStocktakeStageMergeAndDropCoexist:
+    """Regression: when both merge_groups and quality_issues are present
+    and --stage is set, all items must survive in STAGED_DIR.
+
+    Previous bug: _handle_*_stocktake called _stage_results twice (once
+    for merges, once for drops). _stage_results wipes STAGED_DIR on every
+    call, so the second call erased the first batch — losing the merges.
+    Fix: build a single staged_batch list and call _stage_results once.
+    """
+
+    def _make_mixed_result(self, merge_files, quality_files, body="x" * 250):
+        from contemplative_agent.core.stocktake import (
+            MergeGroup,
+            QualityIssue,
+            StocktakeResult,
+        )
+
+        return StocktakeResult(
+            merge_groups=(
+                MergeGroup(filenames=tuple(merge_files), reason="dup"),
+            ),
+            quality_issues=tuple(
+                QualityIssue(filename=f, reason="missing section")
+                for f in quality_files
+            ),
+            total_files=len(merge_files) + len(quality_files),
+            items=tuple(
+                (f, body) for f in (*merge_files, *quality_files)
+            ),
+        )
+
+    def test_skill_stage_merge_and_drop_both_survive(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        for f in ("a.md", "b.md", "lq.md"):
+            (skills_dir / f).write_text("# body")
+        staged_dir = tmp_path / ".staged"
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        args = MagicMock()
+        args.stage = True
+
+        fake_result = self._make_mixed_result(
+            merge_files=("a.md", "b.md"),
+            quality_files=("lq.md",),
+        )
+        merged_text = "# Merged Skill\n\n## Problem\nx\n\n## Solution\ny\n"
+
+        with patch(
+            "contemplative_agent.core.stocktake.run_skill_stocktake",
+            return_value=fake_result,
+        ), patch(
+            "contemplative_agent.core.stocktake.merge_group",
+            return_value=merged_text,
+        ), patch("contemplative_agent.cli.SKILLS_DIR", skills_dir), patch(
+            "contemplative_agent.cli.STAGED_DIR", staged_dir
+        ), patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), patch(
+            "contemplative_agent.cli.AUDIT_LOG_PATH", audit
+        ):
+            _handle_skill_stocktake(args, MagicMock())
+
+        meta_files = sorted(staged_dir.glob("*.meta.json"))
+        assert len(meta_files) == 2, (
+            f"expected 2 staged items (1 merge + 1 drop), got {len(meta_files)}: "
+            f"{[p.name for p in meta_files]}"
+        )
+
+        commands = sorted(
+            json.loads(p.read_text())["command"] for p in meta_files
+        )
+        assert commands == ["skill-stocktake", "skill-stocktake-drop"]
+
+        # The drop meta should be for lq.md and carry action="drop"
+        drop_meta = json.loads((staged_dir / "lq.md.meta.json").read_text())
+        assert drop_meta["action"] == "drop"
+        assert drop_meta["command"] == "skill-stocktake-drop"
+
+    def test_rules_stage_merge_and_drop_both_survive(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        for f in ("a.md", "b.md", "lq.md"):
+            (rules_dir / f).write_text("# body")
+        staged_dir = tmp_path / ".staged"
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        args = MagicMock()
+        args.stage = True
+
+        fake_result = self._make_mixed_result(
+            merge_files=("a.md", "b.md"),
+            quality_files=("lq.md",),
+        )
+        merged_text = (
+            "# Merged Rule\n\n**Practice:** do x\n\n**Rationale:** because y\n"
+        )
+
+        with patch(
+            "contemplative_agent.core.stocktake.run_rules_stocktake",
+            return_value=fake_result,
+        ), patch(
+            "contemplative_agent.core.stocktake.merge_group",
+            return_value=merged_text,
+        ), patch("contemplative_agent.cli.RULES_DIR", rules_dir), patch(
+            "contemplative_agent.cli.STAGED_DIR", staged_dir
+        ), patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), patch(
+            "contemplative_agent.cli.AUDIT_LOG_PATH", audit
+        ):
+            _handle_rules_stocktake(args, MagicMock())
+
+        meta_files = sorted(staged_dir.glob("*.meta.json"))
+        assert len(meta_files) == 2, (
+            f"expected 2 staged items (1 merge + 1 drop), got {len(meta_files)}: "
+            f"{[p.name for p in meta_files]}"
+        )
+
+        commands = sorted(
+            json.loads(p.read_text())["command"] for p in meta_files
+        )
+        assert commands == ["rules-stocktake", "rules-stocktake-drop"]
+
+        drop_meta = json.loads((staged_dir / "lq.md.meta.json").read_text())
+        assert drop_meta["action"] == "drop"
+        assert drop_meta["command"] == "rules-stocktake-drop"

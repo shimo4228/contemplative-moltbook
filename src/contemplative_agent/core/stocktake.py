@@ -256,6 +256,7 @@ def run_rules_stocktake(
         merge_groups=tuple(merge_groups),
         quality_issues=tuple(quality_issues),
         total_files=len(items),
+        items=tuple(items),
     )
 
 
