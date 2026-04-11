@@ -113,25 +113,28 @@ Step 3 — Importance:
 
 ### Identity Distill (`distill_identity() → IdentityResult`)
 
+入力: `uncategorized` カテゴリの `self-reflection` subcategory パターンのみ (importance 降順 top 50)。行動規範系の他 subcategory は insight に routing され、identity には入らない。
+
 ```
 Step 1: LLM(IDENTITY_DISTILL_PROMPT) → 自由分析
 Step 2: LLM(IDENTITY_REFINE_PROMPT) → 簡潔なペルソナ
 → validate_identity_content() → IdentityResult（書き込みは cli.py が承認後に実行）
 ```
 
-## Insight Pipeline (core/insight.py, 343L)
+## Insight Pipeline (core/insight.py)
 
 `extract_insight() → InsightResult`
 
-2段階方式: グルーピング → 個別スキル生成
+1 subcategory = 1 skill のシンプルな構造。
 
-1. KnowledgeStore から uncategorized パターンをサブカテゴリ別バッチに分割
-2. `_group_patterns()`: LLM(INSIGHT_GROUP_PROMPT) でバッチ内パターンをテーマ別グループに分割（JSON constrained decoding）。少量バッチはスキップ
-3. `_extract_skill()`: 各グループに対し LLM(INSIGHT_EXTRACTION_PROMPT) → 1スキル Markdown
-4. validate + slugify → SkillResult のリスト
-5. 書き込みは cli.py が個別承認後に実行
+1. KnowledgeStore から uncategorized パターンを取得（差分 or full）
+2. `self-reflection` subcategory を除外（distill_identity に routing）
+3. `_build_subcategory_batches()`: subcategory ごとに importance 降順 sort → top 10 (BATCH_SIZE) で cap
+4. `_extract_skill()`: 各 subcategory バッチに対し LLM(INSIGHT_EXTRACTION_PROMPT) → 1 スキル Markdown
+5. validate + slugify → SkillResult のリスト
+6. 書き込みは cli.py が個別承認後に実行
 
-ソート: importance × rarity 複合スコア降順。品質管理は skill-stocktake に委任。
+ソート: importance 降順。subcategory 横断の merge/dedup/交差テーマ発見は skill-stocktake に委任（insight = narrow generator / stocktake = broad consolidator）。
 
 ## Rules Distill Pipeline (core/rules_distill.py, 242L)
 

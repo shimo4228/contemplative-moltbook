@@ -122,4 +122,4 @@ EpisodeLog (JSONL) → pomdp.build_matrices()
 - `patch('contemplative_agent.adapters.moltbook.reply_handler.LLM')`
 - `patch('contemplative_agent.adapters.moltbook.post_pipeline.Scheduler')`
 
-**Test count**: 835 tests, 21 test files.
+**Test count**: 869 tests, 21 test files.

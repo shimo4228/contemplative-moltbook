@@ -68,7 +68,7 @@ config/                         -- externalized templates (domain-swappable, git
   commented_cache.json          -- post dedup cache (0600)
 ```
 
-**Total: 38 modules, ~8500 LOC, 21 test files, 835 tests**
+**Total: 38 modules, ~8500 LOC, 21 test files, 869 tests**
 
 ## Key Classes
 
@@ -91,7 +91,7 @@ config/                         -- externalized templates (domain-swappable, git
 | `Scheduler` | core/scheduler.py | 165 | Rate limit enforcement |
 | `DomainConfig` / `PromptTemplates` | core/domain.py | — | @dataclass(frozen=True) |
 
-## CLI Commands (17 subcommands)
+## CLI Commands (19 subcommands)
 
 ```
 contemplative-agent init [--template <character>] [--config-dir PATH]
@@ -103,11 +103,12 @@ contemplative-agent run [--session M] [--approve|--guarded|--auto]
 contemplative-agent distill [--days N] [--dry-run] [--no-axioms]
 contemplative-agent distill-identity [--days N] [--dry-run]
 contemplative-agent insight [--days N] [--stage] [--full]
+contemplative-agent adopt-staged                            -- approve & adopt staged outputs (Tier 1, no LLM)
 contemplative-agent rules-distill [--full]
 contemplative-agent amend-constitution
 
 # Audit
-contemplative-agent skill-stocktake
+contemplative-agent skill-stocktake [--stage]
 contemplative-agent rules-stocktake
 
 # Reports
