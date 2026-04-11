@@ -464,14 +464,11 @@ class TestSubcategoryBatches:
     def _make_pattern(
         text: str,
         subcategory: str | None = None,
-        rarity: float | None = None,
         importance: float | None = None,
     ) -> dict:
         p: dict = {"pattern": text, "category": "uncategorized"}
         if subcategory is not None:
             p["subcategory"] = subcategory
-        if rarity is not None:
-            p["rarity"] = rarity
         if importance is not None:
             p["importance"] = importance
         return p
@@ -488,29 +485,30 @@ class TestSubcategoryBatches:
         names = {name for name, _ in batches}
         assert names == {"communication", "reasoning", "social"}
 
-    def test_composite_score_priority(self) -> None:
-        """Higher importance*rarity patterns come first within a batch."""
+    def test_importance_priority(self) -> None:
+        """Higher importance patterns come first within a batch."""
         patterns = [
-            self._make_pattern("low-both", subcategory="technical", rarity=2.0, importance=0.3),
-            self._make_pattern("high-rarity", subcategory="technical", rarity=9.0, importance=0.5),
-            self._make_pattern("high-importance", subcategory="technical", rarity=3.0, importance=0.9),
+            self._make_pattern("low", subcategory="technical", importance=0.3),
+            self._make_pattern("high", subcategory="technical", importance=0.9),
+            self._make_pattern("mid", subcategory="technical", importance=0.5),
         ]
         batches = _build_subcategory_batches(patterns, batch_size=30)
         assert len(batches) == 1
         name, texts = batches[0]
         assert name == "technical"
-        # Scores: high-rarity=4.5, high-importance=2.7, low-both=0.6
-        assert texts == ["high-rarity", "high-importance", "low-both"]
+        assert texts == ["high", "mid", "low"]
 
     def test_batch_size_caps_per_subcategory(self) -> None:
         """Each subcategory is capped at batch_size patterns."""
-        patterns = [self._make_pattern(f"p{i}", subcategory="content", rarity=float(i)) for i in range(10)]
+        patterns = [
+            self._make_pattern(f"p{i}", subcategory="content", importance=float(i) / 10)
+            for i in range(10)
+        ]
         batches = _build_subcategory_batches(patterns, batch_size=5)
         assert len(batches) == 1
         _, texts = batches[0]
         assert len(texts) == 5
-        # Highest composite score first (importance defaults to 0.5)
-        # Scores: p9=4.5, p8=4.0, p7=3.5, p6=3.0, p5=2.5
+        # Highest importance first
         assert texts[0] == "p9"
 
     def test_small_subcategories_merged(self) -> None:

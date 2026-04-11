@@ -39,7 +39,6 @@ def _make_log(tmp_path):
 
 
 @patch("contemplative_agent.core.distill.DISTILL_SUBCATEGORIZE_PROMPT", "")
-@patch("contemplative_agent.core.distill.DISTILL_RARITY_PROMPT", "")
 @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "")
 class TestDistill:
     """3-step pipeline: Step 1 (extract) → Step 2 (summarize) → Step 3 (importance).
@@ -784,7 +783,6 @@ class TestKnowledgeStoreCategory:
 
 
 @patch("contemplative_agent.core.distill.DISTILL_SUBCATEGORIZE_PROMPT", "")
-@patch("contemplative_agent.core.distill.DISTILL_RARITY_PROMPT", "")
 class TestDistillWithClassification:
     """Integration: Step 0 classification (per-record) + Step 1-3 pipeline."""
 
@@ -1063,7 +1061,6 @@ class TestConstrainedDecoding:
 
 from contemplative_agent.core.distill import (
     _subcategorize_patterns,
-    _score_rarity_existing,
     SUBCATEGORIZE_SCHEMA,
     VALID_SUBCATEGORIES,
 )
@@ -1143,82 +1140,8 @@ class TestSubcategorize:
         assert len(VALID_SUBCATEGORIES) == 7
 
 
-class TestRarityScoring:
-    """Tests for the rarity/novelty scoring step."""
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_rarity_scoring_basic(self, mock_generate, tmp_path):
-        mock_generate.return_value = json.dumps({"scores": [7]})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        # Existing pattern with rarity already set
-        ks.add_learned_pattern(
-            "Common pattern about engagement rates",
-            category="uncategorized",
-            subcategory="communication",
-            rarity=0.5,
-        )
-        # New pattern without rarity
-        ks.add_learned_pattern(
-            "Rare pattern about recursive identity loops",
-            category="uncategorized",
-            subcategory="communication",
-        )
-
-        count = _score_rarity_existing(ks)
-        assert count == 1
-        assert ks._learned_patterns[1]["rarity"] == 0.7
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_rarity_no_existing_patterns(self, mock_generate, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "First pattern ever in this subcategory",
-            category="uncategorized",
-            subcategory="technical",
-        )
-
-        count = _score_rarity_existing(ks)
-        assert count == 1
-        assert ks._learned_patterns[0]["rarity"] == 1.0
-        mock_generate.assert_not_called()
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_rarity_dry_run(self, mock_generate, tmp_path):
-        mock_generate.return_value = json.dumps({"scores": [9]})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Existing baseline pattern for comparison purposes",
-            category="uncategorized",
-            subcategory="reasoning",
-            rarity=0.5,
-        )
-        ks.add_learned_pattern(
-            "New pattern needs rarity scoring against existing",
-            category="uncategorized",
-            subcategory="reasoning",
-        )
-
-        count = _score_rarity_existing(ks, dry_run=True)
-        assert count == 1
-        assert "rarity" not in ks._learned_patterns[1]
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_rarity_skips_already_scored(self, mock_generate, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern with rarity already set",
-            category="uncategorized",
-            subcategory="social",
-            rarity=0.8,
-        )
-
-        count = _score_rarity_existing(ks)
-        assert count == 0
-        mock_generate.assert_not_called()
-
-
 class TestKnowledgeStoreEnrichFields:
-    """Tests for subcategory and rarity field persistence."""
+    """Tests for subcategory field persistence."""
 
     def test_subcategory_round_trip(self, tmp_path):
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
@@ -1233,21 +1156,8 @@ class TestKnowledgeStoreEnrichFields:
         ks2.load()
         assert ks2._learned_patterns[0]["subcategory"] == "reasoning"
 
-    def test_rarity_round_trip(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern with rarity",
-            category="uncategorized",
-            rarity=0.9,
-        )
-        ks.save()
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert ks2._learned_patterns[0]["rarity"] == 0.9
-
     def test_missing_fields_default(self, tmp_path):
-        """Patterns without subcategory/rarity load without error."""
+        """Patterns without subcategory load without error."""
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Old pattern without new fields", category="uncategorized")
         ks.save()
@@ -1255,7 +1165,6 @@ class TestKnowledgeStoreEnrichFields:
         ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks2.load()
         assert "subcategory" not in ks2._learned_patterns[0]
-        assert "rarity" not in ks2._learned_patterns[0]
 
     def test_get_learned_patterns_by_subcategory(self, tmp_path):
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")

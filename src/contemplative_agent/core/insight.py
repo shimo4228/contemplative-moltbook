@@ -27,7 +27,6 @@ MIN_PATTERNS_REQUIRED = 3
 MAX_SLUG_LENGTH = 50
 BATCH_SIZE = 30
 _FALLBACK_SUBCATEGORY = "other"
-_FALLBACK_RARITY = 5.0
 
 
 @dataclass(frozen=True)
@@ -148,17 +147,17 @@ def _build_subcategory_batches(
     batch_size: int = BATCH_SIZE,
     min_batch_size: int = MIN_PATTERNS_REQUIRED,
 ) -> List[Tuple[str, List[str]]]:
-    """Build one batch per subcategory, prioritizing high rarity within each.
+    """Build one batch per subcategory, prioritizing high importance within each.
 
     Each batch contains patterns from a single subcategory so the LLM can
     synthesize a focused, thematically coherent skill. Cross-category synthesis
     is deferred to skill-stocktake.
 
-    Within each subcategory, patterns are sorted by rarity descending and
+    Within each subcategory, patterns are sorted by importance descending and
     capped at batch_size. Subcategories with fewer than min_batch_size
     patterns are merged into a single "mixed" batch.
 
-    Falls back gracefully when subcategory/rarity are missing (enrich not run):
+    Falls back gracefully when subcategory is missing (enrich not run):
     all patterns land in "other" group.
 
     Returns:
@@ -175,7 +174,7 @@ def _build_subcategory_batches(
     for key in sorted(groups.keys()):
         group = groups[key]
         group.sort(
-            key=lambda pat: pat.get("importance", 0.5) * pat.get("rarity", _FALLBACK_RARITY),
+            key=lambda pat: pat.get("importance", 0.5),
             reverse=True,
         )
         texts = [p["pattern"] for p in group[:batch_size]]

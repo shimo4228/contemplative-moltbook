@@ -714,8 +714,8 @@ def _handle_enrich(args: argparse.Namespace, _parser: argparse.ArgumentParser) -
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     knowledge_store.load()
 
-    sub_count, rarity_count = enrich(knowledge_store, dry_run=args.dry_run)
-    print(f"Subcategorized: {sub_count}, Rarity scored: {rarity_count}")
+    sub_count = enrich(knowledge_store, dry_run=args.dry_run)
+    print(f"Subcategorized: {sub_count}")
 
 
 def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
@@ -1179,7 +1179,7 @@ def main() -> None:
 
     # enrich
     enrich_parser = subparsers.add_parser(
-        "enrich", help="Enrich existing patterns with subcategories and rarity scores"
+        "enrich", help="Enrich existing patterns with subcategories"
     )
     enrich_parser.add_argument(
         "--dry-run", action="store_true", help="Show results without writing"
