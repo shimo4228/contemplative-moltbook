@@ -15,7 +15,7 @@ from .config import (
     COMMENT_PACING_MIN_SECONDS,
 )
 from .content import ContentManager
-from .dedup import is_promotional
+from .dedup import is_promotional, is_repeat_target_for_author
 from .llm_functions import score_relevance
 from .session_context import SessionContext
 from ...core.config import VALID_ID_PATTERN
@@ -200,6 +200,28 @@ class FeedManager:
             logger.debug("Already commented on %s, skipping", post_id)
             return False
 
+        # Same-author repeat-topic gate: even if the post_id is new and the
+        # 24h count is under 3, an author that paraphrases the same thesis
+        # across many posts (the 30+ Armenian-linguistics replays in the
+        # 2026-04-12 weekly report) will trigger this. Body Jaccard against
+        # the past 7 days of original_post bodies we commented on for this
+        # author.
+        if author_id:
+            prior_targets = ctx.memory.get_prior_comment_targets(
+                author_id, days=7, limit=7
+            )
+            if prior_targets:
+                is_repeat, sim = is_repeat_target_for_author(
+                    post_text, prior_targets
+                )
+                if is_repeat:
+                    logger.info(
+                        "Skipped post %s: same-author repeat topic "
+                        "(jaccard=%.2f)",
+                        post_id[:12], sim,
+                    )
+                    return False
+
         # Per-author 24h rate limit: prevent the '15 replies to the same
         # linguistics post' phenomenon. The same author flooding the feed
         # with template-generated content (or genuine reposts) gets engaged
@@ -290,17 +312,17 @@ class FeedManager:
                 f"Commented on {post_id} (relevance: {score:.2f})"
             )
             logger.info(">> Comment on %s:\n%s", post_id[:12], comment)
+            author = post.get("author") or {}
+            agent_name = author.get("name", "unknown")
+            agent_id = author.get("id", "unknown")
             ctx.memory.episodes.append("activity", {
                 "action": "comment",
                 "post_id": post_id,
                 "content": comment,
                 "original_post": post_text,
                 "relevance": f"{score:.2f}",
+                "target_agent_id": agent_id,
             })
-            # Record interaction in memory
-            author = post.get("author") or {}
-            agent_name = author.get("name", "unknown")
-            agent_id = author.get("id", "unknown")
             ctx.memory.record_interaction(
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 agent_id=agent_id,

@@ -10,6 +10,7 @@ from typing import Callable
 
 from .client import MoltbookClient, MoltbookClientError
 from .config import ADAPTIVE_BACKOFF
+from .dedup import is_promotional
 from .llm_functions import generate_reply
 from .session_context import SessionContext
 from ...core.config import VALID_ID_PATTERN
@@ -206,6 +207,17 @@ class ReplyHandler:
         replier_name: str,
     ) -> None:
         """Generate and send a reply to a comment, recording interactions."""
+        # Promotional gate. _handle_post_comments passes original_post=""
+        # (no body fetched in that path) — guard against running the regex
+        # on an empty string just to return False.
+        if is_promotional(their_content) or (
+            original_post and is_promotional(original_post)
+        ):
+            logger.info(
+                "Skipped promotional reply target: %s", post_id[:12]
+            )
+            return
+
         ctx = self._ctx
         history = ctx.memory.get_history_with(replier_id, limit=5)
         history_summaries = [h.content_summary for h in history]

@@ -110,6 +110,51 @@ def is_duplicate_title(
     return False, best, best_title
 
 
+def is_repeat_target_for_author(
+    new_post_text: str,
+    prior_targets: Iterable[str],
+    threshold: float = 0.45,
+) -> tuple[bool, float]:
+    """Check if a new post is too similar to any prior comment target from
+    the same author.
+
+    Used by feed_manager.engage_with_post to suppress the "30+ replies to
+    paraphrases of the same Armenian-linguistics thesis" pattern flagged
+    in the 2026-04-12 weekly report. The signal is post body ∩ post body
+    (not title), because the same author typically reuses lexical anchors
+    when restating a single thesis across many posts.
+
+    Threshold rationale (0.45): Body Jaccard is more discriminating than
+    title Jaccard because token sets are larger and more vocabulary-rich.
+    A genuine paraphrase of the same thesis lands at 0.50-0.70 even after
+    stemming; unrelated bodies from the same author land below 0.30. The
+    0.45 floor leaves a comfortable gap on both sides. Tune via
+    weekly-2026-04-19 if the catch rate is wrong.
+
+    Args:
+        new_post_text: The candidate post body.
+        prior_targets: Iterable of prior original_post strings.
+        threshold: Minimum Jaccard score that counts as a repeat.
+
+    Returns:
+        (is_repeat, max_similarity_seen).
+    """
+    new_set = _tokens(new_post_text)
+    if not new_set:
+        return False, 0.0
+    best = 0.0
+    for prior in prior_targets:
+        prior_set = _tokens(prior)
+        if not prior_set:
+            continue
+        score = jaccard(new_set, prior_set)
+        if score > best:
+            best = score
+        if best >= threshold:
+            return True, best
+    return False, best
+
+
 # ---------------------------------------------------------------------------
 # Test content gate
 # ---------------------------------------------------------------------------
@@ -119,6 +164,13 @@ _TEST_PATTERNS: tuple[str, ...] = (
     "dynamic content",
     "lorem ipsum",
     "test post",
+    # The two values below are mock fixtures from
+    # tests/test_agent.py::test_posts_dynamic that leaked into the live
+    # episode log on Apr 7/10/11 (before tests/conftest.py isolated
+    # MOLTBOOK_HOME). Blocking them here is defence-in-depth in case any
+    # future code path writes them to the live feed.
+    "reflective note",
+    "a short body about alignment",
 )
 
 

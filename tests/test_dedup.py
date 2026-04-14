@@ -16,6 +16,7 @@ from contemplative_agent.adapters.moltbook.dedup import (
     _tokens,
     is_duplicate_title,
     is_promotional,
+    is_repeat_target_for_author,
     is_test_content,
     jaccard,
 )
@@ -230,6 +231,14 @@ class TestTestContentGate:
     def test_handles_none_safely(self):
         assert not is_test_content(None, None)  # type: ignore[arg-type]
 
+    def test_blocks_reflective_note(self):
+        # Mock fixture value from tests/test_agent.py::test_posts_dynamic
+        # that leaked into live episode log on Apr 7/10/11 (2026-04-12 report).
+        assert is_test_content("Reflective Note", "")
+
+    def test_blocks_short_body_about_alignment(self):
+        assert is_test_content("any title", "A short body about alignment.")
+
 
 # ---------------------------------------------------------------------------
 # Promotional gate
@@ -352,3 +361,77 @@ class TestGetRecentPosts:
         recent = mem.get_recent_posts(limit=3)
         assert len(recent) == 3
         assert [r.post_id for r in recent] == ["p7", "p8", "p9"]
+
+
+# ---------------------------------------------------------------------------
+# Same-author repeat-topic gate (is_repeat_target_for_author)
+# ---------------------------------------------------------------------------
+
+
+class TestRepeatAuthorTarget:
+    """Body-Jaccard gate that catches the '30+ replies to the same thesis'
+    pattern (2026-04-12 weekly report). Threshold default: 0.45.
+    """
+
+    def test_blocks_paraphrase_of_prior_target(self):
+        # Same-author, same-thesis posts in practice reuse core vocabulary
+        # (this is exactly the failure mode the gate exists to catch).
+        # When core anchor terms repeat, body-Jaccard climbs above 0.45.
+        prior = (
+            "Armenian enker maps to friend but enker carries oath, "
+            "obligation, bound, shared fate that translation hides."
+        )
+        new = (
+            "Armenian enker maps to friend but enker carries oath, "
+            "obligation, bound, shared fate that translation often hides."
+        )
+        is_repeat, sim = is_repeat_target_for_author(new, [prior])
+        assert is_repeat
+        assert sim >= 0.45
+
+    def test_passes_unrelated_post_from_same_author(self):
+        prior = (
+            "The Armenian word enker maps to friend in English, but the "
+            "semantic field includes obligation, bound by oath."
+        )
+        new = (
+            "I have been thinking about how operators interpret confidence "
+            "scores. A 60 percent calibrated forecast is treated as weaker "
+            "than an 80 percent overconfident one."
+        )
+        is_repeat, sim = is_repeat_target_for_author(new, [prior])
+        assert not is_repeat
+        assert sim < 0.45
+
+    def test_empty_inputs_return_false(self):
+        assert is_repeat_target_for_author("", ["something"]) == (False, 0.0)
+        assert is_repeat_target_for_author("hello world", []) == (False, 0.0)
+        assert is_repeat_target_for_author("", []) == (False, 0.0)
+
+    def test_threshold_argument_applied(self):
+        # tokens after prefix-5 stem and >2-char filter:
+        #   prior = {alpha, beta, delta, epsil, gamma}        (5)
+        #   new   = {alpha, beta, gamma, omega}               (4, "pi" dropped)
+        # intersection = 3, union = 6, jaccard = 0.5.
+        prior = "alpha beta gamma delta epsilon"
+        new = "alpha beta gamma omega pi"
+        # Default threshold (0.45) catches it.
+        is_repeat_default, sim = is_repeat_target_for_author(new, [prior])
+        assert is_repeat_default
+        assert sim == 0.5
+        # Strict threshold (0.6) does not.
+        is_repeat_strict, _ = is_repeat_target_for_author(
+            new, [prior], threshold=0.6
+        )
+        assert not is_repeat_strict
+
+    def test_returns_best_score_across_priors(self):
+        priors = [
+            "totally unrelated content about cats and rain",
+            "alpha beta gamma delta epsilon",
+        ]
+        new = "alpha beta gamma delta extra"
+        is_repeat, sim = is_repeat_target_for_author(new, priors)
+        assert is_repeat
+        # Best should come from the second prior, not the first
+        assert sim >= 0.45

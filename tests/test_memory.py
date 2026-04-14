@@ -952,3 +952,100 @@ class TestCommentedCachePersistence:
         store.save()
         cache_path = tmp_path / "commented_cache.json"
         assert not cache_path.exists()
+
+
+class TestGetPriorCommentTargets:
+    """Tests for MemoryStore.get_prior_comment_targets, which feed_manager
+    uses to detect same-author repeat-topic posts (2026-04-12 weekly
+    report's 30+ Armenian-linguistics replays).
+    """
+
+    def _seed_episodes(self, tmp_path, records):
+        """Write activity records to today's episode log file."""
+        from datetime import datetime, timezone
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        path = log_dir / f"{today}.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            for rec in records:
+                f.write(json.dumps(rec) + "\n")
+
+    def _make_store(self, tmp_path):
+        # MemoryStore derives log_dir from path's parent / "logs".
+        return MemoryStore(path=tmp_path / "memory.json")
+
+    def test_returns_original_posts_for_matching_author(self, tmp_path):
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).isoformat()
+        self._seed_episodes(tmp_path, [
+            {"ts": ts, "type": "activity", "data": {
+                "action": "comment", "post_id": "p1",
+                "original_post": "first body", "target_agent_id": "a1",
+            }},
+            {"ts": ts, "type": "activity", "data": {
+                "action": "comment", "post_id": "p2",
+                "original_post": "second body", "target_agent_id": "a1",
+            }},
+            {"ts": ts, "type": "activity", "data": {
+                "action": "comment", "post_id": "p3",
+                "original_post": "different author body",
+                "target_agent_id": "a2",
+            }},
+        ])
+        store = self._make_store(tmp_path)
+        targets = store.get_prior_comment_targets("a1")
+        assert targets == ["first body", "second body"]
+
+    def test_skips_records_without_target_agent_id(self, tmp_path):
+        # Old activity records (pre-2026-04-14) lack target_agent_id —
+        # they must be silently filtered, not match every author lookup.
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).isoformat()
+        self._seed_episodes(tmp_path, [
+            {"ts": ts, "type": "activity", "data": {
+                "action": "comment", "post_id": "p1",
+                "original_post": "old body without target_agent_id",
+            }},
+        ])
+        store = self._make_store(tmp_path)
+        assert store.get_prior_comment_targets("a1") == []
+
+    def test_skips_non_comment_actions(self, tmp_path):
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).isoformat()
+        self._seed_episodes(tmp_path, [
+            {"ts": ts, "type": "activity", "data": {
+                "action": "upvote", "post_id": "p1",
+                "target_agent_id": "a1",
+            }},
+            {"ts": ts, "type": "activity", "data": {
+                "action": "post", "post_id": "p2",
+                "title": "T", "content": "body",
+                "target_agent_id": "a1",
+            }},
+        ])
+        store = self._make_store(tmp_path)
+        assert store.get_prior_comment_targets("a1") == []
+
+    def test_empty_agent_id_returns_empty(self, tmp_path):
+        store = self._make_store(tmp_path)
+        assert store.get_prior_comment_targets("") == []
+
+    def test_respects_limit(self, tmp_path):
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).isoformat()
+        records = [
+            {"ts": ts, "type": "activity", "data": {
+                "action": "comment", "post_id": f"p{i}",
+                "original_post": f"body {i}",
+                "target_agent_id": "a1",
+            }}
+            for i in range(10)
+        ]
+        self._seed_episodes(tmp_path, records)
+        store = self._make_store(tmp_path)
+        targets = store.get_prior_comment_targets("a1", limit=3)
+        assert len(targets) == 3
+        # Should be the most recent 3 (records appended in order).
+        assert targets == ["body 7", "body 8", "body 9"]

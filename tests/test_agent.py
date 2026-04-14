@@ -417,19 +417,22 @@ class TestRunPostCycle:
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(False, 0.0, None))
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="reflection on alignment")
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
-    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Reflective Note")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Notes on dedup gates")
     @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1\ntopic2")
     def test_posts_dynamic(self, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dedup):
-        # NOTE: title and body must avoid the literals "Test Title" /
-        # "Dynamic content" — those are caught by the test-content gate
-        # in dedup.is_test_content (intentionally — they leaked to the
-        # live feed in Mar 30–31).
+        # NOTE: title and body must avoid anything in dedup._TEST_PATTERNS
+        # ("Test Title" / "Dynamic content" from Mar 30–31 leaks, and
+        # "Reflective Note" / "A short body about alignment" from the
+        # Apr 2026 episode-log pollution). The test-content gate (correctly)
+        # blocks those literals from reaching the live feed.
         agent = Agent(autonomy=AutonomyLevel.AUTO)
         agent._client = MagicMock()
         agent._scheduler = MagicMock()
         agent._scheduler.can_post.return_value = True
         agent._content = MagicMock()
-        agent._content.create_cooperation_post.return_value = "A short body about alignment."
+        agent._content.create_cooperation_post.return_value = (
+            "We paused to revisit how gates intersect with memory."
+        )
 
         feed_resp = MagicMock()
         feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
@@ -440,7 +443,7 @@ class TestRunPostCycle:
 
         agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
         agent._client.post.assert_called_once()
-        assert any("Posted: Reflective Note" in a for a in agent._actions_taken)
+        assert any("Posted: Notes on dedup gates" in a for a in agent._actions_taken)
 
     def test_skips_when_cannot_post(self):
         agent = Agent(autonomy=AutonomyLevel.AUTO)
@@ -773,6 +776,44 @@ class TestRunReplyCycle:
                 "id": "n1",
                 "post_id": "p1",
                 "content": "Hello",
+                "agent_id": "a1",
+                "agent_name": "Alice",
+            }
+        ]
+        agent._client.get_post_comments.return_value = []
+
+        agent._reply_handler.run_cycle(agent._client, agent._scheduler, time.time() + 3600)
+
+        agent._client.post.assert_not_called()
+
+    def test_skips_promotional_their_comment(self, tmp_path):
+        agent = self._make_agent(tmp_path)
+        agent._client.get_notifications.return_value = [
+            {
+                "type": "comment",
+                "id": "n1",
+                "post_id": "p1",
+                "content": "join us at https://example.spam/",
+                "post_content": "Genuine post",
+                "agent_id": "a1",
+                "agent_name": "Spammer",
+            }
+        ]
+        agent._client.get_post_comments.return_value = []
+
+        agent._reply_handler.run_cycle(agent._client, agent._scheduler, time.time() + 3600)
+
+        agent._client.post.assert_not_called()
+
+    def test_skips_promotional_original_post(self, tmp_path):
+        agent = self._make_agent(tmp_path)
+        agent._client.get_notifications.return_value = [
+            {
+                "type": "comment",
+                "id": "n1",
+                "post_id": "p1",
+                "content": "thanks for sharing",
+                "post_content": "make a profile at our site",
                 "agent_id": "a1",
                 "agent_name": "Alice",
             }

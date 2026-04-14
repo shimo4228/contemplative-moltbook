@@ -402,6 +402,36 @@ class MemoryStore:
                 n += 1
         return n
 
+    def get_prior_comment_targets(
+        self, agent_id: str, days: int = 7, limit: int = 7
+    ) -> List[str]:
+        """Return original_post texts of recent comments sent to agent_id.
+
+        Reads activity records (action="comment") from the episode log and
+        returns the original_post bodies of those targeting agent_id. Used
+        by feed_manager.engage_with_post to detect same-author repeat-topic
+        posts (the 30+ Armenian-linguistics replays the 2026-04-12 weekly
+        report flagged).
+
+        Older records (pre-target_agent_id field) are silently filtered out
+        because the feed_manager activity record only started carrying
+        target_agent_id from 2026-04-14 onward.
+        """
+        if not agent_id:
+            return []
+        episodes = self.episodes.read_range(days=days, record_type="activity")
+        targets: List[str] = []
+        for ep in episodes:
+            data = ep.get("data") or {}
+            if data.get("action") != "comment":
+                continue
+            if data.get("target_agent_id") != agent_id:
+                continue
+            op = data.get("original_post")
+            if isinstance(op, str) and op:
+                targets.append(op)
+        return targets[-limit:]
+
     def get_recent_insights(self, limit: int = 3) -> List[str]:
         """Return observation strings of recent insights."""
         return [i.observation for i in self._insights_list[-limit:]]
