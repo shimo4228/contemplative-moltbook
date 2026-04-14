@@ -20,6 +20,7 @@ from xml.sax.saxutils import escape as xml_escape
 from .adapters.moltbook.agent import Agent, AutonomyLevel
 from .adapters.moltbook.config import (
     CONSTITUTION_DIR,
+    EPISODE_EMBEDDINGS_PATH,
     IDENTITY_PATH,
     KNOWLEDGE_PATH,
     MEDITATION_DIR,
@@ -28,6 +29,7 @@ from .adapters.moltbook.config import (
     RULES_DIR,
     SKILLS_DIR,
     STAGED_DIR,
+    VIEWS_DIR,
 )
 from .core.domain import (
     DEFAULT_CONFIG_DIR,
@@ -897,6 +899,65 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     print(result)
 
 
+def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    """ADR-0009 migration: add embeddings + gated to patterns and bulk-embed episodes."""
+    from .core.migration import run_embed_backfill
+
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+
+    # Default views dir: prefer user-customised, fall back to packaged template.
+    views_dir = VIEWS_DIR
+    if not views_dir.exists():
+        repo_root = Path(__file__).resolve().parents[2]
+        packaged = repo_root / "config" / "views"
+        if packaged.exists():
+            views_dir = packaged
+            logger.info("Using packaged views (no user dir at %s)", VIEWS_DIR)
+
+    stats = run_embed_backfill(
+        knowledge_path=KNOWLEDGE_PATH,
+        log_dir=log_dir,
+        sqlite_path=EPISODE_EMBEDDINGS_PATH,
+        views_dir=views_dir,
+        episodes_days=args.episodes_days,
+        patterns_only=args.patterns_only,
+        dry_run=args.dry_run,
+    )
+
+    print()
+    print("=== embed-backfill summary ===")
+    if stats.backup_path:
+        print(f"  backup           : {stats.backup_path.name}")
+    print(f"  patterns total   : {stats.patterns_total}")
+    print(f"  patterns embedded: {stats.patterns_embedded}")
+    print(f"  patterns gated   : {stats.patterns_gated}")
+    if not args.patterns_only:
+        print(f"  episodes total   : {stats.episodes_total}")
+        print(f"  episodes embedded: {stats.episodes_embedded}")
+        print(f"  episodes skipped : {stats.episodes_skipped} (already in sidecar)")
+        if stats.episodes_failed:
+            print(f"  episodes failed  : {stats.episodes_failed}")
+    print(f"  duration         : {stats.duration_seconds:.1f}s")
+    if stats.errors:
+        print(f"  errors           : {len(stats.errors)}")
+        for err in stats.errors[:5]:
+            print(f"    - {err}")
+    if args.dry_run:
+        print("(dry run — no files written)")
+
+    # Audit log entry
+    if not args.dry_run:
+        _log_approval(
+            "embed-backfill",
+            KNOWLEDGE_PATH,
+            approved=True,
+            content=f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
+                    f"patterns_embedded={stats.patterns_embedded} "
+                    f"episodes_embedded={stats.episodes_embedded}",
+            source="direct",
+        )
+
+
 def _handle_enrich(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     from .core.distill import enrich
     from .core.memory import KnowledgeStore
@@ -1382,6 +1443,24 @@ def main() -> None:
         "--dry-run", action="store_true", help="Show results without writing"
     )
 
+    # embed-backfill
+    embed_parser = subparsers.add_parser(
+        "embed-backfill",
+        help="ADR-0009: backfill embeddings + gated for patterns and bulk-embed episodes into SQLite sidecar",
+    )
+    embed_parser.add_argument(
+        "--patterns-only", action="store_true",
+        help="Only backfill knowledge.json patterns; skip episode log embedding",
+    )
+    embed_parser.add_argument(
+        "--episodes-days", type=int, default=None,
+        help="Limit episode backfill to the most recent N days (default: all)",
+    )
+    embed_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Run end-to-end without writing knowledge.json or sidecar (counts only)",
+    )
+
     # sync-data
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
 
@@ -1438,6 +1517,7 @@ def main() -> None:
         "report": _handle_report,
         "generate-report": _handle_generate_report,
         "meditate": _handle_meditate,
+        "embed-backfill": _handle_embed_backfill,
     }
     handler = llm_handlers.get(args.command)
     if handler:

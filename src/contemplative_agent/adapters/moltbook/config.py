@@ -31,6 +31,8 @@ CONSTITUTION_DIR = MOLTBOOK_DATA_DIR / "constitution"
 MEDITATION_DIR = MOLTBOOK_DATA_DIR / "meditation"
 REPORTS_DIR = MOLTBOOK_DATA_DIR / "reports" / "comment-reports"
 STAGED_DIR = MOLTBOOK_DATA_DIR / ".staged"
+VIEWS_DIR = MOLTBOOK_DATA_DIR / "views"
+EPISODE_EMBEDDINGS_PATH = MOLTBOOK_DATA_DIR / "embeddings.sqlite"
 
 # --- Agent pacing ---
 COMMENT_PACING_MIN_SECONDS = 60

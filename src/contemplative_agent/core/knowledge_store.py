@@ -55,6 +55,8 @@ class KnowledgeStore:
         importance: float = 0.5,
         category: str = "uncategorized",
         subcategory: Optional[str] = None,
+        embedding: Optional[List[float]] = None,
+        gated: Optional[bool] = None,
     ) -> None:
         entry: dict = {
             "pattern": pattern,
@@ -66,6 +68,10 @@ class KnowledgeStore:
             entry["source"] = source
         if subcategory is not None:
             entry["subcategory"] = subcategory
+        if embedding is not None:
+            entry["embedding"] = embedding
+        if gated is not None:
+            entry["gated"] = gated
         self._learned_patterns.append(entry)
 
     def get_raw_patterns(self, category: Optional[str] = None) -> List[dict]:
@@ -248,6 +254,10 @@ class KnowledgeStore:
                     entry["category"] = item["category"]
                 if item.get("subcategory") is not None:
                     entry["subcategory"] = item["subcategory"]
+                if isinstance(item.get("embedding"), list):
+                    entry["embedding"] = list(item["embedding"])
+                if isinstance(item.get("gated"), bool):
+                    entry["gated"] = item["gated"]
                 self._learned_patterns.append(entry)
             elif isinstance(item, str):
                 # Bare string — legacy format
