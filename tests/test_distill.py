@@ -1123,6 +1123,53 @@ class TestConstrainedDecoding:
         assert kwargs.get("format") is CLASSIFY_SCHEMA
 
 
+class TestTruncationGuard:
+    """Warn when extract/refine output approaches max_length cap."""
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_step1_truncation_warning_fires_near_cap(self, mock_generate, caplog):
+        from contemplative_agent.core.distill import _distill_category, _EXTRACT_MAX_LENGTH
+        from contemplative_agent.core.memory import KnowledgeStore
+
+        mock_generate.side_effect = [
+            "x" * _EXTRACT_MAX_LENGTH,  # step 1 extract — at cap
+            json.dumps({"patterns": ["A pattern long enough to pass the validation gate easily"]}),
+            json.dumps({"scores": [7]}),
+        ]
+
+        ks = KnowledgeStore()
+        ks.load()
+        records = [{"ts": "2026-03-01T09:00:00Z", "type": "insight",
+                    "data": {"observation": "Test observation for truncation guard"}}]
+
+        with caplog.at_level("WARNING"):
+            _distill_category(records, ks, "uncategorized", "2026-03-01", dry_run=True)
+
+        assert any("step 1 output" in r.message and "likely truncated" in r.message
+                   for r in caplog.records)
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_no_warning_when_well_below_cap(self, mock_generate, caplog):
+        from contemplative_agent.core.distill import _distill_category
+        from contemplative_agent.core.memory import KnowledgeStore
+
+        mock_generate.side_effect = [
+            "Short raw analysis",
+            json.dumps({"patterns": ["A pattern long enough to pass the validation gate easily"]}),
+            json.dumps({"scores": [7]}),
+        ]
+
+        ks = KnowledgeStore()
+        ks.load()
+        records = [{"ts": "2026-03-01T09:00:00Z", "type": "insight",
+                    "data": {"observation": "Test observation no truncation"}}]
+
+        with caplog.at_level("WARNING"):
+            _distill_category(records, ks, "uncategorized", "2026-03-01", dry_run=True)
+
+        assert not any("likely truncated" in r.message for r in caplog.records)
+
+
 from contemplative_agent.core.distill import (
     _subcategorize_patterns,
     SUBCATEGORIZE_SCHEMA,

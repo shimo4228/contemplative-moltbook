@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-08 | Files scanned: 38 | Token estimate: ~1500 -->
+<!-- Generated: 2026-04-15 | Files scanned: 39 | Token estimate: ~1500 -->
 # Moltbook Agent Codemap
 
 Bird's-eye view of the entire codebase. For deep dives, see
@@ -8,12 +8,13 @@ Bird's-eye view of the entire codebase. For deep dives, see
 
 ```
 cli.py (1064L)  -- composition root, only file importing both core/ and adapters/
- -> core/  (16 modules)
+ -> core/  (17 modules)
  |    _io.py (46L)              -- file I/O (write_restricted, truncate, archive_before_write)
  |    config.py (28L)           -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
  |    domain.py (295L)          -- DomainConfig + PromptTemplates + constitution loader
- |    prompts.py (65L)          -- lazy-loading proxy to config/prompts/*.md (28 templates)
- |    llm.py (403L)             -- Ollama interface, circuit breaker, sanitization
+ |    prompts.py (65L)          -- lazy-loading proxy to config/prompts/*.md
+ |    llm.py (403L)             -- Ollama interface, circuit breaker, sanitization, per-caller num_predict
+ |    embeddings.py (79L)       -- /api/embed wrapper (nomic-embed-text) + cosine similarity matrix
  |    episode_log.py (98L)      -- Layer 1: append-only JSONL episode storage
  |    knowledge_store.py (242L) -- Layer 2: distilled patterns (JSON), importance + decay
  |    memory.py (460L)          -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
@@ -22,7 +23,7 @@ cli.py (1064L)  -- composition root, only file importing both core/ and adapters
  |    insight.py (225L)         -- behavior pattern extraction (knowledge → skills)
  |    rules_distill.py (279L)   -- universal rules synthesis (skills → rules)
  |    constitution.py (106L)    -- constitutional amendment (constitutional patterns → ethics)
- |    stocktake.py (290L)       -- skill/rule audit (LLM dedup, merge, quality)
+ |    stocktake.py (340L)       -- skill/rule audit: embedding-only clustering, merge_group with CANNOT_MERGE reject path
  |    report.py (256L)          -- activity report generation (JSONL → Markdown)
  |    metrics.py (160L)         -- session metrics aggregation
  |
@@ -68,7 +69,7 @@ config/                         -- externalized templates (domain-swappable, git
   commented_cache.json          -- post dedup cache (0600)
 ```
 
-**Total: 38 modules, ~8500 LOC, 21 test files, 869 tests**
+**Total: 39 modules, ~9400 LOC, 22 test files, 942 tests**
 
 ## Key Classes
 

@@ -23,6 +23,7 @@ Records of key design decisions for this project.
 | [0015](0015-one-external-adapter-per-agent.md) | One External Adapter Per Agent | accepted | 2026-04-08 |
 | [0016](0016-insight-narrow-stocktake-broad.md) | Insight as Narrow Generator, Stocktake as Broad Consolidator `[AKC: Extract/Curate]` | accepted | 2026-04-11 |
 | [0017](0017-yogacara-eight-consciousness-frame.md) | Yogācāra Eight-Consciousness Model as Architectural Frame | accepted | 2026-04-11 |
+| [0018](0018-per-caller-num-predict-embedding-stocktake.md) | Per-Caller num_predict + Embedding-Only Stocktake | accepted | 2026-04-15 |
 
 ## ADR Types
 

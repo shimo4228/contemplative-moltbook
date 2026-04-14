@@ -23,6 +23,7 @@
 | [0015](0015-one-external-adapter-per-agent.ja.md) | 1エージェント1外部アダプタ原則 | accepted | 2026-04-08 |
 | [0016](0016-insight-narrow-stocktake-broad.ja.md) | insight = narrow generator / skill-stocktake = broad consolidator `[AKC: Extract/Curate]` | accepted | 2026-04-11 |
 | [0017](0017-yogacara-eight-consciousness-frame.ja.md) | 唯識八識モデルを設計の枠組みとする | accepted | 2026-04-11 |
+| [0018](0018-per-caller-num-predict-embedding-stocktake.ja.md) | caller 別 num_predict + embedding-only stocktake | accepted | 2026-04-15 |
 
 ## ADR の種別
 

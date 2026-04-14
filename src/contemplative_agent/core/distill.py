@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 30
 
+# Warn when an extract/refine output is within this many chars of max_length.
+# _sanitize_output slices silently with [:max_length]; this surfaces it.
+_EXTRACT_MAX_LENGTH = 4000
+_TRUNCATION_MARGIN = 200
+
 # JSON Schemas for constrained decoding (Ollama v0.5+ format parameter)
 CLASSIFY_SCHEMA: Dict = {
     "type": "string",
@@ -416,18 +421,28 @@ def _distill_category(
         )
 
         # Step 1: Extract — free-form output, with rules/axioms as lens
-        result = generate(prompt, system=get_distill_system_prompt(), max_length=4000, num_predict=1500)
+        result = generate(prompt, system=get_distill_system_prompt(), max_length=_EXTRACT_MAX_LENGTH, num_predict=1500)
         if result is None:
             logger.warning("[%s] Batch %d/%d: step 1 (extract) failed", category, batch_idx + 1, len(batches))
             continue
+        if len(result) >= _EXTRACT_MAX_LENGTH - _TRUNCATION_MARGIN:
+            logger.warning(
+                "[%s] Batch %d/%d: step 1 output %d chars within %d of cap %d — likely truncated",
+                category, batch_idx + 1, len(batches), len(result), _TRUNCATION_MARGIN, _EXTRACT_MAX_LENGTH,
+            )
 
         # Step 2: Summarize — concise patterns as JSON string array
         refine_prompt = DISTILL_REFINE_PROMPT.format(raw_output=result)
-        refined = generate(refine_prompt, max_length=4000, num_predict=1500)
+        refined = generate(refine_prompt, max_length=_EXTRACT_MAX_LENGTH, num_predict=1500)
         if refined is None:
             logger.warning("[%s] Batch %d/%d: step 2 (summarize) failed, using step 1 output",
                            category, batch_idx + 1, len(batches))
             refined = result
+        elif len(refined) >= _EXTRACT_MAX_LENGTH - _TRUNCATION_MARGIN:
+            logger.warning(
+                "[%s] Batch %d/%d: step 2 output %d chars within %d of cap %d — likely truncated",
+                category, batch_idx + 1, len(batches), len(refined), _TRUNCATION_MARGIN, _EXTRACT_MAX_LENGTH,
+            )
 
         all_results.append(refined)
 
@@ -465,8 +480,8 @@ def _distill_category(
         all_importances.extend(batch_importances)
         imp_summary = ", ".join(f"{i:.1f}" for i in batch_importances) if batch_importances else "none"
         logger.info(
-            "[%s] Batch %d/%d: %d episodes → %d patterns (%d rejected) [importance: %s]",
-            category, batch_idx + 1, len(batches), len(batch), len(batch_patterns), rejected,
+            "[%s] Batch %d/%d: %d episodes (prompt %d chars) → %d patterns (%d rejected) [importance: %s]",
+            category, batch_idx + 1, len(batches), len(batch), len(prompt), len(batch_patterns), rejected,
             imp_summary,
         )
 

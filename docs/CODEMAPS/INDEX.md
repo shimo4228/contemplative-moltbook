@@ -1,8 +1,8 @@
-<!-- Generated: 2026-04-11 | Total codemaps: 5 | Token estimate: ~500 -->
+<!-- Generated: 2026-04-15 | Total codemaps: 5 | Token estimate: ~500 -->
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-04-11 | **Codebase**: 38 modules, ~8500 LOC, 869 tests
+**Last Updated**: 2026-04-15 | **Codebase**: 39 modules, ~9400 LOC, 942 tests
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (38 modules, ~8500 LOC, 869 tests)
+- Project type & stats (39 modules, ~9400 LOC, 942 tests)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -43,10 +43,10 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 ---
 
 ### 3. [core-modules.md](core-modules.md) — Core Layer Deep Dive
-**Platform-independent foundation.** 16 modules providing base functionality.
+**Platform-independent foundation.** 17 modules providing base functionality.
 
 **Topics**:
-- 16 core modules (~3700 LOC): _io, config, domain, prompts, llm, episode_log, knowledge_store, memory, scheduler, distill (2-stage + identity), insight, constitution, rules_distill, stocktake, report, metrics
+- 17 core modules (~4000 LOC): _io, config, domain, prompts, llm, embeddings, episode_log, knowledge_store, memory, scheduler, distill (2-stage + identity), insight, constitution, rules_distill, stocktake, report, metrics
 - 2-stage distill pipeline (extract → refine, identity update integrated)
 - Dependency flow diagram
 - 3 frozen dataclasses (Interaction, PostRecord, Insight)
@@ -118,11 +118,11 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 38 (16 core + 12 adapters/moltbook + 4 adapters/meditation + cli + 5 other) |
-| LOC | ~8500 |
-| Test files | 21 |
-| Test count | 869 |
-| Core modules | 16 (platform-independent) |
+| Total modules | 39 (17 core + 12 adapters/moltbook + 4 adapters/meditation + cli + 5 `__init__`) |
+| LOC | ~9400 |
+| Test files | 22 |
+| Test count | 942 |
+| Core modules | 17 (platform-independent) |
 | Moltbook adapter modules | 12 |
 | Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) |
@@ -146,4 +146,4 @@ Package versions, transitive dependencies, security notes.
 
 CODEMAPS はコード変更時に更新する（「どこにあるか」のコード索引）。
 
-Last full scan: 2026-04-11 (38 modules, 869 tests verified)
+Last full scan: 2026-04-15 (39 modules, 942 tests verified)

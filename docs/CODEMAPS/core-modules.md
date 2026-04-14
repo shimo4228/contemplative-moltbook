@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-08 | Files scanned: 16 core modules | Token estimate: ~1000 -->
+<!-- Generated: 2026-04-15 | Files scanned: 17 core modules | Token estimate: ~1000 -->
 # Core Modules Codemap
 
 Platform-independent foundation (no Moltbook dependencies). All imports flow: adapters → core.
@@ -10,8 +10,9 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `_io.py` | 46 | write_restricted(path, mode, content), truncate(path), archive_before_write(path, history_dir) |
 | `config.py` | 28 | FORBIDDEN_SUBSTRING_PATTERNS, VALID_ID_PATTERN, MAX_COMMENT_LENGTH |
 | `domain.py` | 295 | DomainConfig, PromptTemplates, constitution loader |
-| `prompts.py` | 65 | Lazy-load proxy to config/prompts/*.md (28 templates) + placeholder resolution |
-| `llm.py` | 403 | Ollama interface, LLM functions, circuit breaker, sanitization |
+| `prompts.py` | 65 | Lazy-load proxy to config/prompts/*.md + placeholder resolution |
+| `llm.py` | 403 | Ollama interface, LLM functions, circuit breaker, sanitization, per-caller `num_predict` |
+| `embeddings.py` | 79 | Ollama `/api/embed` wrapper (nomic-embed-text), cosine similarity matrix |
 | `episode_log.py` | 98 | EpisodeLog (append-only JSONL, read_range with record_type filter) |
 | `knowledge_store.py` | 242 | KnowledgeStore (patterns JSON, learned pattern add/retrieve) |
 | `memory.py` | 460 | MemoryStore facade, Interaction/PostRecord/Insight dataclasses, recent-post + per-author-comment query helpers |
@@ -22,9 +23,9 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `rules_distill.py` | 279 | distill_rules() → RulesDistillResult (RuleResult per batch). Input: skills/*.md |
 | `report.py` | 256 | generate_report() JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
-| `stocktake.py` | 290 | Skill/rule audit: LLM duplicate detection, merge_group(), quality checks |
+| `stocktake.py` | 340 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject path, structural quality checks |
 
-**Total: ~3855 LOC (16 modules)**
+**Total: ~4000 LOC (17 modules)**
 
 ## Key Dataclasses
 
