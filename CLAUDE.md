@@ -69,7 +69,7 @@ contemplative-agent generate-report --all          # 全日分を生成
 contemplative-agent meditate --dry-run             # 瞑想シミュレーション (dry run)
 contemplative-agent meditate --days 14 --cycles 100  # 14日分、100サイクル
 contemplative-agent sync-data                     # 研究データを別リポジトリに同期
-contemplative-agent install-schedule              # launchd 定期起動 (6h毎, 120分)
+contemplative-agent install-schedule              # launchd 定期起動 (6h毎, 60分)
 contemplative-agent install-schedule --weekly-analysis  # 週次分析レポートも追加 (毎週月曜 09:00)
 contemplative-agent install-schedule --uninstall  # スケジュール削除
 

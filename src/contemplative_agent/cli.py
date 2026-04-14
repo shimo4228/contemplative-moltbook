@@ -1294,8 +1294,8 @@ def main() -> None:
         help="Hours between sessions (default: 6)",
     )
     schedule_parser.add_argument(
-        "--session", type=int, default=120,
-        help="Session duration in minutes (default: 120)",
+        "--session", type=int, default=60,
+        help="Session duration in minutes (default: 60)",
     )
     schedule_parser.add_argument(
         "--uninstall", action="store_true",
