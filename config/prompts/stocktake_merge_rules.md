@@ -1,5 +1,12 @@
 Merge these redundant practice rules into a single unified rule.
 
+First decide: are the candidates genuinely redundant? They should share the same practice orientation, differing only in wording or rationale emphasis. If they declare distinct practices that merely share topical territory, they are NOT redundant.
+
+If NOT redundant, output exactly one line and nothing else:
+CANNOT_MERGE: <one-sentence reason explaining what makes them distinct>
+
+Otherwise, proceed to merge.
+
 Read all candidate rules below. Each rule has the form:
 
     # Title

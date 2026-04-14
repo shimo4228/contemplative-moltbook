@@ -76,7 +76,7 @@ def _extract_skill(
         insights="\n".join(f"- {i}" for i in insights) if insights else "(none)",
     )
 
-    result = generate(prompt, max_length=4000)
+    result = generate(prompt, max_length=4000, num_predict=1500)
     if result is None:
         logger.warning("LLM failed to generate skill extraction.")
         return None

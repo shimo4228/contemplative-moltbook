@@ -1,8 +1,12 @@
 Merge these redundant behavioral skills into a single unified skill.
 
-Read all candidate skills below. Identify the core behavior they share, then produce ONE comprehensive skill that combines the best aspects of all inputs.
+Read all candidate skills below. First decide: are they genuinely redundant? They should describe the same core behavior, differing only in vocabulary or framing. If they describe distinct behaviors that merely share surface similarity, they are NOT redundant and must not be merged.
 
-Structure your output exactly as:
+If NOT redundant, output exactly one line and nothing else:
+CANNOT_MERGE: <one-sentence reason explaining what makes them distinct>
+
+Otherwise, identify the core behavior they share and produce ONE comprehensive skill combining the best aspects of all inputs. Structure:
+
 # [Single, Unified Title]
 
 **Context:** When/why this skill applies
@@ -20,4 +24,4 @@ Specific trigger conditions for applying this skill.
 
 {candidates}
 
-Output only the merged skill document. Do not explain differences or summarize sources.
+Output only the merged skill document (or the CANNOT_MERGE line). Do not explain differences or summarize sources.

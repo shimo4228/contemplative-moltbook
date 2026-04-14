@@ -1,24 +1,46 @@
 """Stocktake: audit skills and rules for duplicates and quality issues.
 
-LLM-based semantic duplicate detection + mechanical structure checks.
-Read-only — produces reports without modifying files.
+Embedding-only duplicate detection: cosine similarity matrix via
+nomic-embed-text → single-threshold union-find clustering. False
+positives are reconciled at merge time — the merge LLM sees full bodies
+and can emit ``CANNOT_MERGE: <reason>`` to reject spurious groupings.
+
+Pair-level LLM judging was removed: num_ctx=32768 made "keep prompts
+short" meaningless (KV cache allocated regardless), and sequential
+pair calls ran ~15-30 minutes on M1. The merge step already reads both
+full bodies, so a separate judge layer was redundant.
 """
 
 from __future__ import annotations
 
-import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
-from ._io import strip_code_fence
+from .embeddings import cosine_similarity_matrix, embed_texts
 from .llm import generate
 from .rules_distill import _strip_frontmatter
 
 logger = logging.getLogger(__name__)
 
 MIN_FILES_FOR_DEDUP = 2
+
+# Embedding cosine threshold for clustering. Calibrated on real
+# auto-extracted skill bodies: the same attractor expressed with
+# different vocabulary (adaptive/fluid/dynamic) lands in the 0.86-0.94
+# band; distinct skills typically score < 0.75. 0.80 is the midpoint
+# and errs slightly toward over-grouping, relying on the merge LLM's
+# CANNOT_MERGE path to reject genuine false positives.
+SIM_CLUSTER_THRESHOLD = 0.80
+
+_HEADING_RE = re.compile(r"^#{1,6}\s+", re.MULTILINE)
+_WS_RE = re.compile(r"\s+")
+
+# Tolerate leading whitespace and minor punctuation drift
+# (e.g. "CANNOT_MERGE :", "cannot_merge:") the LLM may emit.
+_CANNOT_MERGE_RE = re.compile(r"^\s*CANNOT_MERGE\s*:", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -73,31 +95,111 @@ def _format_items(items: List[Tuple[str, str]]) -> str:
     return "\n\n===\n\n".join(f"**{name}**\n\n{body}" for name, body in items)
 
 
+def _normalize_for_similarity(body: str) -> str:
+    """Strip Markdown scaffolding and collapse whitespace for similarity scoring.
+
+    Reduces the baseline ratio inflation caused by shared section headings
+    (e.g. "## Problem", "## Solution") that all auto-extracted skills share.
+    """
+    no_headings = _HEADING_RE.sub("", body)
+    return _WS_RE.sub(" ", no_headings).strip()
+
+
+def _pairwise_similarity(items: List[Tuple[str, str]]) -> List[Tuple[int, int, float]]:
+    """Compute embedding cosine similarity for every (i, j) pair with i < j.
+
+    Returns list of (i, j, similarity) tuples. Bodies are normalized first.
+    Returns an empty list if the embedding service is unavailable — caller
+    will then produce zero MergeGroups (safe default).
+    """
+    normalized = [_normalize_for_similarity(body) for _, body in items]
+    vectors = embed_texts(normalized)
+    if vectors is None or vectors.shape[0] != len(items):
+        logger.warning("Embedding unavailable — skipping similarity-based dedup")
+        return []
+    sim = cosine_similarity_matrix(vectors)
+    out: List[Tuple[int, int, float]] = []
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            out.append((i, j, float(sim[i][j])))
+    return out
+
+
+def _cluster_pairs(
+    pairs: List[Tuple[int, int, float]],
+    item_count: int,
+) -> List[Set[int]]:
+    """Union-find transitive closure over pairs that cleared the threshold.
+
+    Singleton items (no qualifying pair) are not returned. Clusters of
+    size >= 2 only.
+    """
+    if not pairs:
+        return []
+
+    parent = list(range(item_count))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for i, j, _ in pairs:
+        union(i, j)
+
+    groups: dict[int, Set[int]] = {}
+    seen_in_pair: Set[int] = set()
+    for i, j, _ in pairs:
+        seen_in_pair.add(i)
+        seen_in_pair.add(j)
+    for x in seen_in_pair:
+        root = find(x)
+        groups.setdefault(root, set()).add(x)
+
+    return [g for g in groups.values() if len(g) >= 2]
+
+
 def _find_duplicate_groups(
     items: List[Tuple[str, str]],
-    prompt_template: str,
 ) -> List[MergeGroup]:
-    """Pass all files to LLM and detect semantic duplicate groups.
+    """Embedding-only duplicate detection.
 
-    Args:
-        items: List of (filename, body_text) tuples.
-        prompt_template: Prompt with {items} placeholder.
+    Pipeline:
+      1. Compute cosine similarity for every pair (single nomic-embed batch).
+      2. Keep pairs with similarity >= SIM_CLUSTER_THRESHOLD.
+      3. Union-find clusters all qualifying pairs into MergeGroups.
 
-    Returns:
-        List of MergeGroup. Empty list on LLM failure (safe default).
+    False positives (borderline 0.80-0.86 pairs that embedding flags but
+    aren't actually redundant) are caught at merge time — merge_group()
+    sees the full bodies and can respond CANNOT_MERGE.
+
+    Returns empty list if embedding service unavailable (safe default).
     """
     if len(items) < MIN_FILES_FOR_DEDUP:
         return []
 
-    formatted = _format_items(items)
-    prompt = prompt_template.format(items=formatted)
+    pairs = _pairwise_similarity(items)
+    if logger.isEnabledFor(logging.DEBUG):
+        for i, j, ratio in sorted(pairs, key=lambda p: -p[2]):
+            logger.debug("ratio %.2f: %s <> %s", ratio, items[i][0], items[j][0])
 
-    raw = generate(prompt, system="Return only valid JSON.", max_length=4000)
-    if raw is None:
-        logger.warning("LLM failed during stocktake duplicate detection")
-        return []
+    qualifying = [(i, j, r) for i, j, r in pairs if r >= SIM_CLUSTER_THRESHOLD]
+    clusters = _cluster_pairs(qualifying, len(items))
 
-    return _parse_groups(raw)
+    groups: List[MergeGroup] = []
+    for cluster in clusters:
+        filenames = tuple(items[idx][0] for idx in sorted(cluster))
+        cluster_pairs = [(i, j, r) for i, j, r in qualifying if i in cluster and j in cluster]
+        max_ratio = max((r for _, _, r in cluster_pairs), default=0.0)
+        reason = f"{len(cluster_pairs)} pair(s) >= {SIM_CLUSTER_THRESHOLD:.2f} (max={max_ratio:.2f})"
+        groups.append(MergeGroup(filenames=filenames, reason=reason))
+    return groups
 
 
 def merge_group(
@@ -106,54 +208,24 @@ def merge_group(
 ) -> Optional[str]:
     """Merge redundant files into a single unified skill via LLM.
 
+    The prompt instructs the LLM to emit ``CANNOT_MERGE: <reason>`` when
+    the candidates are not actually redundant — callers should inspect
+    the return value for that sentinel and treat it as a rejection.
+
     Args:
         items: List of (filename, body_text) tuples for the group.
         prompt_template: Prompt with {candidates} placeholder.
 
     Returns:
-        Merged skill text, or None on LLM failure.
+        Merged skill text (or CANNOT_MERGE response), None on LLM failure.
     """
     prompt = prompt_template.format(candidates=_format_items(items))
-    return generate(prompt, system="Merge redundant skills.", max_length=4000)
+    return generate(prompt, system="Merge redundant skills.", max_length=4000, num_predict=1500)
 
 
-def _parse_groups(raw: str) -> List[MergeGroup]:
-    """Parse LLM output into MergeGroup list.
-
-    Attempts JSON extraction. Returns empty list on parse failure.
-    """
-    text = strip_code_fence(raw)
-
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        # Try to find JSON object in text
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start >= 0 and end > start:
-            try:
-                data = json.loads(text[start:end])
-            except json.JSONDecodeError:
-                logger.warning("Could not parse stocktake LLM output as JSON")
-                return []
-        else:
-            logger.warning("No JSON found in stocktake LLM output")
-            return []
-
-    groups = data.get("groups", [])
-    if not isinstance(groups, list):
-        return []
-
-    result: List[MergeGroup] = []
-    for g in groups:
-        files = g.get("files", [])
-        reason = g.get("reason", "")
-        if isinstance(files, list) and len(files) >= 2 and reason:
-            result.append(MergeGroup(
-                filenames=tuple(str(f) for f in files),
-                reason=str(reason),
-            ))
-    return result
+def is_merge_rejected(merged_text: str) -> bool:
+    """Check whether the merge LLM rejected this group as not actually redundant."""
+    return _CANNOT_MERGE_RE.match(merged_text) is not None
 
 
 def _check_skill_quality(filename: str, body: str) -> Optional[QualityIssue]:
@@ -202,10 +274,7 @@ def run_skill_stocktake(
     if not items:
         return StocktakeResult(merge_groups=(), quality_issues=(), total_files=0)
 
-    # Duplicate detection via LLM
-    from . import prompts
-
-    merge_groups = _find_duplicate_groups(items, prompts.STOCKTAKE_SKILLS_PROMPT)
+    merge_groups = _find_duplicate_groups(items)
 
     # Structural quality checks
     quality_issues: List[QualityIssue] = []
@@ -240,10 +309,7 @@ def run_rules_stocktake(
     if not items:
         return StocktakeResult(merge_groups=(), quality_issues=(), total_files=0)
 
-    # Duplicate detection via LLM
-    from . import prompts
-
-    merge_groups = _find_duplicate_groups(items, prompts.STOCKTAKE_RULES_PROMPT)
+    merge_groups = _find_duplicate_groups(items)
 
     # Structural quality checks
     quality_issues: List[QualityIssue] = []

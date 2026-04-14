@@ -319,11 +319,16 @@ def generate(
     prompt: str,
     system: Optional[str] = None,
     max_length: int = MAX_POST_LENGTH,
+    num_predict: Optional[int] = None,
     format: Optional[Dict] = None,
 ) -> Optional[str]:
     """Generate text using Ollama.
 
     Args:
+        max_length: Char-level truncation applied to the sanitized output.
+        num_predict: Max tokens the model may emit. Caller-specific caps
+            prevent runaway generation on short prompts (M1 can take 14+
+            minutes at the default 8192). Falls back to 8192 if None.
         format: JSON Schema dict for structured output (Ollama v0.5+).
                 When set, output is constrained at the token level.
 
@@ -350,7 +355,8 @@ def generate(
             "temperature": 1.0,
             "top_p": 0.95,
             "top_k": 20,
-            "num_predict": 8192,
+            "num_predict": num_predict if num_predict is not None else 8192,
+            "num_ctx": 32768,
         },
         "think": False,
     }

@@ -283,6 +283,39 @@ class TestGenerate:
         result = generate("test", max_length=50)
         assert len(result) == 50
 
+    @patch("contemplative_agent.core.llm.requests.post")
+    def test_num_predict_default_is_8192(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"response": "ok"}
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+
+        generate("test")
+        payload = mock_post.call_args[1]["json"]
+        assert payload["options"]["num_predict"] == 8192
+
+    @patch("contemplative_agent.core.llm.requests.post")
+    def test_num_predict_propagates(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"response": "ok"}
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+
+        generate("test", num_predict=200)
+        payload = mock_post.call_args[1]["json"]
+        assert payload["options"]["num_predict"] == 200
+
+    @patch("contemplative_agent.core.llm.requests.post")
+    def test_num_ctx_fixed_at_32768(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"response": "ok"}
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+
+        generate("test", num_predict=50)
+        payload = mock_post.call_args[1]["json"]
+        assert payload["options"]["num_ctx"] == 32768
+
 
 class TestGenerateComment:
     @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")

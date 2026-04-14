@@ -217,7 +217,7 @@ def distill_identity(
 
     # Step 1: Free-form self-analysis (rules/axioms for value grounding,
     # but no identity — it's already in the prompt via {current_identity})
-    result = generate(prompt, system=get_distill_system_prompt(), max_length=4000)
+    result = generate(prompt, system=get_distill_system_prompt(), max_length=4000, num_predict=1500)
     if result is None:
         msg = "LLM failed at step 1 (self-analysis)."
         logger.warning(msg)
@@ -225,7 +225,7 @@ def distill_identity(
 
     # Step 2: Refine into simple persona
     refine_prompt = IDENTITY_REFINE_PROMPT.format(raw_output=result)
-    refined = generate(refine_prompt, system=_get_default_system_prompt(), max_length=4000)
+    refined = generate(refine_prompt, system=_get_default_system_prompt(), max_length=4000, num_predict=1500)
     if refined is None:
         msg = "LLM failed at step 2 (refine). Using step 1 output."
         logger.warning(msg)
@@ -351,7 +351,7 @@ def _classify_episodes(
             episode=episode_line,
             constitution=const_text,
         )
-        result = generate(prompt, system=get_distill_system_prompt(), max_length=20, format=CLASSIFY_SCHEMA)
+        result = generate(prompt, system=get_distill_system_prompt(), max_length=20, num_predict=20, format=CLASSIFY_SCHEMA)
         cat = _parse_classify_result(result)
 
         if cat == "constitutional":
@@ -416,14 +416,14 @@ def _distill_category(
         )
 
         # Step 1: Extract — free-form output, with rules/axioms as lens
-        result = generate(prompt, system=get_distill_system_prompt(), max_length=4000)
+        result = generate(prompt, system=get_distill_system_prompt(), max_length=4000, num_predict=1500)
         if result is None:
             logger.warning("[%s] Batch %d/%d: step 1 (extract) failed", category, batch_idx + 1, len(batches))
             continue
 
         # Step 2: Summarize — concise patterns as JSON string array
         refine_prompt = DISTILL_REFINE_PROMPT.format(raw_output=result)
-        refined = generate(refine_prompt, max_length=4000)
+        refined = generate(refine_prompt, max_length=4000, num_predict=1500)
         if refined is None:
             logger.warning("[%s] Batch %d/%d: step 2 (summarize) failed, using step 1 output",
                            category, batch_idx + 1, len(batches))
@@ -457,7 +457,7 @@ def _distill_category(
         if batch_patterns and DISTILL_IMPORTANCE_PROMPT:
             patterns_text = "\n".join(f"- {p}" for p in batch_patterns)
             importance_prompt = DISTILL_IMPORTANCE_PROMPT.format(patterns=patterns_text)
-            importance_result = generate(importance_prompt, max_length=4000, format=IMPORTANCE_SCHEMA)
+            importance_result = generate(importance_prompt, max_length=4000, num_predict=1500, format=IMPORTANCE_SCHEMA)
             if importance_result:
                 batch_importances = _parse_importance_scores(importance_result, len(batch_patterns))
 
@@ -678,7 +678,7 @@ def _subcategorize_patterns(
     count = 0
     for i, pattern_dict in enumerate(targets):
         prompt = DISTILL_SUBCATEGORIZE_PROMPT.format(pattern=pattern_dict["pattern"])
-        result = generate(prompt, max_length=50, format=SUBCATEGORIZE_SCHEMA)
+        result = generate(prompt, max_length=50, num_predict=30, format=SUBCATEGORIZE_SCHEMA)
         if result:
             subcategory = result.strip().lower().strip('"')
             if subcategory in VALID_SUBCATEGORIES:
@@ -723,7 +723,7 @@ def _llm_quality_gate(
 
     dedup_items = "\n---\n".join(items)
     prompt = DISTILL_DEDUP_PROMPT.format(dedup_items=dedup_items)
-    result = generate(prompt, max_length=2000, format=DEDUP_SCHEMA)
+    result = generate(prompt, max_length=2000, num_predict=800, format=DEDUP_SCHEMA)
 
     # Parse decisions
     decisions = _parse_dedup_decisions(result, len(uncertain))

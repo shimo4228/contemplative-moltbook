@@ -121,13 +121,13 @@ def _extract_rules(skill_texts: List[str]) -> Optional[str]:
         patterns="\n\n---\n\n".join(skill_texts),
     )
 
-    raw = generate(prompt, system=get_distill_system_prompt(), max_length=4000)
+    raw = generate(prompt, system=get_distill_system_prompt(), max_length=4000, num_predict=1500)
     if raw is None:
         logger.warning("Stage 1 (extraction) failed.")
         return None
 
     refine_prompt = RULES_DISTILL_REFINE_PROMPT.format(raw_output=raw)
-    result = generate(refine_prompt, max_length=_STAGE2_MAX_LENGTH)
+    result = generate(refine_prompt, max_length=_STAGE2_MAX_LENGTH, num_predict=1500)
     if result is None:
         logger.warning("Stage 2 (refinement) failed.")
         return None

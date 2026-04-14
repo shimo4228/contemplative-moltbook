@@ -58,7 +58,7 @@ def score_relevance(post_text: str) -> float:
     prompt = _resolve_domain_prompt(RELEVANCE_PROMPT).format(
         post_content=wrap_untrusted_content(post_text),
     )
-    result = generate(prompt, max_length=50)
+    result = generate(prompt, max_length=50, num_predict=30)
     if result is None:
         return 0.0
 
@@ -73,7 +73,7 @@ def score_relevance(post_text: str) -> float:
 def generate_comment(post_text: str) -> Optional[str]:
     """Generate a contextual comment for a post."""
     prompt = COMMENT_PROMPT.format(post_content=wrap_untrusted_content(post_text))
-    return generate(prompt, max_length=MAX_COMMENT_LENGTH)
+    return generate(prompt, max_length=MAX_COMMENT_LENGTH, num_predict=300)
 
 
 def generate_cooperation_post(
@@ -92,7 +92,7 @@ def generate_cooperation_post(
         insights_section=insights_section,
         knowledge_section="",
     )
-    return generate(prompt, max_length=MAX_POST_LENGTH)
+    return generate(prompt, max_length=MAX_POST_LENGTH, num_predict=600)
 
 
 def generate_reply(
@@ -111,7 +111,7 @@ def generate_reply(
         original_post=wrap_untrusted_content(original_post),
         their_comment=wrap_untrusted_content(their_comment),
     )
-    return generate(prompt, max_length=MAX_COMMENT_LENGTH)
+    return generate(prompt, max_length=MAX_COMMENT_LENGTH, num_predict=300)
 
 
 def generate_post_title(feed_topics: str) -> Optional[str]:
@@ -119,7 +119,7 @@ def generate_post_title(feed_topics: str) -> Optional[str]:
     prompt = _resolve_domain_prompt(POST_TITLE_PROMPT).format(
         feed_topics=wrap_untrusted_content(feed_topics),
     )
-    result = generate(prompt, max_length=100)
+    result = generate(prompt, max_length=100, num_predict=50)
     if result:
         return result.strip().strip('"').strip("'")[:80]
     return None
@@ -136,7 +136,7 @@ def extract_topics(posts: list[dict]) -> Optional[str]:
     prompt = TOPIC_EXTRACTION_PROMPT.format(
         combined_posts=wrap_untrusted_content(combined),
     )
-    return generate(prompt, max_length=500)
+    return generate(prompt, max_length=500, num_predict=250)
 
 
 def check_topic_novelty(
@@ -151,7 +151,7 @@ def check_topic_novelty(
         recent_topics=wrap_untrusted_content(recent_lines),
         current_topics=wrap_untrusted_content(current_topics),
     )
-    result = generate(prompt, max_length=50)
+    result = generate(prompt, max_length=50, num_predict=20)
     if result is None:
         return True  # fail open — allow posting if LLM is down
 
@@ -163,7 +163,7 @@ def summarize_post_topic(content: str) -> str:
     prompt = TOPIC_SUMMARY_PROMPT.format(
         post_content=wrap_untrusted_content(content),
     )
-    result = generate(prompt, max_length=120)
+    result = generate(prompt, max_length=120, num_predict=60)
     if result:
         return result.strip()[:100]
     return content[:100]
@@ -178,7 +178,7 @@ def select_submolt(
         submolt_list=submolt_list,
         post_content=wrap_untrusted_content(content),
     )
-    result = generate(prompt, max_length=50)
+    result = generate(prompt, max_length=50, num_predict=20)
     if result is None:
         return None
 
@@ -211,7 +211,7 @@ def generate_session_insight(
         actions_text=wrap_untrusted_content(actions_text),
         topics_text=wrap_untrusted_content(topics_text),
     )
-    result = generate(prompt, max_length=200)
+    result = generate(prompt, max_length=200, num_predict=100)
     if result:
         return result.strip()[:150]
     return None

@@ -541,7 +541,7 @@ def _handle_stocktake_result(
 
     from .core._io import write_restricted
     from .core.insight import _extract_title, _slugify
-    from .core.stocktake import format_report, merge_group
+    from .core.stocktake import format_report, is_merge_rejected, merge_group
 
     print(format_report(result, label))
 
@@ -576,6 +576,11 @@ def _handle_stocktake_result(
             merged_text = merge_group(group_items, merge_prompt)
             if merged_text is None:
                 print("  Merge failed (LLM error). Skipping.")
+                continue
+
+            if is_merge_rejected(merged_text):
+                print(f"  LLM rejected merge: {merged_text.strip()}")
+                print("  Skipping (candidates judged not actually redundant).")
                 continue
 
             print(merged_text)
