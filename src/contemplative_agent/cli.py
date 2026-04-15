@@ -971,6 +971,40 @@ def _take_snapshot(
     )
 
 
+def _handle_migrate_patterns(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    """ADR-0021 migration: fill provenance / bitemporal / forgetting / feedback fields."""
+    from .core.migration import migrate_patterns_to_adr0021
+
+    stats = migrate_patterns_to_adr0021(KNOWLEDGE_PATH, dry_run=args.dry_run)
+
+    print()
+    print("=== migrate-patterns summary (ADR-0021) ===")
+    if stats.backup_path:
+        print(f"  backup          : {stats.backup_path.name}")
+    elif args.dry_run:
+        print("  backup          : (skipped — dry-run)")
+    print(f"  patterns total  : {stats.patterns_total}")
+    print(f"  patterns updated: {stats.patterns_updated}")
+    print(f"  already migrated: {stats.patterns_already_migrated}")
+    if stats.errors:
+        print("  errors:")
+        for err in stats.errors:
+            print(f"    - {err}")
+    if args.dry_run:
+        print("  (dry-run — no file writes performed)")
+
+    if not args.dry_run and stats.patterns_updated > 0:
+        _log_approval(
+            "migrate-patterns",
+            KNOWLEDGE_PATH,
+            approved=True,
+            content=(
+                f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
+                f"updated={stats.patterns_updated}/{stats.patterns_total}"
+            ),
+        )
+
+
 def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     """ADR-0019 migration: add embeddings + gated to patterns and bulk-embed episodes."""
     from .core.migration import run_embed_backfill
@@ -1549,6 +1583,16 @@ def main() -> None:
         help="Run end-to-end without writing knowledge.json or sidecar (counts only)",
     )
 
+    # migrate-patterns (ADR-0021)
+    migrate_parser = subparsers.add_parser(
+        "migrate-patterns",
+        help="ADR-0021: fill provenance / bitemporal / forgetting / feedback fields on legacy patterns",
+    )
+    migrate_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report what would change without writing knowledge.json or creating a backup",
+    )
+
     # sync-data
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
 
@@ -1585,6 +1629,7 @@ def main() -> None:
         "rules-stocktake": _handle_rules_stocktake,
         "sync-data": _handle_sync_data,
         "adopt-staged": _handle_adopt_staged,
+        "migrate-patterns": _handle_migrate_patterns,
     }
     handler = no_llm_handlers.get(args.command)
     if handler:

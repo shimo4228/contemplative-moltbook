@@ -173,6 +173,9 @@ class TestDedupPatternsEmbedding:
         assert skip == 1
 
     def test_similar_triggers_update(self):
+        """ADR-0021: UPDATE path soft-invalidates old pattern and ADDs a new
+        boosted one; the old pattern keeps its original importance but gains
+        a ``valid_until`` timestamp for audit / replay."""
         existing = [{"pattern": "Existing", "importance": 0.5, "embedding": [1.0, 0.0]}]
         # cosine ≈ 0.85 (between SIM_UPDATE=0.80 and SIM_DUPLICATE=0.92)
         new_embs = [_embedding(0.85, 0.527)]
@@ -180,7 +183,10 @@ class TestDedupPatternsEmbedding:
             ["new"], [0.7], new_embs, existing,
         )
         assert upd == 1
-        assert existing[0]["importance"] == 0.7  # boosted
+        assert existing[0]["importance"] == 0.5  # not mutated
+        assert existing[0].get("valid_until") is not None  # soft-invalidated
+        assert len(add) == 1
+        assert add_imp[0] == 0.7  # boosted importance on the new pattern
 
     def test_existing_without_embedding_ignored(self):
         existing = [{"pattern": "Old", "importance": 0.5}]  # no embedding
@@ -207,9 +213,85 @@ class TestDedupPatternsEmbedding:
             mutate_existing=False,
         )
         assert existing[0]["importance"] == 0.5
+        assert existing[0].get("valid_until") is None  # no soft-invalidation either
 
     def test_thresholds_in_range(self):
         assert 0.0 < SIM_UPDATE < SIM_DUPLICATE < 1.0
+
+
+class TestDeriveSourceTypeADR0021:
+    """ADR-0021: map episode types to provenance.source_type."""
+
+    def test_all_self_generated_is_self_reflection(self):
+        from contemplative_agent.core.distill import _derive_source_type
+
+        records = [
+            {"type": "post", "data": {}},
+            {"type": "insight", "data": {}},
+            {"type": "interaction", "data": {"direction": "sent"}},
+            {"type": "activity", "data": {}},
+        ]
+        assert _derive_source_type(records) == "self_reflection"
+
+    def test_all_external_is_external_reply(self):
+        from contemplative_agent.core.distill import _derive_source_type
+
+        records = [{"type": "interaction", "data": {"direction": "received"}}] * 3
+        assert _derive_source_type(records) == "external_reply"
+
+    def test_mixed_self_and_external(self):
+        from contemplative_agent.core.distill import _derive_source_type
+
+        records = [
+            {"type": "post", "data": {}},
+            {"type": "interaction", "data": {"direction": "received"}},
+        ]
+        assert _derive_source_type(records) == "mixed"
+
+    def test_only_unknown_types(self):
+        from contemplative_agent.core.distill import _derive_source_type
+
+        records = [{"type": "something_weird", "data": {}}]
+        assert _derive_source_type(records) == "unknown"
+
+    def test_trust_for_source_maps_correctly(self):
+        from contemplative_agent.core.distill import _trust_for_source
+
+        assert _trust_for_source("self_reflection") > _trust_for_source("external_reply")
+        assert _trust_for_source("mixed") <= _trust_for_source("external_reply")
+        assert _trust_for_source("unknown") == 0.6
+
+
+class TestDedupSoftInvalidationADR0021:
+    """ADR-0021: SIM_UPDATE path creates a new row + invalidates the old row."""
+
+    def test_invalidated_patterns_ignored_as_candidates(self):
+        existing = [
+            {
+                "pattern": "ghost",
+                "importance": 0.8,
+                "embedding": [1.0, 0.0],
+                "valid_until": "2026-01-01T00:00",
+            }
+        ]
+        new_embs = [_embedding(0.85, 0.527)]  # would match if ghost were live
+        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+            ["new"], [0.7], new_embs, existing,
+        )
+        # ghost is invalidated → ignored → new pattern is ADD'd, not UPDATE
+        assert upd == 0
+        assert len(add) == 1
+
+    def test_return_indices_aligns_with_input(self):
+        existing: list = []
+        new_embs = [_embedding(1.0, 0.0), _embedding(0.0, 1.0)]
+        out = _dedup_patterns(
+            ["a", "b"], [0.5, 0.5], new_embs, existing,
+            return_indices=True,
+        )
+        add, _imp, _emb, idxs, _skip, _upd = out
+        assert add == ["a", "b"]
+        assert idxs == [0, 1]
 
 
 class TestIsValidPattern:

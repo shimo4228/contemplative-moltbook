@@ -11,25 +11,61 @@ from typing import Dict, List, Optional
 
 from ._io import write_restricted
 from .config import FORBIDDEN_SUBSTRING_PATTERNS
+from .forgetting import compute_strength
 
 logger = logging.getLogger(__name__)
 
+# ADR-0021 source_type values. "unknown" is the migration default for
+# legacy patterns without recorded provenance.
+SOURCE_TYPES = (
+    "self_reflection",
+    "external_reply",
+    "external_post",
+    "user_input",
+    "mixed",
+    "unknown",
+)
+
+# ADR-0021 base trust by source. Applied at distill time; later adjusted
+# by feedback.py and approval-gate hooks.
+TRUST_BASE_BY_SOURCE: Dict[str, float] = {
+    "self_reflection": 0.9,
+    "user_input": 0.7,
+    "unknown": 0.6,
+    "external_reply": 0.55,
+    "external_post": 0.5,
+    "mixed": 0.5,  # overridden to min(inputs) when mixed sources are known
+}
+
+DEFAULT_TRUST = TRUST_BASE_BY_SOURCE["unknown"]
+
 
 def effective_importance(p: dict) -> float:
-    """Compute importance with time decay: importance * 0.95^days_elapsed."""
+    """Compute retrieval weight: importance × time decay × trust × strength.
+
+    The legacy term ``importance × 0.95^days_elapsed`` is retained as a
+    coarse aging signal; ADR-0021 augments it with trust (provenance
+    quality) and strength (Ebbinghaus access-aware decay). Patterns
+    missing the new fields degrade to legacy-only scoring.
+    """
     base = p.get("importance", 0.5)
     distilled = p.get("distilled", "")
     if not distilled or distilled == "unknown":
-        return base * 0.1  # Unknown timestamp → heavy penalty
-    try:
-        dt = datetime.fromisoformat(distilled)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400.0
-        days = max(0.0, days)
-    except (ValueError, TypeError):
-        return base * 0.1
-    return max(0.0, min(1.0, base * (0.95 ** days)))
+        legacy = base * 0.1  # Unknown timestamp → heavy penalty
+    else:
+        try:
+            dt = datetime.fromisoformat(distilled)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400.0
+            days = max(0.0, days)
+            legacy = base * (0.95 ** days)
+        except (ValueError, TypeError):
+            legacy = base * 0.1
+
+    trust = float(p.get("trust_score", 1.0))
+    strength = compute_strength(p) if "last_accessed_at" in p or "access_count" in p else 1.0
+    return max(0.0, min(1.0, legacy * trust * strength))
 
 
 class KnowledgeStore:
@@ -57,10 +93,26 @@ class KnowledgeStore:
         subcategory: Optional[str] = None,
         embedding: Optional[List[float]] = None,
         gated: Optional[bool] = None,
+        provenance: Optional[Dict] = None,
+        trust_score: Optional[float] = None,
+        valid_from: Optional[str] = None,
+        valid_until: Optional[str] = None,
     ) -> None:
+        """Append a new learned pattern dict.
+
+        ADR-0021 fields (provenance / trust_score / valid_from / valid_until)
+        are all optional. When omitted, sensible defaults are written so the
+        pattern is immediately usable: ``provenance.source_type = "unknown"``,
+        ``trust_score = DEFAULT_TRUST``, ``valid_from = distilled``,
+        ``valid_until = None`` (current truth). ``last_accessed_at`` /
+        ``access_count`` / ``success_count`` / ``failure_count`` start at
+        neutral values; strength is computed on read.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+        distilled_value = distilled or now_iso
         entry: dict = {
             "pattern": pattern,
-            "distilled": distilled or datetime.now(timezone.utc).isoformat(timespec="minutes"),
+            "distilled": distilled_value,
             "importance": importance,
             "category": category,
         }
@@ -72,6 +124,24 @@ class KnowledgeStore:
             entry["embedding"] = embedding
         if gated is not None:
             entry["gated"] = gated
+
+        # ADR-0021: provenance + trust
+        entry["provenance"] = provenance or {"source_type": "unknown"}
+        entry["trust_score"] = (
+            float(trust_score) if trust_score is not None else DEFAULT_TRUST
+        )
+        entry["trust_updated_at"] = now_iso
+
+        # ADR-0021: bitemporal
+        entry["valid_from"] = valid_from or distilled_value
+        entry["valid_until"] = valid_until  # None = current truth
+
+        # ADR-0021: forgetting + feedback (initial neutral state)
+        entry["last_accessed_at"] = now_iso
+        entry["access_count"] = 0
+        entry["success_count"] = 0
+        entry["failure_count"] = 0
+
         self._learned_patterns.append(entry)
 
     def get_raw_patterns(self, category: Optional[str] = None) -> List[dict]:
@@ -141,7 +211,9 @@ class KnowledgeStore:
             category: If provided, only return patterns matching this category.
                       Patterns without a category field are treated as "uncategorized".
         """
-        pool = self._filtered_pool(category)
+        from .forgetting import is_live, mark_accessed
+
+        pool = [p for p in self._filtered_pool(category) if is_live(p)]
         if not pool:
             return ""
         scored = sorted(
@@ -150,9 +222,9 @@ class KnowledgeStore:
             reverse=True,
         )
         selected = scored[:limit]
-        now = datetime.now(timezone.utc).isoformat(timespec="minutes")
+        now_dt = datetime.now(timezone.utc)
         for p in selected:
-            p["last_accessed"] = now
+            mark_accessed(p, now=now_dt)
         return "\n".join(f"- {p['pattern']}" for p in selected)
 
     def load(self) -> None:
@@ -266,6 +338,34 @@ class KnowledgeStore:
                     entry["embedding"] = list(item["embedding"])
                 if isinstance(item.get("gated"), bool):
                     entry["gated"] = item["gated"]
+                if isinstance(item.get("last_classified_at"), str):
+                    entry["last_classified_at"] = item["last_classified_at"]
+                if isinstance(item.get("last_view_matches"), dict):
+                    entry["last_view_matches"] = dict(item["last_view_matches"])
+
+                # ADR-0021 optional fields. Preserve only if present; the
+                # load path does not auto-fill, so legacy files remain
+                # legacy until migrate-patterns runs.
+                if isinstance(item.get("provenance"), dict):
+                    entry["provenance"] = dict(item["provenance"])
+                if isinstance(item.get("trust_score"), (int, float)):
+                    entry["trust_score"] = float(item["trust_score"])
+                if isinstance(item.get("trust_updated_at"), str):
+                    entry["trust_updated_at"] = item["trust_updated_at"]
+                if isinstance(item.get("valid_from"), str):
+                    entry["valid_from"] = item["valid_from"]
+                if "valid_until" in item:
+                    vu = item["valid_until"]
+                    if vu is None or isinstance(vu, str):
+                        entry["valid_until"] = vu
+                if isinstance(item.get("last_accessed_at"), str):
+                    entry["last_accessed_at"] = item["last_accessed_at"]
+                if isinstance(item.get("access_count"), int):
+                    entry["access_count"] = item["access_count"]
+                if isinstance(item.get("success_count"), int):
+                    entry["success_count"] = item["success_count"]
+                if isinstance(item.get("failure_count"), int):
+                    entry["failure_count"] = item["failure_count"]
                 self._learned_patterns.append(entry)
             elif isinstance(item, str):
                 # Bare string — legacy format

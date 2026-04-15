@@ -669,13 +669,17 @@ class TestKnowledgeStore:
         assert "Old but important" in lines[1]
 
     def test_last_accessed_updated_on_get_context(self, tmp_path):
-        """get_context_string() sets last_accessed on selected patterns."""
+        """get_context_string() updates last_accessed_at + access_count (ADR-0021)."""
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Pattern to access")
-        assert ks._learned_patterns[0].get("last_accessed") is None
+        baseline_ts = ks._learned_patterns[0].get("last_accessed_at")
+        assert ks._learned_patterns[0].get("access_count") == 0
 
         ks.get_context_string()
-        assert ks._learned_patterns[0].get("last_accessed") is not None
+        assert ks._learned_patterns[0].get("last_accessed_at") is not None
+        assert ks._learned_patterns[0].get("access_count") == 1
+        # Timestamp should be at least as recent as the baseline
+        assert ks._learned_patterns[0]["last_accessed_at"] >= (baseline_ts or "")
 
     def test_legacy_markdown_gets_default_importance(self, tmp_path):
         """Legacy markdown patterns get importance 0.5."""

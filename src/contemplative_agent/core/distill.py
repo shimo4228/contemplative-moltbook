@@ -20,7 +20,7 @@ import numpy as np
 
 from ._io import strip_code_fence
 from .embeddings import cosine, embed_texts
-from .knowledge_store import effective_importance
+from .knowledge_store import TRUST_BASE_BY_SOURCE, effective_importance
 from .llm import generate, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
 from .prompts import (
@@ -389,6 +389,46 @@ def _classify_episodes(
     )
 
 
+def _episode_source_kind(record: Dict) -> str:
+    """Classify one episode as 'self' / 'external' / 'unknown' (ADR-0021)."""
+    record_type = record.get("type", "")
+    data = record.get("data", {}) or {}
+    if record_type == "interaction":
+        return "external" if data.get("direction") == "received" else "self"
+    if record_type in ("post", "insight", "activity"):
+        return "self"
+    return "unknown"
+
+
+def _derive_source_type(records: List[Dict]) -> str:
+    """Map a batch of episodes to an ADR-0021 provenance.source_type value.
+
+    - All self-generated → self_reflection (high trust).
+    - All externally-sourced → external_reply.
+    - Mixed self + external → mixed (trust = min of the two bases).
+    - Only unknown types → unknown.
+    """
+    kinds = {_episode_source_kind(r) for r in records}
+    kinds.discard("unknown")
+    if not kinds:
+        return "unknown"
+    if kinds == {"self"}:
+        return "self_reflection"
+    if kinds == {"external"}:
+        return "external_reply"
+    return "mixed"
+
+
+def _trust_for_source(source_type: str) -> float:
+    """Base trust score for a given provenance source_type."""
+    if source_type == "mixed":
+        return min(
+            TRUST_BASE_BY_SOURCE["self_reflection"],
+            TRUST_BASE_BY_SOURCE["external_reply"],
+        )
+    return TRUST_BASE_BY_SOURCE.get(source_type, TRUST_BASE_BY_SOURCE["unknown"])
+
+
 @dataclass(frozen=True)
 class _CategoryResult:
     """Result of distilling a single category."""
@@ -413,10 +453,13 @@ def _distill_category(
 
     all_patterns: List[str] = []
     all_importances: List[float] = []
+    all_source_types: List[str] = []
+    all_episode_ids: List[List[str]] = []
     all_results: List[str] = []
 
     for batch_idx, batch in enumerate(batches):
         episode_lines = []
+        batch_episode_ids: List[str] = []
         for r in batch:
             record_type = r.get("type", "unknown")
             data = r.get("data", {})
@@ -424,9 +467,13 @@ def _distill_category(
             summary = summarize_record(record_type, data)
             if summary:
                 episode_lines.append(f"[{ts[:16]}] {record_type}: {summary}")
+                if ts:
+                    batch_episode_ids.append(ts)
 
         if not episode_lines:
             continue
+
+        batch_source_type = _derive_source_type(batch)
 
         step1_prompt = DISTILL_CONSTITUTIONAL_PROMPT if category == "constitutional" else DISTILL_PROMPT
         prompt = step1_prompt.format(
@@ -481,6 +528,14 @@ def _distill_category(
 
         all_patterns.extend(batch_patterns)
         all_importances.extend(batch_importances)
+        # ADR-0021: record source provenance per pattern. Every pattern in
+        # this batch shares the same source_type (derived from the batch's
+        # episode type mix) and the same representative episode id list.
+        for _ in batch_patterns:
+            all_source_types.append(batch_source_type)
+            # Keep up to 5 representative timestamps so the pattern can be
+            # traced back to its originating episode window.
+            all_episode_ids.append(list(batch_episode_ids[:5]))
         imp_summary = ", ".join(f"{i:.1f}" for i in batch_importances) if batch_importances else "none"
         logger.info(
             "[%s] Batch %d/%d: %d episodes (prompt %d chars) → %d patterns (%d rejected) [importance: %s]",
@@ -519,31 +574,55 @@ def _distill_category(
         logger.info("[%s] Dedup scope: %d/%d patterns (importance floor %.2f)",
                     category, len(existing_same_cat), pre_filter, DEDUP_IMPORTANCE_FLOOR)
 
-    add_patterns, add_importances, add_embeddings, skipped, updated = _dedup_patterns(
+    (
+        add_patterns, add_importances, add_embeddings,
+        add_indices, skipped, updated,
+    ) = _dedup_patterns(
         all_patterns, all_importances, new_embeddings, existing_same_cat,
         mutate_existing=not dry_run,
+        return_indices=True,
     )
 
     if dry_run:
         logger.info(
-            "[%s] Dry run — %d patterns found, %d skipped, %d would update existing",
+            "[%s] Dry run — %d patterns found, %d skipped, %d would soft-invalidate",
             category, len(all_patterns), skipped, updated,
         )
         return _CategoryResult(results=tuple(all_results), added=0, updated=0)
 
     if updated:
-        logger.info("[%s] Dedup: %d updated (importance boosted)", category, updated)
+        logger.info(
+            "[%s] Dedup: %d soft-invalidated (bitemporal) and replaced with boosted new patterns",
+            category, updated,
+        )
 
-    for pattern, importance, emb in zip(add_patterns, add_importances, add_embeddings):
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    for pattern, importance, emb, src_idx in zip(
+        add_patterns, add_importances, add_embeddings, add_indices
+    ):
         emb_list: Optional[List[float]] = (
             [float(x) for x in emb] if emb is not None else None
         )
+        source_type = all_source_types[src_idx] if src_idx < len(all_source_types) else "unknown"
+        episode_ids = all_episode_ids[src_idx] if src_idx < len(all_episode_ids) else []
+        provenance = {
+            "source_type": source_type,
+            "source_episode_ids": episode_ids,
+            "sanitized": True,
+            "pipeline_version": "distill@0.21",
+        }
         knowledge.add_learned_pattern(
-            pattern, source=source_date, importance=importance,
-            category=category, embedding=emb_list,
+            pattern,
+            source=source_date,
+            importance=importance,
+            category=category,
+            embedding=emb_list,
+            provenance=provenance,
+            trust_score=_trust_for_source(source_type),
+            valid_from=now_iso,
         )
-        logger.info("[%s] Added pattern (importance=%.1f): %s",
-                     category, importance, pattern[:80])
+        logger.info("[%s] Added pattern (importance=%.1f, source=%s): %s",
+                     category, importance, source_type, pattern[:80])
 
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)
 
@@ -558,12 +637,16 @@ def _dedup_patterns(
     existing_patterns: List[dict],
     *,
     mutate_existing: bool = True,
-) -> Tuple[List[str], List[float], List[Optional[np.ndarray]], int, int]:
+    return_indices: bool = False,
+) -> Tuple:
     """Remove duplicates by comparing new patterns against existing ones.
 
     Returns (patterns_to_add, importances_to_add, embeddings_to_add, skip_count, update_count).
     - SKIP: cosine >= SIM_DUPLICATE (near-exact duplicate)
-    - UPDATE: cosine >= SIM_UPDATE against existing (boost importance, refresh timestamp)
+    - UPDATE: cosine >= SIM_UPDATE against existing → soft-invalidate the old
+      pattern (``valid_until = now``) and ADD a boosted new pattern. The old
+      row is kept for audit / replay (ADR-0021 bitemporal) rather than
+      mutated in place.
     - ADD: cosine <  SIM_UPDATE against everything
 
     Patterns whose embedding is None (Ollama failure) are always ADD'd
@@ -573,21 +656,29 @@ def _dedup_patterns(
     add_patterns: List[str] = []
     add_importances: List[float] = []
     add_embeddings: List[Optional[np.ndarray]] = []
+    add_indices: List[int] = []
     skip_count = 0
     update_count = 0
 
-    # Pre-compute existing embeddings (only patterns with embeddings count for dedup)
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+
+    # Pre-compute existing embeddings (only patterns with embeddings + live count for dedup)
     existing_with_emb: List[Tuple[Dict, np.ndarray]] = []
     for p in existing_patterns:
+        if p.get("valid_until") is not None:
+            continue  # already invalidated — ignore
         emb = p.get("embedding")
         if isinstance(emb, list):
             existing_with_emb.append((p, np.asarray(emb, dtype=np.float32)))
 
-    for new_text, new_imp, new_emb in zip(new_patterns, new_importances, new_embeddings):
+    for input_idx, (new_text, new_imp, new_emb) in enumerate(
+        zip(new_patterns, new_importances, new_embeddings)
+    ):
         if new_emb is None:
             add_patterns.append(new_text)
             add_importances.append(new_imp)
             add_embeddings.append(None)
+            add_indices.append(input_idx)
             continue
 
         # Best similarity vs existing
@@ -615,12 +706,20 @@ def _dedup_patterns(
             skip_count += 1
             logger.debug("SKIP (%.2f): %s", max(best_existing_sim, best_new_sim), new_text[:60])
         elif best_existing_sim >= SIM_UPDATE and best_existing_pat is not None and best_existing_sim >= best_new_sim:
+            # ADR-0021: soft-invalidate old, keep row for audit, and ADD a
+            # new boosted pattern. The new row inherits max(old_imp, new_imp)
+            # so a refinement never loses information.
+            old_imp = best_existing_pat.get("importance", 0.5)
+            boosted_imp = max(old_imp, new_imp)
             if mutate_existing:
-                old_imp = best_existing_pat.get("importance", 0.5)
-                best_existing_pat["importance"] = max(old_imp, new_imp)
-                best_existing_pat["distilled"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
+                best_existing_pat["valid_until"] = now_iso
+            add_patterns.append(new_text)
+            add_importances.append(boosted_imp)
+            add_embeddings.append(new_emb)
+            add_indices.append(input_idx)
             update_count += 1
-            logger.debug("UPDATE (%.2f): %s", best_existing_sim, new_text[:60])
+            logger.debug("UPDATE (%.2f): invalidate + add boosted: %s",
+                         best_existing_sim, new_text[:60])
         elif best_new_sim >= SIM_UPDATE and best_new_idx >= 0:
             if new_imp > add_importances[best_new_idx]:
                 add_importances[best_new_idx] = new_imp
@@ -630,7 +729,13 @@ def _dedup_patterns(
             add_patterns.append(new_text)
             add_importances.append(new_imp)
             add_embeddings.append(new_emb)
+            add_indices.append(input_idx)
 
+    if return_indices:
+        return (
+            add_patterns, add_importances, add_embeddings,
+            add_indices, skip_count, update_count,
+        )
     return add_patterns, add_importances, add_embeddings, skip_count, update_count
 
 

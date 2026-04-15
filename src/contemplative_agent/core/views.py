@@ -37,6 +37,7 @@ from typing import Dict, List, Mapping, Optional
 import numpy as np
 
 from .embeddings import cosine, embed_one
+from .forgetting import compute_strength, is_live, mark_accessed
 
 logger = logging.getLogger(__name__)
 
@@ -272,18 +273,38 @@ class ViewRegistry:
         candidates: List[Dict],
         threshold: float,
         top_k: Optional[int],
+        *,
+        mark_access: bool = True,
     ) -> List[Dict]:
+        """Rank candidates by ``cosine × trust_score × strength``.
+
+        ADR-0021: multiplicative scoring combines semantic similarity
+        (cosine), epistemic confidence (trust_score), and temporal
+        strength (Ebbinghaus decay on access). Hard filters: pattern is
+        skipped if ``not is_live(pattern)`` (valid_until set, trust below
+        floor, or strength below floor) or if the cosine is below the
+        view's ``threshold``. The threshold applies to raw cosine, not to
+        the combined score, so that view tuning stays semantic.
+        """
         scored: List[tuple] = []
         for pat in candidates:
             emb = pat.get("embedding")
             if not emb:
                 continue
+            if not is_live(pat):
+                continue
             vec = np.asarray(emb, dtype=np.float32)
             sim = cosine(seed_emb, vec)
             if sim < threshold:
                 continue
-            scored.append((sim, pat))
+            trust = float(pat.get("trust_score", 1.0))
+            strength = compute_strength(pat)
+            scored.append((sim * trust * strength, sim, pat))
         scored.sort(key=lambda t: t[0], reverse=True)
         if top_k is not None:
             scored = scored[:top_k]
-        return [pat for _, pat in scored]
+        result = [pat for _, _, pat in scored]
+        if mark_access:
+            for pat in result:
+                mark_accessed(pat)
+        return result

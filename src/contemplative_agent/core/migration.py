@@ -344,3 +344,108 @@ def _merge_episode_stats(dst: BackfillStats, src: BackfillStats) -> None:
     dst.episodes_skipped = src.episodes_skipped
     dst.episodes_failed = src.episodes_failed
     dst.errors.extend(src.errors)
+
+
+# ============================================================
+# ADR-0021: Pattern schema migration (provenance / bitemporal /
+# forgetting / feedback). Additive and idempotent.
+# ============================================================
+
+
+@dataclass
+class Adr0021MigrationStats:
+    patterns_total: int = 0
+    patterns_updated: int = 0  # received at least one new field
+    patterns_already_migrated: int = 0  # had all fields already
+    backup_path: Optional[Path] = None
+    errors: List[str] = field(default_factory=list)
+
+
+def _ensure_adr0021_defaults(pattern: Dict) -> bool:
+    """Add missing ADR-0021 fields with defaults. Returns True if mutated."""
+    from .knowledge_store import DEFAULT_TRUST
+
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    changed = False
+
+    if "provenance" not in pattern:
+        pattern["provenance"] = {"source_type": "unknown"}
+        changed = True
+    if "trust_score" not in pattern:
+        pattern["trust_score"] = DEFAULT_TRUST
+        changed = True
+    if "trust_updated_at" not in pattern:
+        pattern["trust_updated_at"] = now_iso
+        changed = True
+    if "valid_from" not in pattern:
+        # Use distilled timestamp if it's a real ISO, else now
+        distilled = pattern.get("distilled", "")
+        pattern["valid_from"] = distilled if (
+            isinstance(distilled, str) and distilled != "unknown" and distilled
+        ) else now_iso
+        changed = True
+    if "valid_until" not in pattern:
+        pattern["valid_until"] = None
+        changed = True
+    if "last_accessed_at" not in pattern:
+        # Legacy files sometimes have `last_accessed` without `_at`
+        legacy = pattern.get("last_accessed")
+        pattern["last_accessed_at"] = (
+            legacy if isinstance(legacy, str) else now_iso
+        )
+        changed = True
+    if "access_count" not in pattern:
+        pattern["access_count"] = 0
+        changed = True
+    if "success_count" not in pattern:
+        pattern["success_count"] = 0
+        changed = True
+    if "failure_count" not in pattern:
+        pattern["failure_count"] = 0
+        changed = True
+
+    return changed
+
+
+def migrate_patterns_to_adr0021(
+    knowledge_path: Path,
+    *,
+    dry_run: bool = False,
+) -> Adr0021MigrationStats:
+    """Additively fill ADR-0021 fields on every pattern.
+
+    Idempotent: running twice is a no-op. Backup is created before any
+    mutation. Legacy ``last_accessed`` (without ``_at``) is copied into
+    ``last_accessed_at`` for continuity.
+    """
+    from .knowledge_store import KnowledgeStore
+
+    stats = Adr0021MigrationStats()
+    if not knowledge_path.exists():
+        stats.errors.append(f"knowledge file not found: {knowledge_path}")
+        return stats
+
+    if not dry_run:
+        stats.backup_path = backup_knowledge(knowledge_path)
+        if stats.backup_path is not None:
+            logger.info("Backed up knowledge.json → %s", stats.backup_path.name)
+
+    store = KnowledgeStore(path=knowledge_path)
+    store.load()
+    patterns = store.get_raw_patterns()
+    stats.patterns_total = len(patterns)
+
+    for pattern in patterns:
+        if _ensure_adr0021_defaults(pattern):
+            stats.patterns_updated += 1
+        else:
+            stats.patterns_already_migrated += 1
+
+    if not dry_run and stats.patterns_updated > 0:
+        store.save()
+        logger.info(
+            "ADR-0021 migration: %d/%d patterns updated",
+            stats.patterns_updated, stats.patterns_total,
+        )
+
+    return stats
