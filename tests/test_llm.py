@@ -284,6 +284,17 @@ class TestGenerate:
         assert len(result) == 50
 
     @patch("contemplative_agent.core.llm.requests.post")
+    def test_max_length_none_skips_truncation(self, mock_post):
+        """ADR-0009: internal callers pass max_length=None and get full output."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"response": "a" * 200}
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+
+        result = generate("test")  # default max_length is None now
+        assert len(result) == 200
+
+    @patch("contemplative_agent.core.llm.requests.post")
     def test_num_predict_default_is_8192(self, mock_post):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"response": "ok"}

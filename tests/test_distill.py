@@ -65,9 +65,8 @@ class TestDistill:
 
     @patch("contemplative_agent.core.distill.generate")
     def test_basic_distillation(self, mock_generate, mock_embed_distinct, tmp_path):
-        # generate calls: classify (×2 for 2 episodes) + extract + refine + importance
+        # classify is now embedding-based (no generate call); only extract / refine / importance.
         mock_generate.side_effect = [
-            "uncategorized", "uncategorized",  # classify
             "Some free-form analysis of patterns from the episode logs.",
             json.dumps({"patterns": [
                 "Pattern one shows that quoting specific details improves engagement",
@@ -103,7 +102,6 @@ class TestDistill:
     @patch("contemplative_agent.core.distill.generate")
     def test_dry_run_does_not_write(self, mock_generate, mock_embed_distinct, tmp_path):
         mock_generate.side_effect = [
-            "uncategorized",  # classify (1 episode)
             "Some analysis.",
             json.dumps({"patterns": [
                 "Dry pattern that explains how quoting specific details works better",
@@ -307,19 +305,42 @@ class TestParseClassifyResult:
 
 
 class TestClassifyEpisodes:
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "Classify: {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_classifies_single_record(self, mock_generate):
-        mock_generate.return_value = "constitutional"
+    @patch("contemplative_agent.core.distill.embed_texts")
+    def test_classifies_via_centroid(self, mock_embed):
+        mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
+        registry = MagicMock()
+        # noise centroid different (sim < threshold), constitutional centroid matching
+        registry.get_centroid.side_effect = lambda name: (
+            np.array([0.0, 1.0], dtype=np.float32) if name == "noise"
+            else np.array([1.0, 0.0], dtype=np.float32)  # constitutional matches
+        )
         records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
                     "data": {"observation": "Notice empty"}}]
-        result = _classify_episodes(records, constitution="x")
+        result = _classify_episodes(records, view_registry=registry)
         assert isinstance(result, _ClassifiedRecords)
         assert len(result.constitutional) == 1
         assert len(result.noise) == 0
 
+    @patch("contemplative_agent.core.distill.embed_texts")
+    def test_noise_gate_takes_precedence(self, mock_embed):
+        mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
+        registry = MagicMock()
+        # both noise and constitutional centroids match; noise wins
+        registry.get_centroid.return_value = np.array([1.0, 0.0], dtype=np.float32)
+        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
+                    "data": {"observation": "x"}}]
+        result = _classify_episodes(records, view_registry=registry)
+        assert len(result.noise) == 1
+
+    def test_no_view_registry_defaults_to_uncategorized(self):
+        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
+                    "data": {"observation": "x"}}]
+        result = _classify_episodes(records, view_registry=None)
+        assert len(result.uncategorized) == 1
+        assert len(result.noise) == 0
+
     def test_empty_records(self):
-        assert _classify_episodes([]).uncategorized == ()
+        assert _classify_episodes([], view_registry=None).uncategorized == ()
 
 
 class TestKnowledgeStore:
@@ -332,16 +353,16 @@ class TestKnowledgeStore:
             ks.get_context_string(subcategory="x")  # type: ignore[call-arg]
 
 
-class TestConstrainedDecoding:
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "Classify: {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_classify_passes_format(self, mock_generate):
-        mock_generate.return_value = "uncategorized"
-        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
-                    "data": {"observation": "Test"}}]
-        _classify_episodes(records, constitution="x")
-        _, kwargs = mock_generate.call_args
-        assert kwargs.get("format") is CLASSIFY_SCHEMA
+class TestThresholds:
+    """Embedding thresholds are sane defaults."""
+
+    def test_dedup_thresholds_in_range(self):
+        from contemplative_agent.core.distill import (
+            NOISE_THRESHOLD,
+            CONSTITUTIONAL_THRESHOLD,
+        )
+        assert 0.0 < NOISE_THRESHOLD < 1.0
+        assert 0.0 < CONSTITUTIONAL_THRESHOLD < 1.0
 
 
 class TestEffectiveImportance:

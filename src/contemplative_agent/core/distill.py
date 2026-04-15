@@ -21,13 +21,12 @@ import numpy as np
 from ._io import strip_code_fence
 from .embeddings import cosine, embed_texts
 from .knowledge_store import effective_importance
-from .llm import generate, get_axiom_prompt, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
+from .llm import generate, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
 from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
     DISTILL_IMPORTANCE_PROMPT,
-    DISTILL_CLASSIFY_PROMPT,
     DISTILL_CONSTITUTIONAL_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
@@ -38,15 +37,16 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 30
 
-# Warn when an extract/refine output is within this many chars of max_length.
-# _sanitize_output slices silently with [:max_length]; this surfaces it.
-_EXTRACT_MAX_LENGTH = 4000
-_TRUNCATION_MARGIN = 200
-
 # Embedding-based dedup thresholds (ADR-0009). Calibrated against
 # nomic-embed-text on knowledge.json patterns; tune via dry runs.
 SIM_DUPLICATE = 0.92  # near-exact same pattern → SKIP
 SIM_UPDATE = 0.80     # similar enough to boost importance → UPDATE
+
+# Episode classify thresholds (ADR-0009). The noise gate is intentionally
+# above the constitutional threshold so that ambiguous episodes default to
+# uncategorized rather than being incorrectly elevated.
+NOISE_THRESHOLD = 0.55
+CONSTITUTIONAL_THRESHOLD = 0.55
 
 # JSON Schemas for constrained decoding (Ollama v0.5+ format parameter)
 CLASSIFY_SCHEMA: Dict = {
@@ -65,6 +65,7 @@ def distill(
     episode_log: Optional[EpisodeLog] = None,
     knowledge_store: Optional[KnowledgeStore] = None,
     log_files: Optional[List[Path]] = None,
+    view_registry: Optional[ViewRegistry] = None,
 ) -> str:
     """Distill recent episodes into learned patterns.
 
@@ -98,8 +99,8 @@ def distill(
         logger.info(msg)
         return msg
 
-    # Step 0: Classify episodes
-    classified = _classify_episodes(records, constitution=get_axiom_prompt())
+    # Step 0: Classify episodes via embedding centroid distance
+    classified = _classify_episodes(records, view_registry=view_registry)
     if classified.noise:
         logger.info("Step 0: %d noise episodes excluded from distillation", len(classified.noise))
     logger.info(
@@ -231,7 +232,7 @@ def distill_identity(
 
     # Step 1: Free-form self-analysis (rules/axioms for value grounding,
     # but no identity — it's already in the prompt via {current_identity})
-    result = generate(prompt, system=get_distill_system_prompt(), max_length=4000, num_predict=1500)
+    result = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
     if result is None:
         msg = "LLM failed at step 1 (self-analysis)."
         logger.warning(msg)
@@ -239,7 +240,7 @@ def distill_identity(
 
     # Step 2: Refine into simple persona
     refine_prompt = IDENTITY_REFINE_PROMPT.format(raw_output=result)
-    refined = generate(refine_prompt, system=_get_default_system_prompt(), max_length=4000, num_predict=1500)
+    refined = generate(refine_prompt, system=_get_default_system_prompt(), num_predict=1500)
     if refined is None:
         msg = "LLM failed at step 2 (refine). Using step 1 output."
         logger.warning(msg)
@@ -332,46 +333,78 @@ def _parse_classify_result(raw: Optional[str]) -> str:
 
 def _classify_episodes(
     records: List[Dict],
-    constitution: str = "",
+    view_registry: Optional[ViewRegistry] = None,
 ) -> _ClassifiedRecords:
-    """Step 0: Classify episodes into categories via LLM.
+    """Step 0: Classify episodes via embedding centroid distance (ADR-0009).
 
-    Classifies one record at a time for reliable output from small models.
-    Falls back to uncategorized on LLM failure (safe default —
-    identical to the existing pipeline behavior with no classification).
+    Each episode summary is bulk-embedded once and compared against the
+    ``noise`` and ``constitutional`` view centroids:
+
+      - noise_sim >= NOISE_THRESHOLD                 → noise (skipped)
+      - else if const_sim >= CONSTITUTIONAL_THRESHOLD → constitutional
+      - else                                          → uncategorized
+
+    A missing view_registry or unavailable centroids degrades safely to
+    "all uncategorized" (no LLM fallback). The legacy LLM-per-episode
+    classify path has been removed.
     """
     if not records:
         return _ClassifiedRecords(constitutional=(), noise=(), uncategorized=())
 
-    if not DISTILL_CLASSIFY_PROMPT:
+    if view_registry is None:
+        logger.warning(
+            "_classify_episodes called without view_registry — "
+            "all episodes will be uncategorized (ADR-0009 requires views)"
+        )
         return _ClassifiedRecords(
             constitutional=(), noise=(), uncategorized=tuple(records),
         )
 
-    constitutional = []
-    noise = []
-    uncategorized = []
-
-    const_text = constitution if constitution else "(no constitutional principles configured)"
-
-    for idx, r in enumerate(records):
+    summaries: List[str] = []
+    for r in records:
         record_type = r.get("type", "unknown")
         data = r.get("data", {})
         ts = r.get("ts", "")
         summary = summarize_record(record_type, data)
-        episode_line = f"[{ts[:16]}] {record_type}: {summary}" if summary else f"[{ts[:16]}] {record_type}: (no summary)"
-
-        prompt = DISTILL_CLASSIFY_PROMPT.format(
-            episode=episode_line,
-            constitution=const_text,
+        episode_line = (
+            f"[{ts[:16]}] {record_type}: {summary}"
+            if summary
+            else f"[{ts[:16]}] {record_type}: (no summary)"
         )
-        result = generate(prompt, system=get_distill_system_prompt(), max_length=20, num_predict=20, format=CLASSIFY_SCHEMA)
-        cat = _parse_classify_result(result)
+        summaries.append(episode_line)
 
-        if cat == "constitutional":
-            constitutional.append(r)
-        elif cat == "noise":
+    embeddings_arr = embed_texts(summaries)
+    if embeddings_arr is None or embeddings_arr.shape[0] != len(records):
+        logger.warning(
+            "Failed to embed %d episodes for classification — defaulting to uncategorized",
+            len(records),
+        )
+        return _ClassifiedRecords(
+            constitutional=(), noise=(), uncategorized=tuple(records),
+        )
+
+    noise_centroid = view_registry.get_centroid("noise")
+    const_centroid = view_registry.get_centroid("constitutional")
+
+    constitutional: List[Dict] = []
+    noise: List[Dict] = []
+    uncategorized: List[Dict] = []
+
+    for idx, r in enumerate(records):
+        emb = embeddings_arr[idx]
+        if noise_centroid is not None:
+            noise_sim = cosine(emb, noise_centroid)
+        else:
+            noise_sim = 0.0
+        if const_centroid is not None:
+            const_sim = cosine(emb, const_centroid)
+        else:
+            const_sim = 0.0
+
+        if noise_sim >= NOISE_THRESHOLD:
             noise.append(r)
+        elif const_sim >= CONSTITUTIONAL_THRESHOLD:
+            constitutional.append(r)
         else:
             uncategorized.append(r)
 
@@ -430,28 +463,18 @@ def _distill_category(
         )
 
         # Step 1: Extract — free-form output, with rules/axioms as lens
-        result = generate(prompt, system=get_distill_system_prompt(), max_length=_EXTRACT_MAX_LENGTH, num_predict=1500)
+        result = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
         if result is None:
             logger.warning("[%s] Batch %d/%d: step 1 (extract) failed", category, batch_idx + 1, len(batches))
             continue
-        if len(result) >= _EXTRACT_MAX_LENGTH - _TRUNCATION_MARGIN:
-            logger.warning(
-                "[%s] Batch %d/%d: step 1 output %d chars within %d of cap %d — likely truncated",
-                category, batch_idx + 1, len(batches), len(result), _TRUNCATION_MARGIN, _EXTRACT_MAX_LENGTH,
-            )
 
         # Step 2: Summarize — concise patterns as JSON string array
         refine_prompt = DISTILL_REFINE_PROMPT.format(raw_output=result)
-        refined = generate(refine_prompt, max_length=_EXTRACT_MAX_LENGTH, num_predict=1500)
+        refined = generate(refine_prompt, num_predict=1500)
         if refined is None:
             logger.warning("[%s] Batch %d/%d: step 2 (summarize) failed, using step 1 output",
                            category, batch_idx + 1, len(batches))
             refined = result
-        elif len(refined) >= _EXTRACT_MAX_LENGTH - _TRUNCATION_MARGIN:
-            logger.warning(
-                "[%s] Batch %d/%d: step 2 output %d chars within %d of cap %d — likely truncated",
-                category, batch_idx + 1, len(batches), len(refined), _TRUNCATION_MARGIN, _EXTRACT_MAX_LENGTH,
-            )
 
         all_results.append(refined)
 
@@ -481,7 +504,7 @@ def _distill_category(
         if batch_patterns and DISTILL_IMPORTANCE_PROMPT:
             patterns_text = "\n".join(f"- {p}" for p in batch_patterns)
             importance_prompt = DISTILL_IMPORTANCE_PROMPT.format(patterns=patterns_text)
-            importance_result = generate(importance_prompt, max_length=4000, num_predict=1500, format=IMPORTANCE_SCHEMA)
+            importance_result = generate(importance_prompt, num_predict=1500, format=IMPORTANCE_SCHEMA)
             if importance_result:
                 batch_importances = _parse_importance_scores(importance_result, len(batch_patterns))
 

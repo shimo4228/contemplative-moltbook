@@ -91,17 +91,6 @@ def _read_skills(skills_dir: Path, since: Optional[str] = None) -> List[str]:
     return skills
 
 
-# Stage 2 generates a multi-rule Markdown doc: set title + up to
-# MAX_RULES_PER_BATCH rules (each ~800-900 chars) + section headers.
-# Previously 3000 which silently truncated the last rule's Why section
-# mid-sentence (observed 2026-04-11 with 4 rules / 8 skills — root cause
-# was _sanitize_output in llm.py slicing with [:max_length]). 10000 gives
-# comfortable headroom even if the LLM disregards MAX_RULES_PER_BATCH.
-_STAGE2_MAX_LENGTH = 10000
-# Warn when Stage 2 output is within this many chars of the cap — likely
-# truncated. _sanitize_output's slice is silent otherwise.
-_STAGE2_TRUNCATION_MARGIN = 200
-
 # Marker the refine prompt emits when Stage 1 analysis found 0 passing
 # principles. Treated as a valid (empty) result rather than an error.
 _NO_RULES_MARKER = "# No Universal Rules Found"
@@ -121,26 +110,16 @@ def _extract_rules(skill_texts: List[str]) -> Optional[str]:
         patterns="\n\n---\n\n".join(skill_texts),
     )
 
-    raw = generate(prompt, system=get_distill_system_prompt(), max_length=4000, num_predict=1500)
+    raw = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
     if raw is None:
         logger.warning("Stage 1 (extraction) failed.")
         return None
 
     refine_prompt = RULES_DISTILL_REFINE_PROMPT.format(raw_output=raw)
-    result = generate(refine_prompt, max_length=_STAGE2_MAX_LENGTH, num_predict=1500)
+    result = generate(refine_prompt, num_predict=1500)
     if result is None:
         logger.warning("Stage 2 (refinement) failed.")
         return None
-
-    if len(result) >= _STAGE2_MAX_LENGTH - _STAGE2_TRUNCATION_MARGIN:
-        logger.warning(
-            "Stage 2 output length %d is within %d chars of the %d cap — "
-            "likely truncated. Increase _STAGE2_MAX_LENGTH or reduce "
-            "SKILLS_PER_BATCH / MAX_RULES_PER_BATCH.",
-            len(result),
-            _STAGE2_TRUNCATION_MARGIN,
-            _STAGE2_MAX_LENGTH,
-        )
 
     # "No Universal Rules Found" is a valid outcome — the Stage 1 analysis
     # concluded that no candidate principle passed all four universality

@@ -16,7 +16,6 @@ import requests
 from .config import (
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
-    MAX_POST_LENGTH,
 )
 
 logger = logging.getLogger(__name__)
@@ -298,8 +297,14 @@ def _strip_thinking(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
-def _sanitize_output(text: str, max_length: int) -> str:
-    """Remove forbidden patterns and enforce length limits."""
+def _sanitize_output(text: str, max_length: Optional[int] = None) -> str:
+    """Remove forbidden patterns and (optionally) enforce a char length cap.
+
+    ADR-0009: max_length is now Optional. Internal callers pass None
+    (no slicing) so dedup/distill/insight aren't silently truncated by
+    a cap meant for SNS post length. External callers (Moltbook posts,
+    comments, replies) keep the cap to satisfy platform constraints.
+    """
     sanitized = _strip_thinking(text).strip()
     for pattern in FORBIDDEN_SUBSTRING_PATTERNS:
         if pattern.lower() in sanitized.lower():
@@ -312,13 +317,15 @@ def _sanitize_output(text: str, max_length: int) -> str:
         if word_re.search(sanitized):
             logger.warning("Removed forbidden pattern from LLM output: %s", pattern)
             sanitized = word_re.sub("[REDACTED]", sanitized)
+    if max_length is None:
+        return sanitized
     return sanitized[:max_length]
 
 
 def generate(
     prompt: str,
     system: Optional[str] = None,
-    max_length: int = MAX_POST_LENGTH,
+    max_length: Optional[int] = None,
     num_predict: Optional[int] = None,
     format: Optional[Dict] = None,
 ) -> Optional[str]:
@@ -326,6 +333,10 @@ def generate(
 
     Args:
         max_length: Char-level truncation applied to the sanitized output.
+            None (default) skips slicing — appropriate for internal callers
+            (distill/insight/etc). External callers that must satisfy a
+            platform character limit (post / comment / reply) pass the
+            relevant constant explicitly.
         num_predict: Max tokens the model may emit. Caller-specific caps
             prevent runaway generation on short prompts (M1 can take 14+
             minutes at the default 8192). Falls back to 8192 if None.

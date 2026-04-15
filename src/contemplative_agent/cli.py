@@ -889,12 +889,14 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
                 parser.error(f"Not a JSONL file: {f}")
     episode_log = EpisodeLog(log_dir=log_dir)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    view_registry = _load_view_registry()
     result = distill(
         days=args.days,
         dry_run=args.dry_run,
         episode_log=episode_log,
         knowledge_store=knowledge_store,
         log_files=log_files,
+        view_registry=view_registry,
     )
     print(result)
 

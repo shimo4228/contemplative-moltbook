@@ -220,7 +220,7 @@ def merge_group(
         Merged skill text (or CANNOT_MERGE response), None on LLM failure.
     """
     prompt = prompt_template.format(candidates=_format_items(items))
-    return generate(prompt, system="Merge redundant skills.", max_length=4000, num_predict=1500)
+    return generate(prompt, system="Merge redundant skills.", num_predict=1500)
 
 
 def is_merge_rejected(merged_text: str) -> bool:

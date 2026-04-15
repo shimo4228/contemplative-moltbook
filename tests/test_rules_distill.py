@@ -16,7 +16,6 @@ from contemplative_agent.core.rules_distill import (
     _NO_RULES_MARKER,
     _read_skills,
     _split_rules,
-    _STAGE2_MAX_LENGTH,
     _strip_frontmatter,
     distill_rules,
 )
@@ -249,39 +248,6 @@ class TestExtractRules:
         mock_generate.side_effect = ["Stage 1 result", "No title here"]
         result = _extract_rules(["# Skill 1\nContent"])
         assert result is None
-
-    @patch("contemplative_agent.core.rules_distill.generate")
-    def test_stage2_uses_configured_max_length(self, mock_generate):
-        """Regression: Stage 2 must request _STAGE2_MAX_LENGTH chars so the
-        LLM output doesn't get silently truncated by _sanitize_output's
-        [:max_length] slice. Previously hard-coded to 3000 which lost
-        rules mid-sentence in production (2026-04-11 incident)."""
-        mock_generate.side_effect = [
-            GOOD_RULES_RESPONSE_STAGE1,
-            GOOD_RULES_RESPONSE_STAGE2,
-        ]
-        _extract_rules(["# Skill 1\nContent"])
-        # Stage 2 is the second call; inspect its max_length kwarg
-        _, stage2_kwargs = mock_generate.call_args_list[1]
-        assert stage2_kwargs["max_length"] == _STAGE2_MAX_LENGTH
-
-    @patch("contemplative_agent.core.rules_distill.generate")
-    def test_truncation_warning_fires_near_cap(self, mock_generate, caplog):
-        """When Stage 2 output length is within _STAGE2_TRUNCATION_MARGIN
-        of _STAGE2_MAX_LENGTH, a warning must be logged so humans notice
-        the output probably got cut off."""
-        import logging
-
-        # Build a response that's within the margin of the cap and has a
-        # title line so _extract_title() passes.
-        big_body = "x" * (_STAGE2_MAX_LENGTH - 50)
-        near_cap = f"# Big Rule Set\n{big_body}"
-        mock_generate.side_effect = [GOOD_RULES_RESPONSE_STAGE1, near_cap]
-        with caplog.at_level(logging.WARNING, logger="contemplative_agent.core.rules_distill"):
-            _extract_rules(["# Skill 1\nContent"])
-        assert any(
-            "likely truncated" in rec.message for rec in caplog.records
-        ), "expected truncation warning for near-cap Stage 2 output"
 
     @patch("contemplative_agent.core.rules_distill.generate")
     def test_no_universal_rules_marker_is_valid(self, mock_generate):
