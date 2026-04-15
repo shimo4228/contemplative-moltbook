@@ -504,6 +504,25 @@ class TestLogApproval:
         assert record["source"] == "stage-adopted"
         assert record["decision"] == "approved"
 
+    def test_snapshot_path_recorded(self, tmp_path):
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        snap = tmp_path / "snapshots" / "distill_20260415T104542Z"
+        with patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _log_approval(
+                "distill-identity", Path("identity.md"), True, "content",
+                snapshot_path=snap,
+            )
+        record = json.loads(audit_path.read_text().strip())
+        assert record["snapshot_path"] == str(snap)
+
+    def test_snapshot_path_null_when_omitted(self, tmp_path):
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _log_approval("insight", Path("a.md"), True, "content")
+        record = json.loads(audit_path.read_text().strip())
+        assert "snapshot_path" in record  # field always present for forward compat
+        assert record["snapshot_path"] is None
+
     def test_staged_decision_for_none_approval(self, tmp_path):
         """approved=None should map to decision='staged'."""
         audit_path = tmp_path / "logs" / "audit.jsonl"

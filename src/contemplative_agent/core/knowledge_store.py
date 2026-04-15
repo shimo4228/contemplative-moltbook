@@ -7,7 +7,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from ._io import write_restricted
 from .config import FORBIDDEN_SUBSTRING_PATTERNS
@@ -202,6 +202,36 @@ class KnowledgeStore:
             self._parse_json(text_stripped)
         else:
             self._parse_legacy_markdown(text)
+
+    def update_view_telemetry(
+        self,
+        scores_per_pattern: List[Optional[Dict[str, float]]],
+        timestamp: str,
+        save: bool = True,
+    ) -> int:
+        """Write ADR-0020 observational telemetry onto pattern records.
+
+        ``scores_per_pattern`` aligns with the internal pattern order; an
+        entry of ``None`` skips that pattern (typically because it has no
+        embedding). Returns the number of patterns updated.
+
+        These fields are read-only observation — never branch on them
+        (see ADR-0020 Consequences).
+        """
+        if len(scores_per_pattern) != len(self._learned_patterns):
+            raise ValueError(
+                f"scores length {len(scores_per_pattern)} != patterns {len(self._learned_patterns)}"
+            )
+        updated = 0
+        for p, scores in zip(self._learned_patterns, scores_per_pattern):
+            if scores is None:
+                continue
+            p["last_view_matches"] = scores
+            p["last_classified_at"] = timestamp
+            updated += 1
+        if save and updated > 0:
+            self.save()
+        return updated
 
     def save(self) -> None:
         """Persist learned patterns to JSON file using atomic write."""

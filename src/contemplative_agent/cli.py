@@ -14,7 +14,11 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
+
+if TYPE_CHECKING:
+    from .core.memory import KnowledgeStore
+    from .core.views import ViewRegistry
 from xml.sax.saxutils import escape as xml_escape
 
 from .adapters.moltbook.agent import Agent, AutonomyLevel
@@ -28,6 +32,7 @@ from .adapters.moltbook.config import (
     REPORTS_DIR,
     RULES_DIR,
     SKILLS_DIR,
+    SNAPSHOTS_DIR,
     STAGED_DIR,
     VIEWS_DIR,
 )
@@ -234,6 +239,7 @@ def _log_approval(
     content: str,
     *,
     source: AuditSource = "direct",
+    snapshot_path: Optional[Path] = None,
 ) -> None:
     """Append approval decision to audit log.
 
@@ -248,6 +254,9 @@ def _log_approval(
             - "stage-adopted": adopted interactively from staging via `adopt-staged`.
             - "stage-adopted-auto": adopted from staging via `adopt-staged --yes`
               (no human prompt; used by non-TTY coding-agent workflows).
+        snapshot_path: Pivot snapshot directory written at run start (ADR-0020).
+            ``None`` when the command did not produce a snapshot (e.g. dry-run
+            or embed-backfill).
     """
     if approved is None:
         decision = "staged"
@@ -262,6 +271,7 @@ def _log_approval(
         "decision": decision,
         "source": source,
         "content_hash": hashlib.sha256(content.encode()).hexdigest()[:16],
+        "snapshot_path": str(snapshot_path) if snapshot_path is not None else None,
     }
     try:
         AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -890,6 +900,8 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     episode_log = EpisodeLog(log_dir=log_dir)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
+    knowledge_store.load()
+    _take_snapshot(args, "distill", view_registry, knowledge_store)
     result = distill(
         days=args.days,
         dry_run=args.dry_run,
@@ -914,7 +926,7 @@ def _resolve_views_dir() -> Path:
 
 def _load_view_registry(
     args: Optional[argparse.Namespace] = None,
-) -> "ViewRegistry":  # noqa: F821 — lazy import below
+) -> "ViewRegistry":
     """Load the view registry, preferring user-customised views.
 
     Passes ``${CONSTITUTION_DIR}`` to seed_from resolution so views can
@@ -931,6 +943,32 @@ def _load_view_registry(
     )
     registry.load_views()
     return registry
+
+
+def _take_snapshot(
+    args: argparse.Namespace,
+    command: str,
+    view_registry: Optional["ViewRegistry"] = None,
+    knowledge_store: Optional["KnowledgeStore"] = None,
+) -> Optional[Path]:
+    """Write a pivot snapshot at the start of a behavior-producing command.
+
+    Skipped on --dry-run. Returns None if snapshotting fails — callers
+    must not treat a missing snapshot as an error (ADR-0020: snapshots
+    are observability, not correctness).
+    """
+    if _is_dry_run(args):
+        return None
+    from .core.snapshot import write_snapshot
+
+    return write_snapshot(
+        command=command,
+        views_dir=_resolve_views_dir(),
+        constitution_dir=getattr(args, "constitution_dir", None) or CONSTITUTION_DIR,
+        snapshots_dir=SNAPSHOTS_DIR,
+        view_registry=view_registry,
+        knowledge_store=knowledge_store,
+    )
 
 
 def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
@@ -1004,6 +1042,8 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
     _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
+    knowledge_store.load()
+    snapshot_path = _take_snapshot(args, "distill-identity", view_registry, knowledge_store)
     result = distill_identity(
         knowledge_store=knowledge_store,
         identity_path=IDENTITY_PATH,
@@ -1022,7 +1062,10 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
     if _is_dry_run(args):
         return
     approved = _approve_write(result.target_path)
-    _log_approval("distill-identity", result.target_path, approved, result.text)
+    _log_approval(
+        "distill-identity", result.target_path, approved, result.text,
+        snapshot_path=snapshot_path,
+    )
     if not approved:
         print("Discarded.")
         return
@@ -1039,6 +1082,8 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
     log_dir = MOLTBOOK_DATA_DIR / "logs"
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
+    knowledge_store.load()
+    snapshot_path = _take_snapshot(args, "insight", view_registry, knowledge_store)
     result = extract_insight(
         knowledge_store=knowledge_store,
         skills_dir=SKILLS_DIR,
@@ -1063,7 +1108,10 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
         if _is_dry_run(args):
             continue
         approved = _approve_write(skill.target_path)
-        _log_approval("insight", skill.target_path, approved, skill.text)
+        _log_approval(
+            "insight", skill.target_path, approved, skill.text,
+            snapshot_path=snapshot_path,
+        )
         if approved:
             SKILLS_DIR.mkdir(parents=True, exist_ok=True)
             write_restricted(skill.target_path, skill.text)
@@ -1080,6 +1128,7 @@ def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentPa
     from .core.rules_distill import _write_last_run, distill_rules
 
     _warn_dry_run_deprecated(args)
+    snapshot_path = _take_snapshot(args, "rules-distill", _load_view_registry(args))
     result = distill_rules(
         skills_dir=SKILLS_DIR,
         rules_dir=RULES_DIR,
@@ -1102,7 +1151,10 @@ def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentPa
         if _is_dry_run(args):
             continue
         approved = _approve_write(rule.target_path)
-        _log_approval("rules-distill", rule.target_path, approved, rule.text)
+        _log_approval(
+            "rules-distill", rule.target_path, approved, rule.text,
+            snapshot_path=snapshot_path,
+        )
         if approved:
             RULES_DIR.mkdir(parents=True, exist_ok=True)
             write_restricted(rule.target_path, rule.text)
@@ -1121,6 +1173,7 @@ def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.Argum
     _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     constitution_dir = args.constitution_dir or CONSTITUTION_DIR
+    snapshot_path = _take_snapshot(args, "amend-constitution")
     result = amend_constitution(
         knowledge_store=knowledge_store,
         constitution_dir=constitution_dir,
@@ -1138,7 +1191,10 @@ def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.Argum
     if _is_dry_run(args):
         return
     approved = _approve_write(result.target_path)
-    _log_approval("amend-constitution", result.target_path, approved, result.text)
+    _log_approval(
+        "amend-constitution", result.target_path, approved, result.text,
+        snapshot_path=snapshot_path,
+    )
     if not approved:
         print("Discarded.")
         return

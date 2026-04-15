@@ -33,6 +33,7 @@ REPORTS_DIR = MOLTBOOK_DATA_DIR / "reports" / "comment-reports"
 STAGED_DIR = MOLTBOOK_DATA_DIR / ".staged"
 VIEWS_DIR = MOLTBOOK_DATA_DIR / "views"
 EPISODE_EMBEDDINGS_PATH = MOLTBOOK_DATA_DIR / "embeddings.sqlite"
+SNAPSHOTS_DIR = MOLTBOOK_DATA_DIR / "snapshots"
 
 # --- Agent pacing ---
 COMMENT_PACING_MIN_SECONDS = 60
