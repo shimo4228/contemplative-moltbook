@@ -15,16 +15,11 @@ from contemplative_agent.core.distill import (
     IdentityResult,
     _is_valid_pattern,
     _parse_importance_scores,
-    _parse_classify_result,
     _classify_episodes,
     _ClassifiedRecords,
     _dedup_patterns,
-    DEDUP_IMPORTANCE_FLOOR,
     SIM_DUPLICATE,
     SIM_UPDATE,
-    CLASSIFY_SCHEMA,
-    IMPORTANCE_SCHEMA,
-    VALID_CATEGORIES,
 )
 from contemplative_agent.core.knowledge_store import effective_importance
 from contemplative_agent.core.memory import EpisodeLog, KnowledgeStore
@@ -287,23 +282,6 @@ class TestDistillIdentity:
         assert "refined identity" in result.text
 
 
-class TestParseClassifyResult:
-    def test_constitutional(self):
-        assert _parse_classify_result("constitutional") == "constitutional"
-
-    def test_noise(self):
-        assert _parse_classify_result("noise") == "noise"
-
-    def test_uncategorized(self):
-        assert _parse_classify_result("uncategorized") == "uncategorized"
-
-    def test_default(self):
-        assert _parse_classify_result("something else") == "uncategorized"
-
-    def test_none(self):
-        assert _parse_classify_result(None) == "uncategorized"
-
-
 class TestClassifyEpisodes:
     @patch("contemplative_agent.core.distill.embed_texts")
     def test_classifies_via_centroid(self, mock_embed):
@@ -376,6 +354,3 @@ class TestEffectiveImportance:
         assert 0.6 < effective_importance(p) <= 0.7
 
 
-class TestValidCategories:
-    def test_known_categories(self):
-        assert VALID_CATEGORIES == {"constitutional", "noise", "uncategorized"}

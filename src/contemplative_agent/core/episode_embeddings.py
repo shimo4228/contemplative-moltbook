@@ -130,18 +130,27 @@ class EpisodeEmbeddingStore:
             return None
         return np.frombuffer(row[0], dtype=np.float32)
 
+    _SQLITE_VARIABLE_LIMIT = 500  # SQLITE_MAX_VARIABLE_NUMBER default is 999
+
     def get_many(self, episode_ids: List[str]) -> Dict[str, np.ndarray]:
-        """Bulk fetch. Missing ids are absent from the result dict."""
+        """Bulk fetch. Missing ids are absent from the result dict.
+
+        Chunks the IN clause to stay under SQLite's variable limit.
+        """
         self._ensure_initialized()
         if self._db_path is None or not self._db_path.exists() or not episode_ids:
             return {}
-        placeholders = ",".join("?" * len(episode_ids))
+        result: Dict[str, np.ndarray] = {}
         with self._connect() as conn:
-            rows = conn.execute(
-                f"SELECT episode_id, vector FROM episode_embeddings WHERE episode_id IN ({placeholders})",
-                episode_ids,
-            ).fetchall()
-        return {eid: np.frombuffer(blob, dtype=np.float32) for eid, blob in rows}
+            for start in range(0, len(episode_ids), self._SQLITE_VARIABLE_LIMIT):
+                chunk = episode_ids[start : start + self._SQLITE_VARIABLE_LIMIT]
+                placeholders = ",".join("?" * len(chunk))
+                rows = conn.execute(
+                    f"SELECT episode_id, vector FROM episode_embeddings WHERE episode_id IN ({placeholders})",
+                    chunk,
+                ).fetchall()
+                result.update({eid: np.frombuffer(blob, dtype=np.float32) for eid, blob in rows})
+        return result
 
     def has(self, episode_id: str) -> bool:
         return self.get(episode_id) is not None

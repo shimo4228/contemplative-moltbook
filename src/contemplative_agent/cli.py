@@ -901,35 +901,34 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     print(result)
 
 
+def _resolve_views_dir() -> Path:
+    """Prefer the user-customised VIEWS_DIR, fall back to packaged template."""
+    if VIEWS_DIR.exists():
+        return VIEWS_DIR
+    repo_root = Path(__file__).resolve().parents[2]
+    packaged = repo_root / "config" / "views"
+    if packaged.exists():
+        return packaged
+    return VIEWS_DIR
+
+
 def _load_view_registry() -> "ViewRegistry":  # noqa: F821 — lazy import below
-    """Load the view registry from the user's MOLTBOOK_HOME, or fall back to packaged template."""
+    """Load the view registry, preferring user-customised views."""
     from .core.views import ViewRegistry
 
-    views_dir = VIEWS_DIR
-    if not views_dir.exists():
-        repo_root = Path(__file__).resolve().parents[2]
-        packaged = repo_root / "config" / "views"
-        if packaged.exists():
-            views_dir = packaged
-    registry = ViewRegistry(views_dir=views_dir)
+    registry = ViewRegistry(views_dir=_resolve_views_dir())
     registry.load_views()
     return registry
 
 
 def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """ADR-0009 migration: add embeddings + gated to patterns and bulk-embed episodes."""
+    """ADR-0019 migration: add embeddings + gated to patterns and bulk-embed episodes."""
     from .core.migration import run_embed_backfill
 
     log_dir = MOLTBOOK_DATA_DIR / "logs"
-
-    # Default views dir: prefer user-customised, fall back to packaged template.
-    views_dir = VIEWS_DIR
-    if not views_dir.exists():
-        repo_root = Path(__file__).resolve().parents[2]
-        packaged = repo_root / "config" / "views"
-        if packaged.exists():
-            views_dir = packaged
-            logger.info("Using packaged views (no user dir at %s)", VIEWS_DIR)
+    views_dir = _resolve_views_dir()
+    if views_dir != VIEWS_DIR:
+        logger.info("Using packaged views (no user dir at %s)", VIEWS_DIR)
 
     stats = run_embed_backfill(
         knowledge_path=KNOWLEDGE_PATH,

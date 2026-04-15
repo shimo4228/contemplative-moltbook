@@ -23,6 +23,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .distill import NOISE_THRESHOLD as DEFAULT_NOISE_THRESHOLD
 from .embeddings import cosine, embed_texts
 from .episode_embeddings import EpisodeEmbeddingStore, episode_id_for
 from .episode_log import EpisodeLog
@@ -30,10 +31,6 @@ from .knowledge_store import KnowledgeStore
 from .views import ViewRegistry
 
 logger = logging.getLogger(__name__)
-
-# Patterns whose noise similarity is at or above this are gated (skipped at
-# distillation). Calibrated against the noise.md seed; tune via dry runs.
-DEFAULT_NOISE_THRESHOLD = 0.55
 
 # Bulk embed batch size — Ollama /api/embed accepts arrays. Keeps memory
 # bounded and gives tqdm-style progress.
@@ -70,28 +67,19 @@ def backup_knowledge(knowledge_path: Path) -> Optional[Path]:
 
 
 def _summarize_for_embedding(record: Dict) -> str:
-    """One-line text representation of an episode for embedding.
+    """Text representation of an episode for embedding.
 
-    Mirrors distill.summarize_record but inlined to avoid a circular
-    import once distill is rewritten in commit 5.
+    Delegates to distill.summarize_record; falls back to a JSON dump for
+    record types distill doesn't know about so migration never drops an
+    episode silently.
     """
+    from .distill import summarize_record
+
     record_type = record.get("type", "unknown")
     data = record.get("data", {}) or {}
-    if record_type == "interaction":
-        direction = data.get("direction", "?")
-        agent = data.get("agent_name", "unknown")
-        content = str(data.get("content_summary", ""))[:200]
-        return f"{direction} with {agent}: {content}"
-    if record_type == "post":
-        title = data.get("title", data.get("topic_summary", "untitled"))
-        body = str(data.get("body", ""))[:200]
-        return f"posted: {title}. {body}".strip()
-    if record_type == "insight":
-        return str(data.get("observation", ""))[:300]
-    if record_type == "activity":
-        action = data.get("action", "unknown")
-        target = data.get("target_agent", data.get("post_id", ""))
-        return f"{action} {target}".strip()
+    summary = summarize_record(record_type, data)
+    if summary:
+        return summary
     return f"{record_type}: {json.dumps(data, ensure_ascii=False)[:200]}"
 
 

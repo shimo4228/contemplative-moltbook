@@ -49,10 +49,6 @@ NOISE_THRESHOLD = 0.55
 CONSTITUTIONAL_THRESHOLD = 0.55
 
 # JSON Schemas for constrained decoding (Ollama v0.5+ format parameter)
-CLASSIFY_SCHEMA: Dict = {
-    "type": "string",
-    "enum": ["constitutional", "noise", "uncategorized"],
-}
 IMPORTANCE_SCHEMA: Dict = {
     "type": "object",
     "properties": {"scores": {"type": "array", "items": {"type": "integer"}}},
@@ -298,37 +294,12 @@ def _parse_importance_scores(raw: str, expected_count: int) -> List[float]:
     return result
 
 
-VALID_CATEGORIES = frozenset({"constitutional", "noise", "uncategorized"})
-
-
 @dataclass(frozen=True)
 class _ClassifiedRecords:
     """Records grouped by classification category."""
     constitutional: Tuple[Dict, ...]
     noise: Tuple[Dict, ...]
     uncategorized: Tuple[Dict, ...]
-
-
-def _parse_classify_result(raw: Optional[str]) -> str:
-    """Parse a classification LLM response.
-
-    Scans the entire response for a valid category keyword.
-    Returns one of the VALID_CATEGORIES. Falls back to "uncategorized"
-    if no valid category is found.
-    """
-    if raw is None:
-        return "uncategorized"
-    text = raw.strip().lower()
-    if not text:
-        return "uncategorized"
-    # Search for valid categories in the response
-    for cat in ("constitutional", "noise"):
-        if cat in text:
-            return cat
-    if "uncategorized" in text:
-        return "uncategorized"
-    logger.warning("No category found in %r, defaulting to uncategorized", raw.strip()[:60])
-    return "uncategorized"
 
 
 def _classify_episodes(
