@@ -115,20 +115,8 @@ class KnowledgeStore:
                 continue
         return result
 
-    def get_learned_patterns_since(self, since: str, category: Optional[str] = None) -> List[str]:
-        """Return patterns distilled after the given ISO timestamp.
-
-        Args:
-            since: ISO timestamp cutoff.
-            category: If provided, only return patterns matching this category.
-        """
-        return [p["pattern"] for p in self._filter_since(since, self._filtered_pool(category))]
-
     def get_raw_patterns_since(self, since: str, category: Optional[str] = None) -> List[dict]:
-        """Return raw pattern dicts distilled after the given ISO timestamp.
-
-        Like get_learned_patterns_since but returns full dicts (with subcategory).
-        """
+        """Return raw pattern dicts distilled after the given ISO timestamp."""
         return self._filter_since(since, self._filtered_pool(category))
 
     def _effective_importance(self, p: dict) -> float:

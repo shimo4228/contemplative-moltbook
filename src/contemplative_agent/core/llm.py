@@ -150,11 +150,6 @@ def _get_default_system_prompt() -> str:
     return SYSTEM_PROMPT
 
 
-def get_axiom_prompt() -> str:
-    """Return the loaded constitutional axioms text (empty if not configured)."""
-    return _axiom_prompt or ""
-
-
 def get_distill_system_prompt() -> str:
     """System prompt with rules/axioms but without identity or skills.
 
