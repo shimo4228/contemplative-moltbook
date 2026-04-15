@@ -70,7 +70,6 @@ class PromptTemplates:
     identity_refine: str = ""
     rules_distill: str = ""
     rules_distill_refine: str = ""
-    distill_dedup: str = ""
     distill_classify: str = ""
     distill_constitutional: str = ""
     constitution_amend: str = ""
@@ -78,7 +77,6 @@ class PromptTemplates:
     stocktake_rules: str = ""
     stocktake_merge: str = ""
     stocktake_merge_rules: str = ""
-    distill_subcategorize: str = ""
 
 
 
@@ -181,7 +179,6 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         identity_refine=_read_md_file(directory / "identity_refine.md", required=False),
         rules_distill=_read_md_file(directory / "rules_distill.md", required=False),
         rules_distill_refine=_read_md_file(directory / "rules_distill_refine.md", required=False),
-        distill_dedup=_read_md_file(directory / "distill_dedup.md", required=False),
         distill_classify=_read_md_file(directory / "distill_classify.md", required=False),
         distill_constitutional=_read_md_file(directory / "distill_constitutional.md", required=False),
         constitution_amend=_read_md_file(directory / "constitution_amend.md", required=False),
@@ -189,7 +186,6 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         stocktake_rules=_read_md_file(directory / "stocktake_rules.md", required=False),
         stocktake_merge=_read_md_file(directory / "stocktake_merge.md", required=False),
         stocktake_merge_rules=_read_md_file(directory / "stocktake_merge_rules.md", required=False),
-        distill_subcategorize=_read_md_file(directory / "distill_subcategorize.md", required=False),
     )
 
 

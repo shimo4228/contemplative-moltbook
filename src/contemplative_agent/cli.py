@@ -899,6 +899,21 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     print(result)
 
 
+def _load_view_registry() -> "ViewRegistry":  # noqa: F821 — lazy import below
+    """Load the view registry from the user's MOLTBOOK_HOME, or fall back to packaged template."""
+    from .core.views import ViewRegistry
+
+    views_dir = VIEWS_DIR
+    if not views_dir.exists():
+        repo_root = Path(__file__).resolve().parents[2]
+        packaged = repo_root / "config" / "views"
+        if packaged.exists():
+            views_dir = packaged
+    registry = ViewRegistry(views_dir=views_dir)
+    registry.load_views()
+    return registry
+
+
 def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     """ADR-0009 migration: add embeddings + gated to patterns and bulk-embed episodes."""
     from .core.migration import run_embed_backfill
@@ -975,9 +990,11 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
 
     _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    view_registry = _load_view_registry()
     result = distill_identity(
         knowledge_store=knowledge_store,
         identity_path=IDENTITY_PATH,
+        view_registry=view_registry,
     )
     if isinstance(result, str):
         print(result)
@@ -1008,11 +1025,13 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
     _warn_dry_run_deprecated(args)
     log_dir = MOLTBOOK_DATA_DIR / "logs"
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
+    view_registry = _load_view_registry()
     result = extract_insight(
         knowledge_store=knowledge_store,
         skills_dir=SKILLS_DIR,
         episode_log=EpisodeLog(log_dir=log_dir),
         full=args.full,
+        view_registry=view_registry,
     )
     if isinstance(result, str):
         print(result)

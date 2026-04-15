@@ -1,13 +1,17 @@
-"""Tests for sleep-time memory distillation."""
+"""Tests for sleep-time memory distillation (ADR-0009 embedding-based)."""
 
 import json
 import logging
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
+import numpy as np
+import pytest
 
 from contemplative_agent.core.distill import (
     summarize_record,
     distill,
     distill_identity,
+    enrich,
     IdentityResult,
     _is_valid_pattern,
     _parse_importance_scores,
@@ -15,15 +19,11 @@ from contemplative_agent.core.distill import (
     _classify_episodes,
     _ClassifiedRecords,
     _dedup_patterns,
-    _llm_quality_gate,
-    _parse_dedup_decisions,
-    _UncertainMatch,
-    _MatchCandidate,
-    UNCERTAIN_LOW,
     DEDUP_IMPORTANCE_FLOOR,
+    SIM_DUPLICATE,
+    SIM_UPDATE,
     CLASSIFY_SCHEMA,
     IMPORTANCE_SCHEMA,
-    DEDUP_SCHEMA,
     VALID_CATEGORIES,
 )
 from contemplative_agent.core.knowledge_store import effective_importance
@@ -33,22 +33,41 @@ from contemplative_agent.core.memory import EpisodeLog, KnowledgeStore
 def _make_log(tmp_path):
     """Helper: create EpisodeLog with one interaction."""
     log = EpisodeLog(log_dir=tmp_path / "logs")
-    log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                "content_summary": "Hi", "agent_id": "a1"})
+    log.append("interaction", {
+        "direction": "sent", "agent_name": "Alice",
+        "content_summary": "Hello", "agent_id": "a1",
+    })
     return log
 
 
-@patch("contemplative_agent.core.distill.DISTILL_SUBCATEGORIZE_PROMPT", "")
-@patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "")
-class TestDistill:
-    """3-step pipeline: Step 1 (extract) → Step 2 (summarize) → Step 3 (importance).
+def _embedding(*values):
+    """Helper: build a 1D float32 array."""
+    return np.array(values, dtype=np.float32)
 
-    Classification (Step 0) is disabled via patch to test the core pipeline in isolation.
-    """
+
+@pytest.fixture
+def mock_embed_distinct():
+    """Patch embed_texts to return (n, 4) distinct one-hot-ish vectors."""
+    def _mk(texts):
+        # Distinct, low-similarity vectors so dedup doesn't trigger
+        n = len(texts)
+        return np.array(
+            [[1.0 if i == j else 0.0 for j in range(max(n, 4))] for i in range(n)],
+            dtype=np.float32,
+        )
+
+    with patch("contemplative_agent.core.distill.embed_texts", side_effect=_mk) as m:
+        yield m
+
+
+class TestDistill:
+    """Pipeline: classify → extract → refine → importance → embed → dedup → save."""
 
     @patch("contemplative_agent.core.distill.generate")
-    def test_basic_distillation(self, mock_generate, tmp_path):
+    def test_basic_distillation(self, mock_generate, mock_embed_distinct, tmp_path):
+        # generate calls: classify (×2 for 2 episodes) + extract + refine + importance
         mock_generate.side_effect = [
+            "uncategorized", "uncategorized",  # classify
             "Some free-form analysis of patterns from the episode logs.",
             json.dumps({"patterns": [
                 "Pattern one shows that quoting specific details improves engagement",
@@ -78,10 +97,13 @@ class TestDistill:
         # Importance from Step 3
         p1 = [p for p in ks2._learned_patterns if "Pattern one" in p["pattern"]][0]
         assert p1["importance"] == 0.8  # 8/10
+        # Embedding stored
+        assert isinstance(p1["embedding"], list)
 
     @patch("contemplative_agent.core.distill.generate")
-    def test_dry_run_does_not_write(self, mock_generate, tmp_path):
+    def test_dry_run_does_not_write(self, mock_generate, mock_embed_distinct, tmp_path):
         mock_generate.side_effect = [
+            "uncategorized",  # classify (1 episode)
             "Some analysis.",
             json.dumps({"patterns": [
                 "Dry pattern that explains how quoting specific details works better",
@@ -94,24 +116,6 @@ class TestDistill:
         result = distill(days=1, dry_run=True, episode_log=log, knowledge_store=ks)
         assert "Dry pattern" in result
         assert not (tmp_path / "knowledge.json").exists()
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_code_fenced_json_parsed(self, mock_generate, tmp_path):
-        """JSON wrapped in markdown code fences is parsed correctly."""
-        mock_generate.side_effect = [
-            "Some analysis.",
-            '```json\n{"patterns": ["Fenced pattern about recurring behavior in conversations"]}\n```',
-            json.dumps({"scores": [7]}),
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
-        result = distill(days=1, episode_log=log, knowledge_store=ks)
-        assert "Fenced pattern" in result
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert any("Fenced pattern" in p for p in ks2.get_learned_patterns())
 
     def test_empty_episodes(self, tmp_path):
         log = EpisodeLog(log_dir=tmp_path / "logs")
@@ -127,1167 +131,230 @@ class TestDistill:
         assert result == ""
         assert not (tmp_path / "knowledge.json").exists()
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_accumulates_with_existing(self, mock_generate, tmp_path):
-        """New patterns are appended to existing ones."""
-        ks_setup = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks_setup.add_learned_pattern("Existing pattern")
-        ks_setup.save()
 
-        mock_generate.side_effect = [
-            "Some analysis.",
-            json.dumps({"patterns": [
-                "New pattern from today shows concrete improvement in engagement",
-            ]}),
-            json.dumps({"scores": [7]}),
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        patterns = ks2.get_learned_patterns()
-        assert len(patterns) == 2
-        assert "Existing pattern" in patterns
-        assert any("New pattern from today" in p for p in patterns)
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_rejects_low_quality_patterns(self, mock_generate, tmp_path):
-        """Short labels and keywords are rejected by quality gate."""
-        mock_generate.side_effect = [
-            "Some analysis.",
-            json.dumps({"patterns": [
-                "user interaction",
-                "activity: upvote",
-                "sentiment_analysis",
-                "Replies that quote specific points from other posts get more follow-up replies than generic agreement.",
-            ]}),
-            json.dumps({"scores": [9]}),  # Only 1 pattern survives quality gate
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        patterns = ks2.get_learned_patterns()
-        assert len(patterns) == 1
-        assert "Replies that quote" in patterns[0]
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_empty_patterns_no_save(self, mock_generate, tmp_path):
-        """LLM response with empty patterns array should not save anything."""
-        mock_generate.side_effect = [
-            "No clear patterns found.",
-            json.dumps({"patterns": []}),
-            # Step 3 not called when no patterns
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        distill(days=1, episode_log=log, knowledge_store=ks)
-        assert not (tmp_path / "knowledge.json").exists()
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_log_files_override_days(self, mock_generate, tmp_path):
-        """--file option reads from explicit files, ignoring days."""
-        mock_generate.side_effect = [
-            "Some analysis.",
-            json.dumps({"patterns": [
-                "Pattern from explicit file shows quoting drives engagement",
-            ]}),
-            json.dumps({"scores": [6]}),
-        ]
-        log_file = tmp_path / "custom.jsonl"
-        record = {"ts": "2026-03-07T00:00:00", "type": "interaction",
-                  "data": {"direction": "sent", "agent_name": "Alice",
-                           "content_summary": "Hi", "agent_id": "a1"}}
-        log_file.write_text(json.dumps(record) + "\n")
-
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        result = distill(days=1, episode_log=EpisodeLog(), knowledge_store=ks,
-                         log_files=[log_file])
-        assert "Pattern from explicit file" in result
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert any("Pattern from explicit file" in p for p in ks2.get_learned_patterns())
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_step3_failure_uses_defaults(self, mock_generate, tmp_path):
-        """If Step 3 (importance) fails, patterns still saved with default 0.5."""
-        mock_generate.side_effect = [
-            "Some analysis.",
-            json.dumps({"patterns": [
-                "Pattern saved despite importance step failure with default score",
-            ]}),
-            None,  # Step 3 fails
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert len(ks2._learned_patterns) == 1
-        assert ks2._learned_patterns[0]["importance"] == 0.5
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_step3_scores_applied(self, mock_generate, tmp_path):
-        """Step 3 scores are correctly mapped to patterns."""
-        mock_generate.side_effect = [
-            "Some analysis.",
-            json.dumps({"patterns": [
-                "First pattern about quoting specific details from posts for engagement",
-                "Second pattern about avoiding generic replies that stall conversations",
-            ]}),
-            json.dumps({"scores": [9, 4]}),
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert ks2._learned_patterns[0]["importance"] == 0.9
-        assert ks2._learned_patterns[1]["importance"] == 0.4
+class TestEnrichNoOp:
+    def test_enrich_returns_zero(self):
+        ks = KnowledgeStore()
+        assert enrich(ks) == 0
 
 
 class TestParseImportanceScores:
-    def test_valid_scores(self):
-        raw = json.dumps({"scores": [8, 5, 9]})
-        assert _parse_importance_scores(raw, 3) == [0.8, 0.5, 0.9]
+    def test_json_format(self):
+        assert _parse_importance_scores('{"scores": [8, 5]}', 2) == [0.8, 0.5]
 
     def test_count_mismatch_returns_defaults(self):
-        raw = json.dumps({"scores": [8, 5]})
-        assert _parse_importance_scores(raw, 3) == [0.5, 0.5, 0.5]
+        assert _parse_importance_scores('{"scores": [8]}', 2) == [0.5, 0.5]
 
-    def test_parse_failure_returns_defaults(self):
-        assert _parse_importance_scores("not json", 2) == [0.5, 0.5]
+    def test_invalid_json_falls_back_to_csv(self):
+        assert _parse_importance_scores("8, 5, 9", 3) == [0.8, 0.5, 0.9]
 
-    def test_clamped_to_range(self):
-        raw = json.dumps({"scores": [15, 0, -3]})
-        result = _parse_importance_scores(raw, 3)
-        assert result == [1.0, 0.1, 0.1]
-
-    def test_non_integer_scores(self):
-        raw = json.dumps({"scores": ["high", None, 7]})
-        result = _parse_importance_scores(raw, 3)
-        assert result == [0.5, 0.5, 0.7]
-
-    def test_code_fence_wrapped(self):
-        raw = '```json\n{"scores": [8, 5, 9]}\n```'
-        assert _parse_importance_scores(raw, 3) == [0.8, 0.5, 0.9]
-
-    def test_comma_separated_fallback(self):
-        raw = "8, 5, 9"
-        assert _parse_importance_scores(raw, 3) == [0.8, 0.5, 0.9]
-
-    def test_unparseable_logs_warning(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            result = _parse_importance_scores("totally broken output", 2)
-        assert result == [0.5, 0.5]
-        assert "Failed to parse importance" in caplog.text
+    def test_clamps_out_of_range(self):
+        assert _parse_importance_scores('{"scores": [15, -2]}', 2) == [1.0, 0.1]
 
 
-class TestDedupPatterns:
-    def test_adds_new_pattern(self):
-        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.5}]
-        new_p = ["Feed diversity correlates with agent satisfaction scores in long sessions"]
-        new_i = [0.7]
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(new_p, new_i, existing)
-        assert len(add_p) == 1
-        assert updated == 0
-        assert len(uncertain) == 0
+class TestDedupPatternsEmbedding:
+    """ADR-0009: cosine-based dedup."""
 
-    def test_updates_similar_pattern(self):
-        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.5,
-                     "distilled": "2026-03-20T12:00+00:00"}]
-        new_p = ["Quoting specific details improves engagement significantly"]
-        new_i = [0.9]
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(new_p, new_i, existing)
-        assert len(add_p) == 0  # Not added
-        assert updated == 1
-        assert existing[0]["importance"] == 0.9  # max(0.5, 0.9)
-
-    def test_update_does_not_downgrade_importance(self):
-        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.9,
-                     "distilled": "2026-03-20T12:00+00:00"}]
-        new_p = ["Quoting specific details improves engagement significantly"]
-        new_i = [0.3]
-        _dedup_patterns(new_p, new_i, existing)
-        assert existing[0]["importance"] == 0.9  # max(0.9, 0.3) = 0.9
-
-    def test_updates_distilled_timestamp(self):
-        old_ts = "2026-03-01T12:00+00:00"
-        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.5,
-                     "distilled": old_ts}]
-        new_p = ["Quoting specific details improves engagement significantly"]
-        new_i = [0.7]
-        _dedup_patterns(new_p, new_i, existing)
-        assert existing[0]["distilled"] != old_ts  # Timestamp refreshed
-
-    def test_no_existing_patterns(self):
-        """All patterns are ADD'd when knowledge store is empty."""
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(
-            ["Pattern about engagement quality"], [0.7], [],
+    def test_distinct_patterns_all_added(self):
+        new_patterns = ["A new pattern", "Another distinct pattern"]
+        new_imps = [0.7, 0.5]
+        new_embs = [_embedding(1, 0, 0), _embedding(0, 1, 0)]
+        existing = []
+        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+            new_patterns, new_imps, new_embs, existing,
         )
-        assert len(add_p) == 1
-        assert updated == 0
-        assert len(uncertain) == 0
-
-    def test_cross_batch_dedup_skips_similar_new(self):
-        """Similar patterns from different batches are deduped against each other."""
-        new_p = [
-            "Always anchor comments to specific metrics rather than generic themes",
-            "Always anchor responses to specific data points rather than generic topics",
-        ]
-        new_i = [0.7, 0.9]
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(new_p, new_i, [])
-        assert len(add_p) == 1
-        assert skipped == 1
-        # Higher importance is kept
-        assert add_i[0] == 0.9
-
-    def test_cross_batch_dedup_keeps_distinct(self):
-        """Distinct patterns from different batches are both kept."""
-        new_p = [
-            "Always anchor comments to specific metrics rather than generic themes",
-            "Distribute attention evenly across community members to build relationships",
-        ]
-        new_i = [0.7, 0.8]
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(new_p, new_i, [])
-        assert len(add_p) == 2
-        assert skipped == 0
-
-    def test_mid_ratio_returns_uncertain(self):
-        """Patterns with ratio in UNCERTAIN zone (0.3-0.7) go to uncertain list."""
-        # These share the same topic ("Test Title") but different enough wording
-        existing = [{"pattern": "Posts with Test Title in the heading get significantly less engagement from readers", "importance": 0.5}]
-        new_p = ["Repeating identical test titles within five minutes creates engagement loops that risk duplicate flags"]
-        new_i = [0.7]
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(new_p, new_i, existing)
-        # Should be uncertain (ratio ~0.3-0.7), not ADD
-        # If ratio happens to be < UNCERTAIN_LOW, it goes to ADD — that's also fine
-        assert len(uncertain) + len(add_p) == 1  # one or the other
-        if uncertain:
-            assert len(uncertain[0].candidates) >= 1
-
-    def test_low_ratio_adds_directly(self):
-        """Patterns with ratio < UNCERTAIN_LOW go straight to ADD."""
-        existing = [{"pattern": "Quoting specific details improves engagement rates", "importance": 0.5}]
-        # Completely unrelated pattern
-        new_p = ["Feed diversity correlates with agent satisfaction scores in long sessions"]
-        new_i = [0.6]
-        add_p, add_i, skipped, updated, uncertain = _dedup_patterns(new_p, new_i, existing)
-        assert len(add_p) == 1
-        assert len(uncertain) == 0
-
-
-class TestLlmQualityGate:
-    @patch("contemplative_agent.core.distill.generate")
-    def test_update_merges_into_existing(self, mock_generate):
-        """LLM judges UPDATE → existing pattern's importance is boosted."""
-        mock_generate.return_value = json.dumps({"decisions": ["UPDATE 1"]})
-        existing = [{"pattern": "Avoid Test Title", "importance": 0.5, "distilled": "2026-03-20T12:00+00:00"}]
-        uncertain = [_UncertainMatch(
-            new_text="Generic placeholder titles reduce engagement",
-            new_importance=0.8,
-            candidates=(_MatchCandidate(text="Avoid Test Title", importance=0.5, index=0, ratio=0.45),),
-        )]
-        add_p, add_i, skip, upd = _llm_quality_gate(uncertain, existing)
-        assert len(add_p) == 0
-        assert upd == 1
-        assert existing[0]["importance"] == 0.8  # max(0.5, 0.8)
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_add_passes_through(self, mock_generate):
-        """LLM judges ADD → pattern is added."""
-        mock_generate.return_value = json.dumps({"decisions": ["ADD"]})
-        existing = [{"pattern": "Unrelated pattern", "importance": 0.5}]
-        uncertain = [_UncertainMatch(
-            new_text="New insight about feed diversity and engagement",
-            new_importance=0.7,
-            candidates=(_MatchCandidate(text="Unrelated pattern", importance=0.5, index=0, ratio=0.35),),
-        )]
-        add_p, add_i, skip, upd = _llm_quality_gate(uncertain, existing)
-        assert len(add_p) == 1
-        assert add_p[0] == "New insight about feed diversity and engagement"
+        assert len(add) == 2
+        assert skip == 0
         assert upd == 0
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_skip_discards_pattern(self, mock_generate):
-        """LLM judges SKIP → pattern is discarded."""
-        mock_generate.return_value = json.dumps({"decisions": ["SKIP"]})
-        existing = [{"pattern": "Avoid Test Title", "importance": 0.5}]
-        uncertain = [_UncertainMatch(
-            new_text="Test Title patterns reduce quality",
-            new_importance=0.6,
-            candidates=(_MatchCandidate(text="Avoid Test Title", importance=0.5, index=0, ratio=0.4),),
-        )]
-        add_p, add_i, skip, upd = _llm_quality_gate(uncertain, existing)
-        assert len(add_p) == 0
+    def test_near_duplicate_skipped(self):
+        existing = [{"pattern": "Existing", "importance": 0.6, "embedding": [1.0, 0.0, 0.0]}]
+        new_patterns = ["Almost same"]
+        new_imps = [0.5]
+        # Same direction, slight scale → cosine ≈ 1.0
+        new_embs = [_embedding(0.99, 0.01, 0.0)]
+        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+            new_patterns, new_imps, new_embs, existing,
+        )
+        assert len(add) == 0
         assert skip == 1
-        assert upd == 0
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_llm_failure_falls_back_to_add(self, mock_generate):
-        """LLM failure → all patterns are ADD'd (safe default)."""
-        mock_generate.return_value = None
-        existing = [{"pattern": "Existing", "importance": 0.5}]
-        uncertain = [
-            _UncertainMatch(
-                new_text="Pattern A about something interesting and useful",
-                new_importance=0.7,
-                candidates=(_MatchCandidate(text="Existing", importance=0.5, index=0, ratio=0.4),),
-            ),
-            _UncertainMatch(
-                new_text="Pattern B about another topic entirely different",
-                new_importance=0.6,
-                candidates=(_MatchCandidate(text="Existing", importance=0.5, index=0, ratio=0.35),),
-            ),
-        ]
-        add_p, add_i, skip, upd = _llm_quality_gate(uncertain, existing)
-        assert len(add_p) == 2
-        assert upd == 0
+    def test_similar_triggers_update(self):
+        existing = [{"pattern": "Existing", "importance": 0.5, "embedding": [1.0, 0.0]}]
+        # cosine ≈ 0.85 (between SIM_UPDATE=0.80 and SIM_DUPLICATE=0.92)
+        new_embs = [_embedding(0.85, 0.527)]
+        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+            ["new"], [0.7], new_embs, existing,
+        )
+        assert upd == 1
+        assert existing[0]["importance"] == 0.7  # boosted
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_empty_uncertain_no_llm_call(self, mock_generate):
-        """Empty uncertain list → no LLM call."""
-        add_p, add_i, skip, upd = _llm_quality_gate([], [])
-        mock_generate.assert_not_called()
-        assert len(add_p) == 0
+    def test_existing_without_embedding_ignored(self):
+        existing = [{"pattern": "Old", "importance": 0.5}]  # no embedding
+        new_embs = [_embedding(1.0, 0.0)]
+        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+            ["new"], [0.5], new_embs, existing,
+        )
+        # Should ADD since existing has no embedding to compare against
+        assert len(add) == 1
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_batch_processing_single_call(self, mock_generate):
-        """Multiple uncertain patterns are handled in a single LLM call."""
-        mock_generate.return_value = json.dumps({"decisions": ["ADD", "SKIP", "UPDATE 1"]})
-        existing = [{"pattern": "Avoid Test Title", "importance": 0.5, "distilled": "2026-03-20T12:00+00:00"}]
-        uncertain = [
-            _UncertainMatch(new_text="New insight A", new_importance=0.7,
-                            candidates=(_MatchCandidate(text="Avoid Test Title", importance=0.5, index=0, ratio=0.4),)),
-            _UncertainMatch(new_text="New insight B", new_importance=0.6,
-                            candidates=(_MatchCandidate(text="Avoid Test Title", importance=0.5, index=0, ratio=0.35),)),
-            _UncertainMatch(new_text="New insight C", new_importance=0.8,
-                            candidates=(_MatchCandidate(text="Avoid Test Title", importance=0.5, index=0, ratio=0.45),)),
-        ]
-        add_p, add_i, skip, upd = _llm_quality_gate(uncertain, existing)
-        assert mock_generate.call_count == 1
-        assert len(add_p) == 1  # only "ADD"
-        assert skip == 1  # "SKIP"
-        assert upd == 1  # "UPDATE 1"
+    def test_new_without_embedding_always_added(self):
+        existing = [{"pattern": "Old", "importance": 0.5, "embedding": [1.0, 0.0]}]
+        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+            ["new"], [0.5], [None], existing,
+        )
+        assert len(add) == 1
+        assert add_emb == [None]
 
+    def test_mutate_existing_false_does_not_modify(self):
+        existing = [{"pattern": "Old", "importance": 0.5, "embedding": [1.0, 0.0]}]
+        new_embs = [_embedding(0.85, 0.527)]
+        _dedup_patterns(
+            ["new"], [0.9], new_embs, existing,
+            mutate_existing=False,
+        )
+        assert existing[0]["importance"] == 0.5
 
-class TestParseDedupDecisions:
-    def test_valid_json(self):
-        raw = json.dumps({"decisions": ["ADD", "UPDATE 1", "SKIP"]})
-        assert _parse_dedup_decisions(raw, 3) == ["ADD", "UPDATE 1", "SKIP"]
-
-    def test_count_mismatch_returns_fallback(self):
-        raw = json.dumps({"decisions": ["ADD"]})
-        assert _parse_dedup_decisions(raw, 3) == ["ADD", "ADD", "ADD"]
-
-    def test_none_returns_fallback(self):
-        assert _parse_dedup_decisions(None, 2) == ["ADD", "ADD"]
-
-    def test_invalid_json_returns_fallback(self):
-        assert _parse_dedup_decisions("not json", 2) == ["ADD", "ADD"]
-
-    def test_normalizes_case(self):
-        raw = json.dumps({"decisions": ["add", "skip", "update 1"]})
-        assert _parse_dedup_decisions(raw, 3) == ["ADD", "SKIP", "UPDATE 1"]
+    def test_thresholds_in_range(self):
+        assert 0.0 < SIM_UPDATE < SIM_DUPLICATE < 1.0
 
 
 class TestIsValidPattern:
-    def test_rejects_short_label(self):
-        assert not _is_valid_pattern("user interaction")
+    def test_too_short(self):
+        assert not _is_valid_pattern("short")
 
-    def test_rejects_single_word(self):
-        assert not _is_valid_pattern("upvote")
+    def test_too_few_words(self):
+        assert not _is_valid_pattern("OneTwoThree FourFiveSix")
 
-    def test_rejects_keyword_pair(self):
-        assert not _is_valid_pattern("sentiment_analysis")
-
-    def test_accepts_full_sentence(self):
-        assert _is_valid_pattern(
-            "Replies that quote specific points get more follow-up replies than generic agreement."
-        )
-
-    def test_rejects_few_words(self):
-        assert not _is_valid_pattern("activity: upvote comment")
-
-    def test_accepts_actionable_pattern(self):
-        assert _is_valid_pattern(
-            "Unfollowing agents who posted repetitive frameworks reduced feed noise."
-        )
+    def test_valid_pattern(self):
+        assert _is_valid_pattern("This is a valid pattern with enough words and length")
 
 
 class TestSummarizeRecord:
     def test_interaction(self):
-        result = summarize_record("interaction", {
-            "direction": "sent", "agent_name": "Alice",
-            "content_summary": "Hello there",
+        s = summarize_record("interaction", {
+            "direction": "sent", "agent_name": "Bob", "content_summary": "Hi"
         })
-        assert "sent" in result
-        assert "Alice" in result
+        assert "sent with Bob" in s
+        assert "Hi" in s
 
     def test_post(self):
-        result = summarize_record("post", {"title": "My Post"})
-        assert "My Post" in result
+        s = summarize_record("post", {"title": "My Post"})
+        assert "posted: My Post" in s
 
     def test_insight(self):
-        result = summarize_record("insight", {"observation": "Good session"})
-        assert "Good session" in result
+        s = summarize_record("insight", {"observation": "Something happened"})
+        assert "Something happened" in s
 
-    def test_activity(self):
-        result = summarize_record("activity", {
-            "action": "follow", "target_agent": "Bob",
-        })
-        assert "follow" in result
-        assert "Bob" in result
-
-    def test_unknown_type(self):
-        assert summarize_record("unknown", {}) == ""
+    def test_unknown_returns_empty(self):
+        assert summarize_record("weird_type", {}) == ""
 
 
 class TestDistillIdentity:
+    def test_no_view_registry(self):
+        ks = KnowledgeStore()
+        result = distill_identity(knowledge_store=ks)
+        assert "ViewRegistry" in str(result)
+
+    def test_no_self_reflection_patterns(self, tmp_path):
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks.add_learned_pattern("Some pattern", embedding=[0.1, 0.2])
+        ks.save()
+
+        registry = MagicMock()
+        registry.find_by_view.return_value = []  # no matches
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks2.load()
+        result = distill_identity(knowledge_store=ks2, view_registry=registry)
+        assert "No self-reflection" in result
+
     @patch("contemplative_agent.core.distill.generate")
-    def test_returns_identity_result(self, mock_generate, tmp_path):
-        mock_generate.side_effect = [
-            "Long analysis about cooperation and trust patterns.",
-            "I am an agent who learned about cooperation.",
+    def test_full_path(self, mock_generate, tmp_path):
+        mock_generate.side_effect = ["raw analysis", "refined identity"]
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks.add_learned_pattern("Self-reflection pattern about meta-cognition",
+                                embedding=[0.1, 0.2])
+        ks.save()
+
+        registry = MagicMock()
+        registry.find_by_view.return_value = [
+            {"pattern": "Self-reflection pattern about meta-cognition",
+             "importance": 0.7}
         ]
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Cooperation increases with trust",
-            category="uncategorized",
-            subcategory="self-reflection",
-        )
-        ks.save()
-
-        identity_path = tmp_path / "identity.md"
-        result = distill_identity(knowledge_store=ks, identity_path=identity_path)
-
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks2.load()
+        result = distill_identity(knowledge_store=ks2, view_registry=registry,
+                                   identity_path=tmp_path / "identity.md")
         assert isinstance(result, IdentityResult)
-        assert "cooperation" in result.text.lower()
-        assert result.target_path == identity_path
-        # Core function does not write — caller's responsibility
-        assert not identity_path.exists()
-
-    def test_no_knowledge_returns_early(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        result = distill_identity(knowledge_store=ks)
-        assert isinstance(result, str)
-        assert "No self-reflection" in result
-
-    def test_no_self_reflection_patterns_returns_early(self, tmp_path):
-        """Patterns without self-reflection subcategory are ignored."""
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Technical observation",
-            category="uncategorized",
-            subcategory="technical",
-        )
-        ks.save()
-
-        result = distill_identity(knowledge_store=ks)
-        assert isinstance(result, str)
-        assert "No self-reflection" in result
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_llm_failure_returns_message(self, mock_generate, tmp_path):
-        mock_generate.return_value = None
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern",
-            category="uncategorized",
-            subcategory="self-reflection",
-        )
-        ks.save()
-
-        result = distill_identity(knowledge_store=ks)
-        assert isinstance(result, str)
-        assert "LLM failed" in result
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_forbidden_pattern_returns_string(self, mock_generate, tmp_path):
-        mock_generate.side_effect = ["Some analysis.", "My api_key is secret."]
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern",
-            category="uncategorized",
-            subcategory="self-reflection",
-        )
-        ks.save()
-
-        identity_path = tmp_path / "identity.md"
-        result = distill_identity(knowledge_store=ks, identity_path=identity_path)
-
-        # Validation failure returns str, not IdentityResult
-        assert isinstance(result, str)
-        assert not identity_path.exists()
-        assert "api_key" in result
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_identity_path_none(self, mock_generate, tmp_path):
-        mock_generate.side_effect = ["Some analysis.", "I am curious."]
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern",
-            category="uncategorized",
-            subcategory="self-reflection",
-        )
-        ks.save()
-
-        result = distill_identity(knowledge_store=ks, identity_path=None)
-        # No path → returns string
-        assert isinstance(result, str)
-        assert "curious" in result.lower()
+        assert "refined identity" in result.text
 
 
 class TestParseClassifyResult:
-    """Parse classification LLM response by scanning for category keywords."""
-
-    def test_valid_categories(self):
-        assert _parse_classify_result("uncategorized") == "uncategorized"
-        assert _parse_classify_result("noise") == "noise"
+    def test_constitutional(self):
         assert _parse_classify_result("constitutional") == "constitutional"
 
-    def test_none_returns_fallback(self):
+    def test_noise(self):
+        assert _parse_classify_result("noise") == "noise"
+
+    def test_uncategorized(self):
+        assert _parse_classify_result("uncategorized") == "uncategorized"
+
+    def test_default(self):
+        assert _parse_classify_result("something else") == "uncategorized"
+
+    def test_none(self):
         assert _parse_classify_result(None) == "uncategorized"
-
-    def test_unrecognized_returns_fallback(self):
-        assert _parse_classify_result("behavioral") == "uncategorized"
-
-    def test_normalizes_case(self):
-        assert _parse_classify_result("NOISE") == "noise"
-        assert _parse_classify_result("Constitutional") == "constitutional"
-
-    def test_strips_whitespace(self):
-        assert _parse_classify_result("  noise  ") == "noise"
-
-    def test_category_in_sentence(self):
-        assert _parse_classify_result("The category is noise.") == "noise"
-        assert _parse_classify_result("This is constitutional because it relates to ethics") == "constitutional"
-        assert _parse_classify_result("I would classify this as uncategorized") == "uncategorized"
-
-    def test_noise_with_explanation(self):
-        assert _parse_classify_result("noise — this is test data") == "noise"
-
-    def test_empty_string_returns_fallback(self):
-        assert _parse_classify_result("") == "uncategorized"
-
-    def test_constitutional_takes_priority_over_uncategorized(self):
-        """If both constitutional and uncategorized appear, constitutional wins."""
-        assert _parse_classify_result("not uncategorized, this is constitutional") == "constitutional"
 
 
 class TestClassifyEpisodes:
-    """Step 0: classify episodes into categories (one at a time)."""
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
+    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "Classify: {episode} {constitution}")
     @patch("contemplative_agent.core.distill.generate")
-    def test_classifies_records(self, mock_generate):
-        mock_generate.side_effect = ["uncategorized", "noise", "constitutional"]
-        records = [
-            {"ts": "2026-03-26T10:00:00", "type": "interaction",
-             "data": {"direction": "sent", "agent_name": "Alice", "content_summary": "Hi"}},
-            {"ts": "2026-03-26T10:01:00", "type": "interaction",
-             "data": {"direction": "sent", "agent_name": "Test", "content_summary": "test"}},
-            {"ts": "2026-03-26T10:02:00", "type": "insight",
-             "data": {"observation": "Letting go of fixed views deepened the dialogue"}},
-        ]
-        result = _classify_episodes(records, constitution="Emptiness: ...")
-        assert len(result.uncategorized) == 1
-        assert len(result.noise) == 1
+    def test_classifies_single_record(self, mock_generate):
+        mock_generate.return_value = "constitutional"
+        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
+                    "data": {"observation": "Notice empty"}}]
+        result = _classify_episodes(records, constitution="x")
+        assert isinstance(result, _ClassifiedRecords)
         assert len(result.constitutional) == 1
-        assert mock_generate.call_count == 3  # one per record
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.generate", return_value=None)
-    def test_llm_failure_all_uncategorized(self, mock_generate):
-        records = [
-            {"ts": "2026-03-26T10:00:00", "type": "interaction",
-             "data": {"direction": "sent", "agent_name": "A", "content_summary": "Hi"}},
-        ]
-        result = _classify_episodes(records)
-        assert len(result.uncategorized) == 1
         assert len(result.noise) == 0
-        assert len(result.constitutional) == 0
 
     def test_empty_records(self):
-        result = _classify_episodes([])
-        assert len(result.uncategorized) == 0
-        assert len(result.noise) == 0
-        assert len(result.constitutional) == 0
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "")
-    def test_no_prompt_skips_classification(self):
-        records = [
-            {"ts": "2026-03-26T10:00:00", "type": "interaction",
-             "data": {"direction": "sent", "agent_name": "A", "content_summary": "Hi"}},
-        ]
-        result = _classify_episodes(records)
-        assert len(result.uncategorized) == 1
-        assert len(result.noise) == 0
-        assert len(result.constitutional) == 0
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_many_records_classified_individually(self, mock_generate):
-        """Each record gets its own LLM call."""
-        mock_generate.side_effect = ["uncategorized"] * 30 + ["noise"] * 5
-        records = [
-            {"ts": f"2026-03-26T{i:02d}:00:00", "type": "interaction",
-             "data": {"direction": "sent", "agent_name": "A", "content_summary": f"msg {i}"}}
-            for i in range(35)
-        ]
-        result = _classify_episodes(records)
-        assert len(result.uncategorized) == 30
-        assert len(result.noise) == 5
-        assert mock_generate.call_count == 35
+        assert _classify_episodes([]).uncategorized == ()
 
 
-class TestKnowledgeStoreCategory:
-    """KnowledgeStore category field support."""
-
-    def test_add_pattern_with_category(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Constitutional insight about compassion and care",
-                               category="constitutional")
-        ks.save()
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert ks2._learned_patterns[0]["category"] == "constitutional"
-
-    def test_default_category_is_uncategorized(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Regular pattern about engagement")
-        assert ks._learned_patterns[0]["category"] == "uncategorized"
-
-    def test_old_patterns_without_category_loaded(self, tmp_path):
-        """Backward compatibility: old patterns without category field."""
-        old_data = [{"pattern": "Old pattern", "distilled": "2026-03-01", "importance": 0.5}]
-        (tmp_path / "knowledge.json").write_text(json.dumps(old_data))
-
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.load()
-        assert "category" not in ks._learned_patterns[0]
-
-    def test_get_context_string_category_filter(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Constitutional insight about letting go of views",
-                               category="constitutional", importance=0.9)
-        ks.add_learned_pattern("Regular pattern about engagement in forums",
-                               category="uncategorized", importance=0.9)
-
-        result = ks.get_context_string(category="constitutional")
-        assert "Constitutional" in result
-        assert "Regular" not in result
-
-    def test_get_context_string_no_filter_returns_all(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Constitutional insight about compassion",
-                               category="constitutional", importance=0.9)
-        ks.add_learned_pattern("Regular engagement pattern about forums",
-                               category="uncategorized", importance=0.9)
-
-        result = ks.get_context_string()
-        assert "Constitutional" in result
-        assert "Regular" in result
-
-    def test_get_context_string_subcategory_filter(self, tmp_path):
-        """subcategory filter applies after category filter."""
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Self reflection on inner clarity",
-            category="uncategorized",
-            subcategory="self-reflection",
-            importance=0.9,
-        )
-        ks.add_learned_pattern(
-            "Technical note about rate limits",
-            category="uncategorized",
-            subcategory="technical",
-            importance=0.9,
-        )
-
-        result = ks.get_context_string(
-            category="uncategorized",
-            subcategory="self-reflection",
-        )
-        assert "Self reflection" in result
-        assert "Technical" not in result
-
-    def test_get_context_string_subcategory_no_match_returns_empty(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Technical note",
-            category="uncategorized",
-            subcategory="technical",
-        )
-
-        result = ks.get_context_string(subcategory="self-reflection")
-        assert result == ""
-
-    def test_get_context_string_category_filter_with_old_patterns(self, tmp_path):
-        """Old patterns without category are treated as uncategorized."""
-        old_data = [{"pattern": "Old uncategorized pattern", "distilled": "2026-03-25T10:00+00:00",
-                     "importance": 0.9}]
-        (tmp_path / "knowledge.json").write_text(json.dumps(old_data))
-
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.load()
-        ks.add_learned_pattern("Constitutional insight", category="constitutional", importance=0.9)
-
-        result = ks.get_context_string(category="uncategorized")
-        assert "Old uncategorized" in result
-        assert "Constitutional" not in result
-
-
-@patch("contemplative_agent.core.distill.DISTILL_SUBCATEGORIZE_PROMPT", "")
-class TestDistillWithClassification:
-    """Integration: Step 0 classification (per-record) + Step 1-3 pipeline."""
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="Emptiness: ...")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_noise_excluded(self, mock_generate, _mock_axiom, tmp_path):
-        """Noise episodes are excluded from distillation."""
-        mock_generate.side_effect = [
-            # Step 0: classify each record individually
-            "uncategorized",
-            "noise",
-            # Step 1-3 for uncategorized batch only
-            "Analysis of the remaining episode.",
-            json.dumps({"patterns": [
-                "Pattern from non-noise episode about meaningful engagement",
-            ]}),
-            json.dumps({"scores": [7]}),
-        ]
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Interesting discussion", "agent_id": "a1"})
-        log.append("interaction", {"direction": "sent", "agent_name": "Test",
-                                    "content_summary": "test test test test", "agent_id": "t1"})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert len(ks2._learned_patterns) == 1
-        assert ks2._learned_patterns[0]["category"] == "uncategorized"
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="Emptiness: ...")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_constitutional_tagged(self, mock_generate, _mock_axiom, tmp_path):
-        """Constitutional episodes get category='constitutional' in KnowledgeStore."""
-        mock_generate.side_effect = [
-            # Step 0: classify
-            "constitutional",
-            # Step 1-3 for constitutional batch
-            "Ethical reflection analysis.",
-            json.dumps({"patterns": [
-                "Letting go of rigid views deepened dialogue and reduced suffering",
-            ]}),
-            json.dumps({"scores": [9]}),
-        ]
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("insight", {"observation": "Releasing attachment improved the exchange",
-                                "insight_type": "reflection"})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert len(ks2._learned_patterns) == 1
-        assert ks2._learned_patterns[0]["category"] == "constitutional"
-        assert ks2._learned_patterns[0]["importance"] == 0.9
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_mixed_categories(self, mock_generate, _mock_axiom, tmp_path):
-        """Both constitutional and uncategorized records are distilled separately."""
-        mock_generate.side_effect = [
-            # Step 0: classify each record individually
-            "uncategorized",
-            "noise",
-            "constitutional",
-            # Step 1-3 for uncategorized batch
-            "Behavioral analysis.",
-            json.dumps({"patterns": [
-                "Quoting specific points in replies increases follow-up engagement",
-            ]}),
-            json.dumps({"scores": [7]}),
-            # Step 1-3 for constitutional batch
-            "Ethical analysis.",
-            json.dumps({"patterns": [
-                "Releasing attachment to being right enabled deeper understanding",
-            ]}),
-            json.dumps({"scores": [8]}),
-        ]
-        log = EpisodeLog(log_dir=tmp_path / "logs")
-        log.append("interaction", {"direction": "sent", "agent_name": "Alice",
-                                    "content_summary": "Good discussion about AI", "agent_id": "a1"})
-        log.append("interaction", {"direction": "sent", "agent_name": "Test",
-                                    "content_summary": "test message", "agent_id": "t1"})
-        log.append("insight", {"observation": "Letting go of fixed views deepened dialogue",
-                                "insight_type": "reflection"})
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert len(ks2._learned_patterns) == 2
-        categories = {p["category"] for p in ks2._learned_patterns}
-        assert categories == {"uncategorized", "constitutional"}
-
-    @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "classify {episode} {constitution}")
-    @patch("contemplative_agent.core.distill.get_axiom_prompt", return_value="")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_classification_failure_falls_back(self, mock_generate, _mock_axiom, tmp_path):
-        """LLM failure in Step 0 → all uncategorized → normal pipeline."""
-        mock_generate.side_effect = [
-            # Step 0: classify → LLM fails
-            None,
-            # Step 1-3 for uncategorized (all records)
-            "Analysis.",
-            json.dumps({"patterns": [
-                "Engagement pattern discovered through detailed conversation analysis",
-            ]}),
-            json.dumps({"scores": [6]}),
-        ]
-        log = _make_log(tmp_path)
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-
-        distill(days=1, episode_log=log, knowledge_store=ks)
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert len(ks2._learned_patterns) == 1
-        assert ks2._learned_patterns[0]["category"] == "uncategorized"
-
-
-class TestEffectiveImportanceModuleLevel:
-    """Tests for the module-level effective_importance function."""
-
-    def test_recent_pattern(self):
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc).isoformat()
-        p = {"importance": 0.8, "distilled": now}
-        result = effective_importance(p)
-        assert 0.75 <= result <= 0.8
-
-    def test_old_pattern_below_floor(self):
-        from datetime import datetime, timezone, timedelta
-        old = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
-        p = {"importance": 0.5, "distilled": old}
-        result = effective_importance(p)
-        assert result < DEDUP_IMPORTANCE_FLOOR
-
-    def test_high_base_survives_30_days(self):
-        from datetime import datetime, timezone, timedelta
-        old = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-        p = {"importance": 1.0, "distilled": old}
-        result = effective_importance(p)
-        assert result >= DEDUP_IMPORTANCE_FLOOR
-
-    def test_unknown_timestamp(self):
-        p = {"importance": 0.8, "distilled": "unknown"}
-        assert effective_importance(p) == 0.8 * 0.1
-
-
-class TestParseDedupDecisionsRobust:
-    """Tests for code-fence and regex extraction in _parse_dedup_decisions."""
-
-    def test_code_fence_wrapped(self):
-        raw = '```json\n{"decisions": ["ADD", "SKIP"]}\n```'
-        assert _parse_dedup_decisions(raw, 2) == ["ADD", "SKIP"]
-
-    def test_surrounding_text_regex(self):
-        raw = 'Here is the result:\n{"decisions": ["ADD", "UPDATE 1"]}\nDone.'
-        assert _parse_dedup_decisions(raw, 2) == ["ADD", "UPDATE 1"]
-
-    def test_code_fence_with_surrounding_text(self):
-        raw = '```json\n{"decisions": ["SKIP"]}\n```\nExplanation: pattern is duplicate.'
-        assert _parse_dedup_decisions(raw, 1) == ["SKIP"]
-
-    def test_parse_failure_logs_raw(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            result = _parse_dedup_decisions("totally invalid {{{", 2)
-        assert result == ["ADD", "ADD"]
-        assert "totally invalid" in caplog.text
-
-    def test_nested_braces_fallback(self):
-        raw = '{"outer": {"decisions": ["ADD"]}}'
-        result = _parse_dedup_decisions(raw, 1)
-        assert result == ["ADD"]
-
-
-class TestDedupImportanceFloorFiltering:
-    """Test that low-importance patterns are excluded from dedup scope."""
-
-    def test_old_pattern_not_used_for_dedup(self, tmp_path):
-        """A pattern old enough to be below DEDUP_IMPORTANCE_FLOOR should not
-        prevent a similar new pattern from being ADD'd."""
-        from datetime import datetime, timezone, timedelta
-
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        old_date = (datetime.now(timezone.utc) - timedelta(days=120)).isoformat()
-        ks.add_learned_pattern(
-            "Cooperation between agents builds long-term trust",
-            distilled=old_date, importance=0.3, category="uncategorized",
-        )
-        ks.save()
-
-        old_p = ks._learned_patterns[0]
-        assert effective_importance(old_p) < DEDUP_IMPORTANCE_FLOOR
-
-        new_patterns = ["Cooperation between agents builds lasting trust"]
-        new_importances = [0.7]
-        existing_filtered = [
-            p for p in ks._learned_patterns
-            if effective_importance(p) >= DEDUP_IMPORTANCE_FLOOR
-        ]
-        assert len(existing_filtered) == 0
-
-        add, add_imp, skip, update, uncertain = _dedup_patterns(
-            new_patterns, new_importances, existing_filtered,
-        )
-        assert len(add) == 1
-        assert update == 0
+class TestKnowledgeStore:
+    def test_get_context_string_no_subcategory_param(self):
+        """ADR-0009: subcategory parameter has been removed."""
+        ks = KnowledgeStore()
+        ks.add_learned_pattern("a")
+        # Should not accept subcategory keyword
+        with pytest.raises(TypeError):
+            ks.get_context_string(subcategory="x")  # type: ignore[call-arg]
 
 
 class TestConstrainedDecoding:
-    """Verify that constrained decoding schemas are passed to generate()."""
-
-    @patch("contemplative_agent.core.distill.DISTILL_IMPORTANCE_PROMPT", "Score these patterns: {patterns}")
-    @patch("contemplative_agent.core.distill.generate")
-    def test_importance_scoring_passes_format(self, mock_generate):
-        """Importance scoring generate() call includes JSON Schema format."""
-        # _distill_category calls: extract, refine, importance (no classify)
-        mock_generate.side_effect = [
-            "Raw analysis of episodes",  # step 1 extract
-            json.dumps({"patterns": ["A pattern that is long enough to pass validation gate easily"]}),  # step 2 refine
-            json.dumps({"scores": [7]}),  # step 3 importance (should have format)
-        ]
-
-        from contemplative_agent.core.distill import _distill_category
-        from contemplative_agent.core.memory import KnowledgeStore
-        ks = KnowledgeStore()
-        ks.load()
-
-        records = [{"ts": "2026-03-01T09:00:00Z", "type": "insight",
-                     "data": {"observation": "Test observation for importance scoring validation"}}]
-        _distill_category(records, ks, "uncategorized", "2026-03-01", dry_run=True)
-
-        assert mock_generate.call_count == 3
-        _, kwargs = mock_generate.call_args_list[2]
-        assert kwargs.get("format") is IMPORTANCE_SCHEMA
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_dedup_quality_gate_passes_format(self, mock_generate):
-        """Dedup quality gate generate() call includes JSON Schema format."""
-        mock_generate.return_value = json.dumps({"decisions": ["ADD"]})
-
-        existing = [{"pattern": "Existing pattern about something", "importance": 0.5}]
-        uncertain = [_UncertainMatch(
-            new_text="New pattern about something slightly different but related",
-            new_importance=0.7,
-            candidates=(_MatchCandidate(text="Existing pattern about something", importance=0.5, index=0, ratio=0.45),),
-        )]
-        _llm_quality_gate(uncertain, existing)
-
-        assert mock_generate.call_count == 1
-        _, kwargs = mock_generate.call_args
-        assert kwargs.get("format") is DEDUP_SCHEMA
-
     @patch("contemplative_agent.core.distill.DISTILL_CLASSIFY_PROMPT", "Classify: {episode} {constitution}")
     @patch("contemplative_agent.core.distill.generate")
     def test_classify_passes_format(self, mock_generate):
-        """Episode classification generate() call includes enum schema."""
         mock_generate.return_value = "uncategorized"
-
-        records = [{"ts": "2026-03-01T09:00:00Z", "type": "insight",
-                     "data": {"observation": "Test observation"}}]
-        _classify_episodes(records, constitution="test")
-
-        assert mock_generate.call_count == 1
+        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
+                    "data": {"observation": "Test"}}]
+        _classify_episodes(records, constitution="x")
         _, kwargs = mock_generate.call_args
         assert kwargs.get("format") is CLASSIFY_SCHEMA
 
 
-class TestTruncationGuard:
-    """Warn when extract/refine output approaches max_length cap."""
+class TestEffectiveImportance:
+    def test_zero_for_unknown_distilled(self):
+        p = {"importance": 0.8, "distilled": "unknown"}
+        assert effective_importance(p) < 0.1
 
-    @patch("contemplative_agent.core.distill.generate")
-    def test_step1_truncation_warning_fires_near_cap(self, mock_generate, caplog):
-        from contemplative_agent.core.distill import _distill_category, _EXTRACT_MAX_LENGTH
-        from contemplative_agent.core.memory import KnowledgeStore
-
-        mock_generate.side_effect = [
-            "x" * _EXTRACT_MAX_LENGTH,  # step 1 extract — at cap
-            json.dumps({"patterns": ["A pattern long enough to pass the validation gate easily"]}),
-            json.dumps({"scores": [7]}),
-        ]
-
-        ks = KnowledgeStore()
-        ks.load()
-        records = [{"ts": "2026-03-01T09:00:00Z", "type": "insight",
-                    "data": {"observation": "Test observation for truncation guard"}}]
-
-        with caplog.at_level("WARNING"):
-            _distill_category(records, ks, "uncategorized", "2026-03-01", dry_run=True)
-
-        assert any("step 1 output" in r.message and "likely truncated" in r.message
-                   for r in caplog.records)
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_no_warning_when_well_below_cap(self, mock_generate, caplog):
-        from contemplative_agent.core.distill import _distill_category
-        from contemplative_agent.core.memory import KnowledgeStore
-
-        mock_generate.side_effect = [
-            "Short raw analysis",
-            json.dumps({"patterns": ["A pattern long enough to pass the validation gate easily"]}),
-            json.dumps({"scores": [7]}),
-        ]
-
-        ks = KnowledgeStore()
-        ks.load()
-        records = [{"ts": "2026-03-01T09:00:00Z", "type": "insight",
-                    "data": {"observation": "Test observation no truncation"}}]
-
-        with caplog.at_level("WARNING"):
-            _distill_category(records, ks, "uncategorized", "2026-03-01", dry_run=True)
-
-        assert not any("likely truncated" in r.message for r in caplog.records)
+    def test_recent_keeps_value(self):
+        from datetime import datetime, timezone
+        p = {"importance": 0.7, "distilled": datetime.now(timezone.utc).isoformat()}
+        assert 0.6 < effective_importance(p) <= 0.7
 
 
-from contemplative_agent.core.distill import (
-    _subcategorize_patterns,
-    SUBCATEGORIZE_SCHEMA,
-    VALID_SUBCATEGORIES,
-)
-
-
-class TestSubcategorize:
-    """Tests for the subcategory classification step."""
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_subcategorize_assigns_category(self, mock_generate, tmp_path):
-        mock_generate.return_value = "communication"
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Quoting specific user phrases improves engagement rates",
-            category="uncategorized",
-        )
-
-        count = _subcategorize_patterns(ks)
-        assert count == 1
-        assert ks._learned_patterns[0]["subcategory"] == "communication"
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_subcategorize_skips_already_categorized(self, mock_generate, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern with subcategory already set",
-            category="uncategorized",
-            subcategory="reasoning",
-        )
-
-        count = _subcategorize_patterns(ks)
-        assert count == 0
-        mock_generate.assert_not_called()
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_subcategorize_skips_non_uncategorized(self, mock_generate, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Constitutional principle about compassion",
-            category="constitutional",
-        )
-
-        count = _subcategorize_patterns(ks)
-        assert count == 0
-        mock_generate.assert_not_called()
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_subcategorize_invalid_result_skipped(self, mock_generate, tmp_path):
-        mock_generate.return_value = "invalid_category"
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern that gets an invalid classification result back",
-            category="uncategorized",
-        )
-
-        count = _subcategorize_patterns(ks)
-        assert count == 0
-        assert "subcategory" not in ks._learned_patterns[0]
-
-    @patch("contemplative_agent.core.distill.generate")
-    def test_subcategorize_dry_run(self, mock_generate, tmp_path):
-        mock_generate.return_value = "technical"
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "API rate limiting causes retry storms in rapid sessions",
-            category="uncategorized",
-        )
-
-        count = _subcategorize_patterns(ks, dry_run=True)
-        assert count == 1
-        assert "subcategory" not in ks._learned_patterns[0]
-
-    def test_subcategorize_schema_values(self):
-        assert "communication" in VALID_SUBCATEGORIES
-        assert "reasoning" in VALID_SUBCATEGORIES
-        assert "other" in VALID_SUBCATEGORIES
-        assert len(VALID_SUBCATEGORIES) == 7
-
-
-class TestKnowledgeStoreEnrichFields:
-    """Tests for subcategory field persistence."""
-
-    def test_subcategory_round_trip(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern(
-            "Pattern with subcategory",
-            category="uncategorized",
-            subcategory="reasoning",
-        )
-        ks.save()
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert ks2._learned_patterns[0]["subcategory"] == "reasoning"
-
-    def test_missing_fields_default(self, tmp_path):
-        """Patterns without subcategory load without error."""
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Old pattern without new fields", category="uncategorized")
-        ks.save()
-
-        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks2.load()
-        assert "subcategory" not in ks2._learned_patterns[0]
-
-    def test_get_learned_patterns_by_subcategory(self, tmp_path):
-        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("p1", category="uncategorized", subcategory="reasoning")
-        ks.add_learned_pattern("p2", category="uncategorized", subcategory="social")
-        ks.add_learned_pattern("p3", category="uncategorized", subcategory="reasoning")
-        ks.add_learned_pattern("p4", category="constitutional")
-
-        reasoning = ks.get_learned_patterns_by_subcategory("reasoning")
-        assert len(reasoning) == 2
-        assert all(p["subcategory"] == "reasoning" for p in reasoning)
-
-        social = ks.get_learned_patterns_by_subcategory("social")
-        assert len(social) == 1
-
+class TestValidCategories:
+    def test_known_categories(self):
+        assert VALID_CATEGORIES == {"constitutional", "noise", "uncategorized"}

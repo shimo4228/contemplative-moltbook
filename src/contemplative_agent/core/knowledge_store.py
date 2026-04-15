@@ -91,14 +91,6 @@ class KnowledgeStore:
         """
         return [p["pattern"] for p in self._filtered_pool(category)]
 
-    def get_learned_patterns_by_subcategory(self, subcategory: str) -> List[dict]:
-        """Return raw pattern dicts for a specific subcategory (uncategorized only)."""
-        return [
-            p for p in self._learned_patterns
-            if p.get("category", "uncategorized") == "uncategorized"
-            and p.get("subcategory") == subcategory
-        ]
-
     def _filtered_pool(self, category: Optional[str]) -> List[dict]:
         """Return patterns filtered by category (None = all)."""
         if category is None:
@@ -146,7 +138,6 @@ class KnowledgeStore:
         self,
         limit: int = 50,
         category: Optional[str] = None,
-        subcategory: Optional[str] = None,
     ) -> str:
         """Return learned patterns as a bullet list for LLM context injection.
 
@@ -154,16 +145,15 @@ class KnowledgeStore:
         (base importance with time decay). Default 50 balances signal
         quality with coverage for qwen3.5:9b's 32k context.
 
+        ADR-0009: subcategory filtering has been removed; use a
+        ViewRegistry + find_by_view for semantic routing.
+
         Args:
             limit: Maximum number of patterns to return.
             category: If provided, only return patterns matching this category.
                       Patterns without a category field are treated as "uncategorized".
-            subcategory: If provided, only return patterns matching this subcategory
-                         (applied after category filter).
         """
         pool = self._filtered_pool(category)
-        if subcategory is not None:
-            pool = [p for p in pool if p.get("subcategory") == subcategory]
         if not pool:
             return ""
         scored = sorted(

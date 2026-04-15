@@ -1,32 +1,38 @@
-"""Sleep-time memory distillation: extract patterns from episode logs."""
+"""Sleep-time memory distillation: extract patterns from episode logs.
+
+ADR-0009: dedup is embedding-cosine based; subcategorisation has been
+removed (replaced by views, which materialise grouping at query time).
+The Step 0 LLM classifier is still used here for ``constitutional`` /
+``noise`` / ``uncategorized`` namespacing — replacement with an
+embedding centroid gate is commit 5's scope.
+"""
 
 from __future__ import annotations
 
-import copy
 import json as json_mod
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
+
 from ._io import strip_code_fence
-from .llm import generate, get_axiom_prompt, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
+from .embeddings import cosine, embed_texts
 from .knowledge_store import effective_importance
+from .llm import generate, get_axiom_prompt, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
 from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
     DISTILL_IMPORTANCE_PROMPT,
-    DISTILL_DEDUP_PROMPT,
     DISTILL_CLASSIFY_PROMPT,
     DISTILL_CONSTITUTIONAL_PROMPT,
-    DISTILL_SUBCATEGORIZE_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
 )
+from .views import ViewRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +42,11 @@ BATCH_SIZE = 30
 # _sanitize_output slices silently with [:max_length]; this surfaces it.
 _EXTRACT_MAX_LENGTH = 4000
 _TRUNCATION_MARGIN = 200
+
+# Embedding-based dedup thresholds (ADR-0009). Calibrated against
+# nomic-embed-text on knowledge.json patterns; tune via dry runs.
+SIM_DUPLICATE = 0.92  # near-exact same pattern → SKIP
+SIM_UPDATE = 0.80     # similar enough to boost importance → UPDATE
 
 # JSON Schemas for constrained decoding (Ollama v0.5+ format parameter)
 CLASSIFY_SCHEMA: Dict = {
@@ -47,17 +58,6 @@ IMPORTANCE_SCHEMA: Dict = {
     "properties": {"scores": {"type": "array", "items": {"type": "integer"}}},
     "required": ["scores"],
 }
-DEDUP_SCHEMA: Dict = {
-    "type": "object",
-    "properties": {"decisions": {"type": "array", "items": {"type": "string"}}},
-    "required": ["decisions"],
-}
-SUBCATEGORIZE_SCHEMA: Dict = {
-    "type": "string",
-    "enum": ["communication", "reasoning", "social", "content",
-             "self-reflection", "technical", "other"],
-}
-VALID_SUBCATEGORIES = frozenset(SUBCATEGORIZE_SCHEMA["enum"])
 
 def distill(
     days: int = 1,
@@ -68,8 +68,10 @@ def distill(
 ) -> str:
     """Distill recent episodes into learned patterns.
 
-    Single-pass: extract patterns from episodes and accumulate them.
-    Quality filtering is deferred to the insight command.
+    New patterns are embedded inline and dedup uses cosine similarity
+    against existing same-category patterns. The legacy LLM-based
+    subcategorize step has been removed (ADR-0009); grouping is now
+    query-time via views.
 
     Args:
         days: Number of days of episodes to process.
@@ -130,12 +132,7 @@ def distill(
         total_added += cat_results.added
         total_updated += cat_results.updated
 
-    # Enrich: subcategorize new patterns
-    sub_count = _subcategorize_patterns(knowledge, dry_run=dry_run)
-    if sub_count:
-        logger.info("Enrich: %d subcategorized", sub_count)
-
-    if not dry_run and (total_added or total_updated or sub_count):
+    if not dry_run and (total_added or total_updated):
         knowledge.save()
         logger.info("Distill complete: %d added, %d updated", total_added, total_updated)
 
@@ -146,21 +143,18 @@ def enrich(
     knowledge_store: KnowledgeStore,
     dry_run: bool = False,
 ) -> int:
-    """Enrich existing patterns with subcategories.
+    """No-op since ADR-0009: subcategorisation is now query-time via views.
 
-    Args:
-        knowledge_store: Loaded KnowledgeStore instance.
-        dry_run: If True, compute but don't persist changes.
-
-    Returns:
-        subcategorized_count
+    Kept as a stable entry point so the ``enrich`` CLI subcommand is
+    callable; it now reports zero work and points users at
+    ``embed-backfill`` for one-off migration of legacy patterns.
     """
-    sub_count = _subcategorize_patterns(knowledge_store, dry_run=dry_run)
-
-    if not dry_run and sub_count:
-        knowledge_store.save()
-
-    return sub_count
+    _ = (knowledge_store, dry_run)
+    logger.info(
+        "enrich is a no-op since ADR-0009. "
+        "Run `embed-backfill` once to add embeddings to existing patterns."
+    )
+    return 0
 
 
 @dataclass(frozen=True)
@@ -174,6 +168,7 @@ class IdentityResult:
 def distill_identity(
     knowledge_store: Optional[KnowledgeStore] = None,
     identity_path: Optional[Path] = None,
+    view_registry: Optional[ViewRegistry] = None,
 ) -> Union[str, IdentityResult]:
     """Distill knowledge into an updated identity description.
 
@@ -185,6 +180,10 @@ def distill_identity(
     Args:
         knowledge_store: KnowledgeStore instance (uses default if None).
         identity_path: Path to identity.md file.
+        view_registry: ViewRegistry used to retrieve self-reflection
+            patterns via embedding cosine. Required for ADR-0009 routing;
+            patterns lacking embeddings are skipped (run embed-backfill
+            first to migrate).
 
     Returns:
         IdentityResult on success, or error message string.
@@ -192,19 +191,29 @@ def distill_identity(
     knowledge = knowledge_store or KnowledgeStore()
     knowledge.load()
 
-    # Identity is distilled from self-reflection patterns only. Other
-    # subcategories feed into skill extraction via the insight command.
-    # Rationale: self-reflection captures internal states; mixing behavioral
-    # norms into identity dilutes persona specificity via the Emptiness axiom.
-    knowledge_text = knowledge.get_context_string(
-        category="uncategorized",
-        subcategory="self-reflection",
-        limit=50,
-    )
-    if not knowledge_text:
+    if view_registry is None:
+        msg = (
+            "distill_identity requires a ViewRegistry since ADR-0009. "
+            "Run embed-backfill once and pass a ViewRegistry instance."
+        )
+        logger.warning(msg)
+        return msg
+
+    # Identity is distilled from self-reflection patterns only. Routing is now
+    # done via the "self_reflection" view's embedding cosine, not a discrete
+    # subcategory field. Rationale: self-reflection captures internal states;
+    # mixing behavioral norms into identity dilutes persona specificity via
+    # the Emptiness axiom.
+    candidates = [
+        p for p in knowledge.get_raw_patterns()
+        if p.get("category", "uncategorized") == "uncategorized"
+    ]
+    matched = view_registry.find_by_view("self_reflection", candidates)
+    if not matched:
         msg = "No self-reflection patterns available for identity distillation."
         logger.info(msg)
         return msg
+    knowledge_text = "\n".join(f"- {p['pattern']}" for p in matched)
 
     if not IDENTITY_DISTILL_PROMPT:
         msg = "identity_distill.md prompt template not found."
@@ -488,6 +497,18 @@ def _distill_category(
     if not all_patterns:
         return _CategoryResult(results=tuple(all_results), added=0, updated=0)
 
+    # ADR-0009: bulk-embed new patterns inline so dedup can run on cosine
+    # similarity instead of SequenceMatcher + LLM gate.
+    new_embeddings_arr = embed_texts(all_patterns)
+    if new_embeddings_arr is None or new_embeddings_arr.shape[0] != len(all_patterns):
+        logger.warning(
+            "[%s] Failed to embed %d new patterns; storing without embedding (dedup degraded)",
+            category, len(all_patterns),
+        )
+        new_embeddings: List[Optional[np.ndarray]] = [None] * len(all_patterns)
+    else:
+        new_embeddings = [new_embeddings_arr[i] for i in range(len(all_patterns))]
+
     # Dedup within category only: constitutional and uncategorized are independent
     # namespaces. Cross-category overlap is acceptable — the same insight may be
     # relevant both as ethical principle and behavioral pattern.
@@ -504,38 +525,28 @@ def _distill_category(
         logger.info("[%s] Dedup scope: %d/%d patterns (importance floor %.2f)",
                     category, len(existing_same_cat), pre_filter, DEDUP_IMPORTANCE_FLOOR)
 
+    add_patterns, add_importances, add_embeddings, skipped, updated = _dedup_patterns(
+        all_patterns, all_importances, new_embeddings, existing_same_cat,
+        mutate_existing=not dry_run,
+    )
+
     if dry_run:
-        existing_copy = copy.deepcopy(existing_same_cat)
-        _, _, _skip, upd, uncertain = _dedup_patterns(
-            all_patterns, all_importances, existing_copy,
+        logger.info(
+            "[%s] Dry run — %d patterns found, %d skipped, %d would update existing",
+            category, len(all_patterns), skipped, updated,
         )
-        if uncertain:
-            _, _, _llm_skip, llm_upd = _llm_quality_gate(uncertain, existing_copy)
-            upd += llm_upd
-        logger.info("[%s] Dry run — %d patterns found, %d would be deduped",
-                     category, len(all_patterns), upd)
         return _CategoryResult(results=tuple(all_results), added=0, updated=0)
 
-    # Dedup against existing patterns of same category
-    add_patterns, add_importances, _skipped, updated, uncertain = _dedup_patterns(
-        all_patterns, all_importances, existing_same_cat,
-    )
-    if uncertain:
-        llm_add, llm_imp, _llm_skip, llm_upd = _llm_quality_gate(
-            uncertain, existing_same_cat,
-        )
-        add_patterns.extend(llm_add)
-        add_importances.extend(llm_imp)
-        updated += llm_upd
-        logger.info("[%s] LLM quality gate: %d uncertain → %d add, %d update, %d skip",
-                     category, len(uncertain), len(llm_add), llm_upd, _llm_skip)
     if updated:
-        logger.info("[%s] Dedup: %d update (importance boosted)", category, updated)
+        logger.info("[%s] Dedup: %d updated (importance boosted)", category, updated)
 
-    for pattern, importance in zip(add_patterns, add_importances):
+    for pattern, importance, emb in zip(add_patterns, add_importances, add_embeddings):
+        emb_list: Optional[List[float]] = (
+            [float(x) for x in emb] if emb is not None else None
+        )
         knowledge.add_learned_pattern(
             pattern, source=source_date, importance=importance,
-            category=category,
+            category=category, embedding=emb_list,
         )
         logger.info("[%s] Added pattern (importance=%.1f): %s",
                      category, importance, pattern[:80])
@@ -544,116 +555,89 @@ def _distill_category(
 
 
 DEDUP_IMPORTANCE_FLOOR = 0.05  # Patterns below this effective importance are excluded from dedup
-UNCERTAIN_LOW = 0.3  # Below this ratio → definitely new (ADD)
-
-
-@dataclass(frozen=True)
-class _MatchCandidate:
-    """A similar existing pattern found by SequenceMatcher."""
-    text: str
-    importance: float
-    index: int
-    ratio: float
-
-
-@dataclass(frozen=True)
-class _UncertainMatch:
-    """A new pattern whose similarity is ambiguous (ratio between UNCERTAIN_LOW and threshold)."""
-    new_text: str
-    new_importance: float
-    candidates: Tuple[_MatchCandidate, ...]
 
 
 def _dedup_patterns(
     new_patterns: List[str],
     new_importances: List[float],
+    new_embeddings: List[Optional[np.ndarray]],
     existing_patterns: List[dict],
-    threshold: float = 0.7,
-) -> Tuple[List[str], List[float], int, int, List[_UncertainMatch]]:
+    *,
+    mutate_existing: bool = True,
+) -> Tuple[List[str], List[float], List[Optional[np.ndarray]], int, int]:
     """Remove duplicates by comparing new patterns against existing ones.
 
-    Returns (patterns_to_add, importances_to_add, skip_count, update_count, uncertain).
-    - SKIP: ratio >= 0.95 (near-exact duplicate)
-    - UPDATE: ratio >= threshold against existing (boost importance)
-    - UNCERTAIN: ratio in [UNCERTAIN_LOW, threshold) against existing (needs LLM judgment)
-    - ADD: ratio < UNCERTAIN_LOW (clearly new)
+    Returns (patterns_to_add, importances_to_add, embeddings_to_add, skip_count, update_count).
+    - SKIP: cosine >= SIM_DUPLICATE (near-exact duplicate)
+    - UPDATE: cosine >= SIM_UPDATE against existing (boost importance, refresh timestamp)
+    - ADD: cosine <  SIM_UPDATE against everything
+
+    Patterns whose embedding is None (Ollama failure) are always ADD'd
+    so distillation degrades gracefully when the embed model is down.
+    Existing patterns without embeddings are ignored as dedup candidates.
     """
     add_patterns: List[str] = []
     add_importances: List[float] = []
+    add_embeddings: List[Optional[np.ndarray]] = []
     skip_count = 0
     update_count = 0
-    uncertain: List[_UncertainMatch] = []
 
-    existing_texts = [p["pattern"] for p in existing_patterns]
+    # Pre-compute existing embeddings (only patterns with embeddings count for dedup)
+    existing_with_emb: List[Tuple[Dict, np.ndarray]] = []
+    for p in existing_patterns:
+        emb = p.get("embedding")
+        if isinstance(emb, list):
+            existing_with_emb.append((p, np.asarray(emb, dtype=np.float32)))
 
-    for new_text, new_imp in zip(new_patterns, new_importances):
-        best_ratio = 0.0
-        best_idx = -1
-        best_source = ""  # "existing" or "new"
+    for new_text, new_imp, new_emb in zip(new_patterns, new_importances, new_embeddings):
+        if new_emb is None:
+            add_patterns.append(new_text)
+            add_importances.append(new_imp)
+            add_embeddings.append(None)
+            continue
 
-        # Collect all ratios against existing for candidate selection
-        existing_ratios: List[Tuple[int, float]] = []
-        for idx, existing_text in enumerate(existing_texts):
-            ratio = SequenceMatcher(None, new_text, existing_text).ratio()
-            existing_ratios.append((idx, ratio))
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_idx = idx
-                best_source = "existing"
+        # Best similarity vs existing
+        best_existing_sim = -1.0
+        best_existing_pat: Optional[Dict] = None
+        for pat_dict, pat_emb in existing_with_emb:
+            sim = cosine(new_emb, pat_emb)
+            if sim > best_existing_sim:
+                best_existing_sim = sim
+                best_existing_pat = pat_dict
 
-        # Compare against already-accepted new patterns (cross-batch dedup)
-        for idx, accepted_text in enumerate(add_patterns):
-            ratio = SequenceMatcher(None, new_text, accepted_text).ratio()
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_idx = idx
-                best_source = "new"
+        # Best similarity vs already-accepted new patterns (cross-batch)
+        best_new_sim = -1.0
+        best_new_idx = -1
+        for idx, accepted_emb in enumerate(add_embeddings):
+            if accepted_emb is None:
+                continue
+            sim = cosine(new_emb, accepted_emb)
+            if sim > best_new_sim:
+                best_new_sim = sim
+                best_new_idx = idx
 
-        if best_ratio >= 0.95:
-            # Near-exact duplicate → SKIP
+        # Decide: SKIP / UPDATE existing / SKIP-NEW (boost in batch) / ADD
+        if best_existing_sim >= SIM_DUPLICATE or best_new_sim >= SIM_DUPLICATE:
             skip_count += 1
-            logger.debug("SKIP (%.2f, %s): %s", best_ratio, best_source, new_text[:60])
-        elif best_ratio >= threshold and best_source == "existing":
-            # Similar to existing → UPDATE (boost importance, refresh timestamp)
-            old_imp = existing_patterns[best_idx].get("importance", 0.5)
-            existing_patterns[best_idx]["importance"] = max(old_imp, new_imp)
-            existing_patterns[best_idx]["distilled"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
+            logger.debug("SKIP (%.2f): %s", max(best_existing_sim, best_new_sim), new_text[:60])
+        elif best_existing_sim >= SIM_UPDATE and best_existing_pat is not None and best_existing_sim >= best_new_sim:
+            if mutate_existing:
+                old_imp = best_existing_pat.get("importance", 0.5)
+                best_existing_pat["importance"] = max(old_imp, new_imp)
+                best_existing_pat["distilled"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
             update_count += 1
-            logger.debug("UPDATE (%.2f): %s", best_ratio, new_text[:60])
-        elif best_ratio >= threshold and best_source == "new":
-            # Similar to already-accepted new pattern → keep higher importance
-            if new_imp > add_importances[best_idx]:
-                add_importances[best_idx] = new_imp
+            logger.debug("UPDATE (%.2f): %s", best_existing_sim, new_text[:60])
+        elif best_new_sim >= SIM_UPDATE and best_new_idx >= 0:
+            if new_imp > add_importances[best_new_idx]:
+                add_importances[best_new_idx] = new_imp
             skip_count += 1
-            logger.debug("SKIP-NEW (%.2f): %s", best_ratio, new_text[:60])
-        elif best_ratio >= UNCERTAIN_LOW and best_source == "existing":
-            # Ambiguous similarity → collect top-3 candidates for LLM judgment
-            top_candidates = sorted(existing_ratios, key=lambda x: x[1], reverse=True)[:3]
-            candidates = tuple(
-                _MatchCandidate(
-                    text=existing_patterns[idx]["pattern"],
-                    importance=existing_patterns[idx].get("importance", 0.5),
-                    index=idx,
-                    ratio=ratio,
-                )
-                for idx, ratio in top_candidates
-                if ratio >= UNCERTAIN_LOW
-            )
-            if candidates:
-                uncertain.append(_UncertainMatch(
-                    new_text=new_text,
-                    new_importance=new_imp,
-                    candidates=candidates,
-                ))
-                logger.debug("UNCERTAIN (%.2f): %s", best_ratio, new_text[:60])
-            else:
-                add_patterns.append(new_text)
-                add_importances.append(new_imp)
+            logger.debug("SKIP-NEW (%.2f): %s", best_new_sim, new_text[:60])
         else:
             add_patterns.append(new_text)
             add_importances.append(new_imp)
+            add_embeddings.append(new_emb)
 
-    return add_patterns, add_importances, skip_count, update_count, uncertain
+    return add_patterns, add_importances, add_embeddings, skip_count, update_count
 
 
 def _is_valid_pattern(pattern: str) -> bool:
@@ -666,159 +650,6 @@ def _is_valid_pattern(pattern: str) -> bool:
     if pattern.count(" ") < 3:
         return False
     return True
-
-
-def _subcategorize_patterns(
-    knowledge: KnowledgeStore,
-    dry_run: bool = False,
-) -> int:
-    """Assign subcategories to uncategorized patterns that lack one.
-
-    One LLM call per pattern. Returns the number of patterns subcategorized.
-    """
-    if not DISTILL_SUBCATEGORIZE_PROMPT:
-        logger.warning("No subcategorize prompt template found, skipping")
-        return 0
-
-    targets = [
-        p for p in knowledge.get_raw_patterns()
-        if p.get("category", "uncategorized") == "uncategorized"
-        and p.get("subcategory") is None
-    ]
-    if not targets:
-        logger.info("No patterns need subcategorization")
-        return 0
-
-    logger.info("Subcategorizing %d patterns", len(targets))
-    count = 0
-    for i, pattern_dict in enumerate(targets):
-        prompt = DISTILL_SUBCATEGORIZE_PROMPT.format(pattern=pattern_dict["pattern"])
-        result = generate(prompt, max_length=50, num_predict=30, format=SUBCATEGORIZE_SCHEMA)
-        if result:
-            subcategory = result.strip().lower().strip('"')
-            if subcategory in VALID_SUBCATEGORIES:
-                if not dry_run:
-                    pattern_dict["subcategory"] = subcategory
-                count += 1
-                logger.debug("Pattern %d/%d → %s", i + 1, len(targets), subcategory)
-            else:
-                logger.debug("Pattern %d/%d: invalid subcategory '%s', skipping", i + 1, len(targets), subcategory)
-        else:
-            logger.debug("Pattern %d/%d: LLM returned empty, skipping", i + 1, len(targets))
-
-    logger.info("Subcategorized %d/%d patterns%s", count, len(targets), " (dry run)" if dry_run else "")
-    return count
-
-
-def _llm_quality_gate(
-    uncertain: List[_UncertainMatch],
-    existing_patterns: List[dict],
-) -> Tuple[List[str], List[float], int, int]:
-    """LLM-based semantic dedup for uncertain matches.
-
-    For patterns where SequenceMatcher ratio is ambiguous (0.3-0.7),
-    asks the LLM to judge whether they are semantically the same as
-    existing patterns.
-
-    Returns (add_patterns, add_importances, skip_count, update_count).
-    Side effect: mutates existing_patterns for UPDATE cases (importance boost + timestamp).
-    Fallback: all ADD on LLM failure (same as no gate).
-    """
-    if not uncertain:
-        return [], [], 0, 0
-
-    # Build prompt items
-    items: List[str] = []
-    for i, match in enumerate(uncertain, 1):
-        candidates_text = "\n".join(
-            f"  {j}. (ratio={c.ratio:.2f}) \"{c.text[:120]}\""
-            for j, c in enumerate(match.candidates, 1)
-        )
-        items.append(f"=== NEW {i} ===\n\"{match.new_text[:200]}\"\nCANDIDATES:\n{candidates_text}")
-
-    dedup_items = "\n---\n".join(items)
-    prompt = DISTILL_DEDUP_PROMPT.format(dedup_items=dedup_items)
-    result = generate(prompt, max_length=2000, num_predict=800, format=DEDUP_SCHEMA)
-
-    # Parse decisions
-    decisions = _parse_dedup_decisions(result, len(uncertain))
-
-    add_patterns: List[str] = []
-    add_importances: List[float] = []
-    skip_count = 0
-    update_count = 0
-
-    for match, decision in zip(uncertain, decisions):
-        update_match = re.match(r"UPDATE\s+(\d+)", decision)
-        if decision == "ADD":
-            add_patterns.append(match.new_text)
-            add_importances.append(match.new_importance)
-            logger.debug("LLM-GATE ADD: %s", match.new_text[:60])
-        elif decision == "SKIP":
-            skip_count += 1
-            logger.debug("LLM-GATE SKIP: %s", match.new_text[:60])
-        elif update_match:
-            candidate_idx = int(update_match.group(1)) - 1  # 1-based → 0-based
-            if 0 <= candidate_idx < len(match.candidates):
-                candidate = match.candidates[candidate_idx]
-                old_imp = existing_patterns[candidate.index].get("importance", 0.5)
-                existing_patterns[candidate.index]["importance"] = max(old_imp, match.new_importance)
-                existing_patterns[candidate.index]["distilled"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
-                update_count += 1
-                logger.debug("LLM-GATE UPDATE %d: %s", candidate_idx + 1, match.new_text[:60])
-            else:
-                # Invalid candidate index → ADD as fallback
-                add_patterns.append(match.new_text)
-                add_importances.append(match.new_importance)
-                logger.debug("LLM-GATE invalid index %d, ADD: %s", candidate_idx + 1, match.new_text[:60])
-        else:
-            # Unparseable decision → ADD as fallback
-            add_patterns.append(match.new_text)
-            add_importances.append(match.new_importance)
-            logger.debug("LLM-GATE unparseable '%s', ADD: %s", decision, match.new_text[:60])
-
-    return add_patterns, add_importances, skip_count, update_count
-
-
-def _parse_dedup_decisions(raw: Optional[str], expected_count: int) -> List[str]:
-    """Parse LLM dedup gate output into a list of decisions.
-
-    Expected format: {"decisions": ["ADD", "UPDATE 1", "SKIP", ...]}
-    Handles code-fence wrapping and surrounding text from small models.
-    Falls back to all "ADD" on failure.
-    """
-    fallback = ["ADD"] * expected_count
-    if not raw:
-        logger.warning("LLM dedup gate returned empty, falling back to ADD all")
-        return fallback
-
-    text = strip_code_fence(raw)
-
-    # Try direct JSON parse
-    try:
-        parsed = json_mod.loads(text)
-        decisions = parsed.get("decisions", [])
-        if len(decisions) == expected_count:
-            return [str(d).strip().upper() for d in decisions]
-        logger.warning("Dedup decision count mismatch: got %d, expected %d",
-                       len(decisions), expected_count)
-        return fallback
-    except (json_mod.JSONDecodeError, TypeError, AttributeError):
-        pass
-
-    # Regex: extract {"decisions": [...]} from surrounding text
-    match = re.search(r'\{[^{}]*"decisions"\s*:\s*\[.*?\]\s*\}', text, re.DOTALL)
-    if match:
-        try:
-            parsed = json_mod.loads(match.group())
-            decisions = parsed.get("decisions", [])
-            if len(decisions) == expected_count:
-                return [str(d).strip().upper() for d in decisions]
-        except (json_mod.JSONDecodeError, TypeError, AttributeError):
-            pass
-
-    logger.warning("Failed to parse dedup decisions, raw: %s", raw[:300])
-    return fallback
 
 
 def summarize_record(record_type: str, data: dict) -> str:
