@@ -151,6 +151,101 @@ class TestRankAndQuery:
         assert [p["pattern"] for p in result] == ["match"]
 
 
+class TestSeedFrom:
+    """seed_from frontmatter injects external file contents as the seed."""
+
+    def test_seed_from_single_file(self, tmp_path):
+        const_dir = tmp_path / "constitution"
+        const_dir.mkdir()
+        (const_dir / "axioms.md").write_text("utilitarian first principle", encoding="utf-8")
+        view_path = tmp_path / "views" / "constitutional.md"
+        view_path.parent.mkdir()
+        view_path.write_text(
+            "---\nthreshold: 0.5\nseed_from: ../constitution/axioms.md\n---\n\nFallback body.\n",
+            encoding="utf-8",
+        )
+        view = _parse_seed_file(view_path)
+        assert "utilitarian first principle" in view.seed_text
+        assert "Fallback" not in view.seed_text
+
+    def test_seed_from_glob_concatenates_files(self, tmp_path):
+        const_dir = tmp_path / "constitution"
+        const_dir.mkdir()
+        (const_dir / "a.md").write_text("alpha clause", encoding="utf-8")
+        (const_dir / "b.md").write_text("beta clause", encoding="utf-8")
+        view_path = tmp_path / "views" / "v.md"
+        view_path.parent.mkdir()
+        view_path.write_text(
+            "---\nseed_from: ../constitution/*.md\n---\n\nfallback\n",
+            encoding="utf-8",
+        )
+        view = _parse_seed_file(view_path)
+        assert "alpha clause" in view.seed_text
+        assert "beta clause" in view.seed_text
+
+    def test_seed_from_var_substitution(self, tmp_path):
+        actual_const = tmp_path / "custom-constitution"
+        actual_const.mkdir()
+        (actual_const / "care.md").write_text("care ethics clause", encoding="utf-8")
+        view_path = tmp_path / "views" / "constitutional.md"
+        view_path.parent.mkdir()
+        view_path.write_text(
+            "---\nseed_from: ${CONSTITUTION_DIR}/*.md\n---\n\nfallback\n",
+            encoding="utf-8",
+        )
+        view = _parse_seed_file(view_path, path_vars={"CONSTITUTION_DIR": actual_const})
+        assert view.seed_text == "care ethics clause"
+
+    def test_seed_from_unresolved_var_falls_back(self, tmp_path, caplog):
+        view_path = tmp_path / "v.md"
+        view_path.write_text(
+            "---\nseed_from: ${UNKNOWN}/*.md\n---\n\nfallback body\n",
+            encoding="utf-8",
+        )
+        with caplog.at_level("WARNING"):
+            view = _parse_seed_file(view_path, path_vars={})
+        assert view.seed_text == "fallback body"
+        assert any("unresolved placeholder" in rec.message for rec in caplog.records)
+
+    def test_seed_from_no_matches_falls_back(self, tmp_path, caplog):
+        view_path = tmp_path / "v.md"
+        view_path.write_text(
+            "---\nseed_from: ./nonexistent/*.md\n---\n\nfallback body\n",
+            encoding="utf-8",
+        )
+        with caplog.at_level("WARNING"):
+            view = _parse_seed_file(view_path)
+        assert view.seed_text == "fallback body"
+
+    def test_seed_from_absolute_path(self, tmp_path):
+        const_dir = tmp_path / "abs-const"
+        const_dir.mkdir()
+        (const_dir / "c.md").write_text("absolute clause", encoding="utf-8")
+        view_path = tmp_path / "v.md"
+        view_path.write_text(
+            f"---\nseed_from: {const_dir}/*.md\n---\n\nfallback\n",
+            encoding="utf-8",
+        )
+        view = _parse_seed_file(view_path)
+        assert view.seed_text == "absolute clause"
+
+    def test_registry_threads_path_vars(self, tmp_path):
+        const_dir = tmp_path / "constitution"
+        const_dir.mkdir()
+        (const_dir / "x.md").write_text("registry clause", encoding="utf-8")
+        views_dir = tmp_path / "views"
+        views_dir.mkdir()
+        (views_dir / "constitutional.md").write_text(
+            "---\nseed_from: ${CONSTITUTION_DIR}/*.md\n---\n\nfallback\n",
+            encoding="utf-8",
+        )
+        reg = ViewRegistry(views_dir=views_dir, path_vars={"CONSTITUTION_DIR": const_dir})
+        reg.load_views()
+        view = reg.get("constitutional")
+        assert view is not None
+        assert view.seed_text == "registry clause"
+
+
 class TestPackagedViews:
     """Sanity check that the shipped config/views/*.md files parse."""
 

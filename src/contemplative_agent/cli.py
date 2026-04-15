@@ -14,7 +14,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 from xml.sax.saxutils import escape as xml_escape
 
 from .adapters.moltbook.agent import Agent, AutonomyLevel
@@ -889,7 +889,7 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
                 parser.error(f"Not a JSONL file: {f}")
     episode_log = EpisodeLog(log_dir=log_dir)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-    view_registry = _load_view_registry()
+    view_registry = _load_view_registry(args)
     result = distill(
         days=args.days,
         dry_run=args.dry_run,
@@ -912,11 +912,23 @@ def _resolve_views_dir() -> Path:
     return VIEWS_DIR
 
 
-def _load_view_registry() -> "ViewRegistry":  # noqa: F821 — lazy import below
-    """Load the view registry, preferring user-customised views."""
+def _load_view_registry(
+    args: Optional[argparse.Namespace] = None,
+) -> "ViewRegistry":  # noqa: F821 — lazy import below
+    """Load the view registry, preferring user-customised views.
+
+    Passes ``${CONSTITUTION_DIR}`` to seed_from resolution so views can
+    inject live constitution content (honours ``--constitution-dir``).
+    """
     from .core.views import ViewRegistry
 
-    registry = ViewRegistry(views_dir=_resolve_views_dir())
+    constitution_dir = (
+        getattr(args, "constitution_dir", None) if args is not None else None
+    ) or CONSTITUTION_DIR
+    registry = ViewRegistry(
+        views_dir=_resolve_views_dir(),
+        path_vars={"CONSTITUTION_DIR": constitution_dir},
+    )
     registry.load_views()
     return registry
 
@@ -991,7 +1003,7 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
 
     _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-    view_registry = _load_view_registry()
+    view_registry = _load_view_registry(args)
     result = distill_identity(
         knowledge_store=knowledge_store,
         identity_path=IDENTITY_PATH,
@@ -1026,7 +1038,7 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
     _warn_dry_run_deprecated(args)
     log_dir = MOLTBOOK_DATA_DIR / "logs"
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
-    view_registry = _load_view_registry()
+    view_registry = _load_view_registry(args)
     result = extract_insight(
         knowledge_store=knowledge_store,
         skills_dir=SKILLS_DIR,
