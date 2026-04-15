@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-15 | Files scanned: 39 | Token estimate: ~1500 -->
+<!-- Generated: 2026-04-16 | Files scanned: 43 | Token estimate: ~1600 -->
 # Moltbook Agent Codemap
 
 Bird's-eye view of the entire codebase. For deep dives, see
@@ -7,69 +7,78 @@ Bird's-eye view of the entire codebase. For deep dives, see
 ## Module Dependency Graph
 
 ```
-cli.py (1064L)  -- composition root, only file importing both core/ and adapters/
- -> core/  (17 modules)
- |    _io.py (46L)              -- file I/O (write_restricted, truncate, archive_before_write)
- |    config.py (28L)           -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
- |    domain.py (295L)          -- DomainConfig + PromptTemplates + constitution loader
- |    prompts.py (65L)          -- lazy-loading proxy to config/prompts/*.md
- |    llm.py (403L)             -- Ollama interface, circuit breaker, sanitization, per-caller num_predict
- |    embeddings.py (79L)       -- /api/embed wrapper (nomic-embed-text) + cosine similarity matrix
- |    episode_log.py (98L)      -- Layer 1: append-only JSONL episode storage
- |    knowledge_store.py (242L) -- Layer 2: distilled patterns (JSON), importance + decay
- |    memory.py (460L)          -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
- |    scheduler.py (165L)       -- rate limit scheduling, persistence
- |    distill.py (737L)         -- Step 0 classify + 3-step distill + identity distill
- |    insight.py (225L)         -- behavior pattern extraction (knowledge → skills)
- |    rules_distill.py (279L)   -- universal rules synthesis (skills → rules)
- |    constitution.py (106L)    -- constitutional amendment (constitutional patterns → ethics)
- |    stocktake.py (340L)       -- skill/rule audit: embedding-only clustering, merge_group with CANNOT_MERGE reject path
- |    report.py (256L)          -- activity report generation (JSONL → Markdown)
- |    metrics.py (160L)         -- session metrics aggregation
+cli.py (1620L)  -- composition root, only file importing both core/ and adapters/
+ -> core/  (21 modules)
+ |    _io.py (46L)                -- file I/O (write_restricted, truncate, archive_before_write)
+ |    config.py (28L)             -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
+ |    domain.py (295L)            -- DomainConfig + PromptTemplates + constitution loader
+ |    prompts.py (65L)            -- lazy-loading proxy to config/prompts/*.md
+ |    llm.py (420L)               -- Ollama interface, circuit breaker, sanitization, per-caller num_predict
+ |    embeddings.py (144L)        -- /api/embed wrapper (nomic-embed-text) + cosine + embed_one/embed_texts
+ |    episode_embeddings.py (174L)-- EpisodeEmbeddingStore (SQLite sidecar, ADR-0019)
+ |    episode_log.py (98L)        -- Layer 1: append-only JSONL episode storage
+ |    knowledge_store.py (305L)   -- Layer 2: patterns (JSON) + update_view_telemetry (ADR-0020)
+ |    memory.py (490L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
+ |    views.py (289L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, ADR-0019)
+ |    migration.py (346L)         -- run_embed_backfill (one-shot ADR-0019 migration)
+ |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
+ |    scheduler.py (165L)         -- rate limit scheduling, persistence
+ |    distill.py (665L)           -- embedding classify + 3-step distill + identity distill
+ |    insight.py (307L)           -- view-driven behavior pattern extraction (knowledge → skills)
+ |    rules_distill.py (322L)     -- Practice/Rationale B-layer rules synthesis (skills → rules)
+ |    constitution.py (106L)      -- constitutional amendment (constitutional view → ethics)
+ |    stocktake.py (363L)         -- skill/rule audit: embedding clustering, merge/quality, CANNOT_MERGE
+ |    report.py (256L)            -- activity report generation (JSONL → Markdown)
+ |    metrics.py (160L)           -- session metrics aggregation
  |
  -> adapters/moltbook/  (12 modules)
- |    config.py (82L)           -- URLs, paths, timeouts, rate limits
- |    agent.py (609L)           -- session orchestrator (feed/reply/post cycles)
- |    session_context.py (53L)  -- shared session state contract
- |    feed_manager.py (326L)    -- feed fetch, scoring, engagement, ID dedup, promo + author rate limit
- |    reply_handler.py (382L)   -- notification reply processing (SessionContext)
- |    post_pipeline.py (195L)   -- dynamic post generation, test-content + Jaccard dedup gates
- |    client.py (448L)          -- HTTP client (auth, domain lock, retry/429-backoff)
- |    auth.py (111L)            -- credential management, register
- |    verification.py (236L)    -- obfuscated math challenge solver
- |    content.py (64L)          -- rules-based content + axiom intro injection
- |    llm_functions.py (217L)   -- Moltbook-specific LLM functions
- |    dedup.py (154L)           -- deterministic gates: prefix-5 stem + Jaccard, test-content, promo regex
+ |    config.py (85L)             -- URLs, paths, timeouts, rate limits
+ |    agent.py (609L)             -- session orchestrator (feed/reply/post cycles)
+ |    session_context.py (53L)    -- shared session state contract
+ |    feed_manager.py (348L)      -- feed fetch, scoring, engagement, ID dedup, promo + author rate limit
+ |    reply_handler.py (394L)     -- notification reply processing (SessionContext)
+ |    post_pipeline.py (195L)     -- dynamic post generation, test-content + Jaccard dedup gates
+ |    client.py (448L)            -- HTTP client (auth, domain lock, retry/429-backoff)
+ |    auth.py (111L)              -- credential management, register
+ |    verification.py (236L)      -- obfuscated math challenge solver
+ |    content.py (64L)            -- rules-based content + axiom intro injection
+ |    llm_functions.py (217L)     -- Moltbook-specific LLM functions
+ |    dedup.py (206L)             -- deterministic gates: prefix-5 stem + Jaccard, test-content, promo regex
  |
  -> adapters/meditation/  (4 modules, experimental)
-      config.py (55L)           -- state space definition, parameters
-      pomdp.py (294L)           -- JSONL → POMDP matrices (numpy)
-      meditate.py (206L)        -- Active Inference cycles (temporal flattening + counterfactual pruning)
-      report.py (146L)          -- result interpretation → KnowledgeStore
+      config.py (55L)             -- state space definition, parameters
+      pomdp.py (294L)             -- JSONL → POMDP matrices (numpy)
+      meditate.py (206L)          -- Active Inference cycles (temporal flattening + counterfactual pruning)
+      report.py (146L)            -- result interpretation → KnowledgeStore
 
-config/                         -- externalized templates (domain-swappable, git-managed)
-  domain.json                   -- submolts, thresholds, topic keywords
-  prompts/*.md (28 files)       -- LLM prompt templates with {placeholders}
-  templates/<character>/        -- 11 ethical framework templates
-                                   (contemplative, stoic, utilitarian, deontologist,
-                                    care-ethicist, contractarian, cynic,
-                                    existentialist, narrativist, pragmatist, tabula-rasa)
+config/                           -- externalized templates (domain-swappable, git-managed)
+  domain.json                     -- submolts, thresholds, topic keywords
+  prompts/*.md (30 files)         -- LLM prompt templates with {placeholders}
+  views/*.md                      -- 7 seed-text view definitions (packaged fallback for ADR-0019)
+  templates/<character>/          -- 11 ethical framework templates
+                                     (contemplative, stoic, utilitarian, deontologist,
+                                      care-ethicist, contractarian, cynic,
+                                      existentialist, narrativist, pragmatist, tabula-rasa)
 
-~/.config/moltbook/             -- runtime data (env var MOLTBOOK_HOME)
-  identity.md                   -- agent persona (updated by distill-identity)
-  knowledge.json                -- learned patterns [{"pattern", "category", "importance", ...}]
-  constitution/                 -- ethical principles (init copies default, amend updates)
-  skills/*.md                   -- behavior patterns (insight)
-  rules/*.md                    -- universal rules (rules-distill)
-  logs/YYYY-MM-DD.jsonl         -- daily episode log (append-only, 0600)
-  reports/                      -- activity reports (generate-report) + analysis/ (weekly)
-  agents.json                   -- followed agents, last_update timestamp (0600)
-  rate_state.json               -- request budgets, timestamps (0600)
-  credentials.json              -- API key + agent_id (0600)
-  commented_cache.json          -- post dedup cache (0600)
+~/.config/moltbook/               -- runtime data (env var MOLTBOOK_HOME)
+  identity.md                     -- agent persona (updated by distill-identity)
+  knowledge.json                  -- learned patterns (embedding + gated + last_view_matches telemetry)
+  embeddings.sqlite               -- episode embedding sidecar (ADR-0019)
+  constitution/                   -- ethical principles (init copies default, amend updates)
+  views/*.md                      -- user-customised seed views (falls back to packaged)
+  skills/*.md                     -- behavior patterns (insight)
+  rules/*.md                      -- universal rules (rules-distill, Practice/Rationale)
+  snapshots/{cmd}_{ts}/           -- pivot snapshots (ADR-0020: manifest + views + constitution + centroids.npz)
+  logs/YYYY-MM-DD.jsonl           -- daily episode log (append-only, 0600)
+  logs/audit.jsonl                -- approval history incl. snapshot_path cross-refs (ADR-0020)
+  reports/                        -- activity reports (generate-report) + analysis/ (weekly)
+  agents.json                     -- followed agents, last_update timestamp (0600)
+  rate_state.json                 -- request budgets, timestamps (0600)
+  credentials.json                -- API key + agent_id (0600)
+  commented_cache.json            -- post dedup cache (0600)
 ```
 
-**Total: 39 modules, ~9400 LOC, 22 test files, 942 tests**
+**Total: 43 modules, ~10500 LOC** (test count: see [INDEX.md](INDEX.md))
 
 ## Key Classes
 
@@ -78,21 +87,23 @@ config/                         -- externalized templates (domain-swappable, git
 | `Agent` | adapters/moltbook/agent.py | 609 | Session orchestrator |
 | `AutonomyLevel` | adapters/moltbook/agent.py | — | Enum: APPROVE/GUARDED/AUTO |
 | `SessionContext` | adapters/moltbook/session_context.py | 53 | Shared mutable state |
-| `FeedManager` | adapters/moltbook/feed_manager.py | 326 | Feed engagement + new gates |
-| `ReplyHandler` | adapters/moltbook/reply_handler.py | 382 | Notification replies |
+| `FeedManager` | adapters/moltbook/feed_manager.py | 348 | Feed engagement + new gates |
+| `ReplyHandler` | adapters/moltbook/reply_handler.py | 394 | Notification replies |
 | `PostPipeline` | adapters/moltbook/post_pipeline.py | 195 | Self-post generation + dedup gates |
 | `MoltbookClient` | adapters/moltbook/client.py | 448 | HTTP client (domain lock, 429 backoff) |
 | `MoltbookClientError` | adapters/moltbook/client.py | — | Exception with status_code |
 | `VerificationTracker` | adapters/moltbook/verification.py | 236 | Math challenge solver, auto-stop |
 | `ContentManager` | adapters/moltbook/content.py | 64 | Content gen + axiom intro |
 | `EpisodeLog` | core/episode_log.py | 98 | Append-only JSONL |
-| `KnowledgeStore` | core/knowledge_store.py | 242 | Distilled patterns + importance decay |
-| `MemoryStore` | core/memory.py | 460 | Facade over 3-layer memory |
+| `EpisodeEmbeddingStore` | core/episode_embeddings.py | 174 | SQLite sidecar for episode vectors (ADR-0019) |
+| `KnowledgeStore` | core/knowledge_store.py | 305 | Patterns JSON + telemetry update (ADR-0020) |
+| `MemoryStore` | core/memory.py | 490 | Facade over 3-layer memory |
+| `ViewRegistry` | core/views.py | 289 | Seed-text views, lazy centroid cache (ADR-0019) |
 | `Interaction` / `PostRecord` / `Insight` | core/memory.py | — | @dataclass(frozen=True) |
 | `Scheduler` | core/scheduler.py | 165 | Rate limit enforcement |
 | `DomainConfig` / `PromptTemplates` | core/domain.py | — | @dataclass(frozen=True) |
 
-## CLI Commands (19 subcommands)
+## CLI Commands (20 subcommands)
 
 ```
 contemplative-agent init [--template <character>] [--config-dir PATH]
@@ -100,13 +111,14 @@ contemplative-agent register [--username U] [--password P]
 contemplative-agent status
 contemplative-agent run [--session M] [--approve|--guarded|--auto]
 
-# Offline learning (all gated by ADR-0012 human approval)
+# Offline learning (all gated by ADR-0012 human approval; all write pivot snapshots ADR-0020)
 contemplative-agent distill [--days N] [--dry-run] [--no-axioms]
 contemplative-agent distill-identity [--days N] [--dry-run]
 contemplative-agent insight [--days N] [--stage] [--full]
 contemplative-agent adopt-staged                            -- approve & adopt staged outputs (Tier 1, no LLM)
 contemplative-agent rules-distill [--full]
 contemplative-agent amend-constitution
+contemplative-agent embed-backfill [--patterns-only] [--dry-run]   -- one-shot ADR-0019 migration
 
 # Audit
 contemplative-agent skill-stocktake [--stage]
@@ -133,7 +145,7 @@ Global flags:
   --approve / --guarded / --auto  Autonomy level
 ```
 
-## Prompt Templates (28)
+## Prompt Templates (30)
 
 In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 
@@ -143,18 +155,21 @@ In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 - submolt_selection
 
 **Distillation**:
-- distill_classify, distill, distill_constitutional, distill_refine, distill_importance, distill_dedup
+- distill, distill_constitutional, distill_refine, distill_importance, distill_dedup
 - identity_distill, identity_refine
 - insight_extraction
 - rules_distill, rules_distill_refine
 - constitution_amend
 
 **Audit**:
-- stocktake_skills, stocktake_rules, stocktake_merge
+- stocktake_skills, stocktake_rules, stocktake_merge, stocktake_merge_rules
 
 **Reports / experimental**:
 - weekly-analysis (Claude Code via launchd)
 - meditation_interpret
+
+**Legacy (present on disk, no longer called)**:
+- `distill_classify.md`, `distill_subcategorize.md` — superseded by embedding classification / view batching (ADR-0019). Files retained but unreferenced.
 
 ## LLM Function Surface
 
@@ -184,12 +199,16 @@ Circuit breaker: 5 consecutive LLM failures → open for 120s.
 | `logs/YYYY-MM-DD.jsonl` | JSONL (0600) | `MOLTBOOK_HOME` | Daily episodes |
 | `agents.json` | JSON (0600) | `MOLTBOOK_HOME` | Followed agents list |
 | `commented_cache.json` | JSON (0600) | `MOLTBOOK_HOME` | Post dedup cache (ID-level) |
-| `knowledge.json` | JSON | `MOLTBOOK_HOME` | Learned patterns + importance + category |
+| `knowledge.json` | JSON | `MOLTBOOK_HOME` | Patterns + `embedding` + `gated` + `last_view_matches` (ADR-0019/0020) |
+| `embeddings.sqlite` | SQLite | `MOLTBOOK_HOME` | Episode embedding sidecar (ADR-0019) |
 | `identity.md` | Markdown | `MOLTBOOK_HOME` | Agent persona |
-| `constitution/*.md` | Markdown | `MOLTBOOK_HOME` | Ethical clauses |
+| `constitution/*.md` | Markdown | `MOLTBOOK_HOME` | Ethical clauses (`seed_from` source for views) |
+| `views/*.md` | Markdown | `MOLTBOOK_HOME` | User-editable seed views (packaged fallback) |
 | `skills/*.md` | Markdown | `MOLTBOOK_HOME` | Behavior patterns (insight) |
-| `rules/*.md` | Markdown | `MOLTBOOK_HOME` | Universal rules (rules-distill) |
+| `rules/*.md` | Markdown | `MOLTBOOK_HOME` | Universal rules (rules-distill, Practice/Rationale) |
+| `snapshots/{cmd}_{ts}/` | dir | `MOLTBOOK_HOME` | Pivot snapshots (ADR-0020: manifest + views + constitution + centroids.npz) |
 | `history/identity/` | Markdown | `MOLTBOOK_HOME` | Identity archives (timestamped) |
+| `logs/audit.jsonl` | JSONL | `MOLTBOOK_HOME` | Approval history + `snapshot_path` cross-refs |
 | `reports/comment-reports/*.md` | Markdown | `MOLTBOOK_HOME` | Daily activity reports |
 | `reports/analysis/weekly-*.md` | Markdown | `MOLTBOOK_HOME` | Weekly analysis (Claude Code via launchd) |
 
