@@ -245,5 +245,4 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 ### 謝辞
 
-- Vasiliy Shilov ([CIMP](https://github.com/cimpai/cimp)) — Dev.to での対話が view mechanism (ADR-0019) の着想に寄与。
 - Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — 決定論的感情スコアリングの設計着想。

@@ -245,5 +245,4 @@ Each paper below informed a specific design decision documented in the linked AD
 
 ### Acknowledgments
 
-- Vasiliy Shilov ([CIMP](https://github.com/cimpai/cimp)) — Dev.to dialogue that shaped the view mechanism (ADR-0019).
 - Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — deterministic affect-scoring design inspiration.
