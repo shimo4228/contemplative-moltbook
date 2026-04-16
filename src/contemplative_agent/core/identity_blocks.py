@@ -48,8 +48,12 @@ KNOWN_SOURCES = frozenset(
 )
 DEFAULT_SOURCE = "legacy"
 
+PERSONA_CORE_BLOCK = "persona_core"
+
 _FRONTMATTER_DELIM = "---"
 _SECTION_HEADER_RE = re.compile(r"^##\s+([A-Za-z0-9_][A-Za-z0-9_\-]*)\s*$")
+
+_PROMPT_CACHE: Optional[Tuple[Path, float, str]] = None
 
 
 @dataclass(frozen=True)
@@ -89,7 +93,7 @@ def parse(text: str) -> IdentityDocument:
     """
     if not text:
         return IdentityDocument(
-            blocks=(Block(name="persona_core", body="", source=DEFAULT_SOURCE),),
+            blocks=(Block(name=PERSONA_CORE_BLOCK, body="", source=DEFAULT_SOURCE),),
             is_legacy=True,
         )
 
@@ -195,7 +199,7 @@ def update_block(
     updated_body = _ensure_trailing_newline(body.strip())
 
     if doc.is_legacy:
-        if name != "persona_core":
+        if name != PERSONA_CORE_BLOCK:
             raise ValueError(
                 "legacy identity file only supports the persona_core block; "
                 "run migrate_to_blocks() first to add additional blocks"
@@ -203,7 +207,7 @@ def update_block(
         return IdentityDocument(
             blocks=(
                 Block(
-                    name="persona_core",
+                    name=PERSONA_CORE_BLOCK,
                     body=updated_body,
                     last_updated_at=None,
                     source=DEFAULT_SOURCE,
@@ -248,9 +252,29 @@ def load_for_prompt(path: Path) -> str:
     Legacy files return verbatim bytes (compat with pre-ADR-0024
     behaviour). Block-format files return block bodies concatenated
     with blank-line separators. Frontmatter is never returned.
+
+    Result is cached by ``(path, mtime)`` so the LLM hot path (one
+    ``_build_system_prompt`` call per generate) does not re-parse
+    identity.md on every invocation. Invalidated automatically on
+    file edit via mtime bump.
     """
+    global _PROMPT_CACHE
     if not path.exists():
+        _PROMPT_CACHE = None
         return ""
+    try:
+        mtime = path.stat().st_mtime
+    except OSError as exc:
+        logger.warning("failed to stat identity file %s: %s", path, exc)
+        return ""
+
+    if (
+        _PROMPT_CACHE is not None
+        and _PROMPT_CACHE[0] == path
+        and _PROMPT_CACHE[1] == mtime
+    ):
+        return _PROMPT_CACHE[2]
+
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -259,10 +283,13 @@ def load_for_prompt(path: Path) -> str:
 
     doc = parse(raw)
     if doc.is_legacy:
-        return raw.strip()
+        result = raw.strip()
+    else:
+        parts = [b.body.strip() for b in doc.blocks if b.body.strip()]
+        result = "\n\n".join(parts)
 
-    parts = [b.body.strip() for b in doc.blocks if b.body.strip()]
-    return "\n\n".join(parts)
+    _PROMPT_CACHE = (path, mtime, result)
+    return result
 
 
 def body_hash(body: str) -> str:
@@ -275,6 +302,8 @@ class MigrationResult:
     migrated: bool
     already_migrated: bool = False
     backup_path: Optional[Path] = None
+    rendered: Optional[str] = None
+    document: Optional[IdentityDocument] = None
 
 
 def migrate_to_blocks(
@@ -288,6 +317,10 @@ def migrate_to_blocks(
     with a single ``persona_core`` block carrying the original body.
     Idempotent: returns ``already_migrated=True`` without touching
     anything if the file already has frontmatter.
+
+    Returns the rendered post-migration text and the resulting
+    document so callers can audit or inspect without re-reading and
+    re-parsing the file from disk.
     """
     if not path.exists():
         return MigrationResult(migrated=False)
@@ -303,7 +336,7 @@ def migrate_to_blocks(
     migrated = IdentityDocument(
         blocks=(
             Block(
-                name="persona_core",
+                name=PERSONA_CORE_BLOCK,
                 body=_ensure_trailing_newline(raw.strip()),
                 last_updated_at=now or _now_iso(),
                 source="migration",
@@ -311,8 +344,14 @@ def migrate_to_blocks(
         ),
         is_legacy=False,
     )
-    _write_text_preserving_mode(path, render(migrated))
-    return MigrationResult(migrated=True, backup_path=backup)
+    rendered = render(migrated)
+    _write_text_preserving_mode(path, rendered)
+    return MigrationResult(
+        migrated=True,
+        backup_path=backup,
+        rendered=rendered,
+        document=migrated,
+    )
 
 
 def append_history(
@@ -354,7 +393,7 @@ def _legacy_doc(text: str) -> IdentityDocument:
     return IdentityDocument(
         blocks=(
             Block(
-                name="persona_core",
+                name=PERSONA_CORE_BLOCK,
                 body=_ensure_trailing_newline(text.strip()),
                 source=DEFAULT_SOURCE,
             ),

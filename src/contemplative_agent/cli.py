@@ -295,14 +295,14 @@ def _append_identity_history_for_adoption(old_raw: str, new_raw: str) -> None:
     """
     old_doc = identity_blocks.parse(old_raw)
     new_doc = identity_blocks.parse(new_raw)
-    new_persona = new_doc.get("persona_core")
+    new_persona = new_doc.get(identity_blocks.PERSONA_CORE_BLOCK)
     if new_persona is None:
         return
-    old_persona = old_doc.get("persona_core")
+    old_persona = old_doc.get(identity_blocks.PERSONA_CORE_BLOCK)
     try:
         identity_blocks.append_history(
             IDENTITY_HISTORY_PATH,
-            block="persona_core",
+            block=identity_blocks.PERSONA_CORE_BLOCK,
             old_body=old_persona.body if old_persona is not None else "",
             new_body=new_persona.body,
             source="distill-identity",
@@ -1069,23 +1069,25 @@ def _handle_migrate_identity(args: argparse.Namespace, _parser: argparse.Argumen
         return
 
     result = identity_blocks.migrate_to_blocks(IDENTITY_PATH)
-    if not result.migrated:
+    if not result.migrated or result.document is None:
         print("  status: migration returned no-op unexpectedly")
         return
     print("  status: migrated to block format")
     print(f"  path  : {IDENTITY_PATH}")
     print(f"  backup: {result.backup_path}")
 
-    new_raw = IDENTITY_PATH.read_text(encoding="utf-8")
     _log_approval(
-        "migrate-identity", IDENTITY_PATH, approved=True, content=new_raw,
+        "migrate-identity",
+        IDENTITY_PATH,
+        approved=True,
+        content=result.rendered or "",
     )
-    persona = identity_blocks.parse(new_raw).get("persona_core")
+    persona = result.document.get(identity_blocks.PERSONA_CORE_BLOCK)
     if persona is not None:
         try:
             identity_blocks.append_history(
                 IDENTITY_HISTORY_PATH,
-                block="persona_core",
+                block=identity_blocks.PERSONA_CORE_BLOCK,
                 old_body="",
                 new_body=persona.body,
                 source="migration",

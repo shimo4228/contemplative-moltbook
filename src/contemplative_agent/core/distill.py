@@ -169,7 +169,7 @@ class IdentityResult:
     target_path: Path
     old_body: str = ""
     new_body: str = ""
-    block_name: str = "persona_core"
+    block_name: str = identity_blocks.PERSONA_CORE_BLOCK
     source: str = "distill-identity"
 
 
@@ -238,7 +238,7 @@ def distill_identity(
     if identity_path and identity_path.exists():
         raw = identity_path.read_text(encoding="utf-8")
         current_doc = identity_blocks.parse(raw)
-        persona = current_doc.get("persona_core")
+        persona = current_doc.get(identity_blocks.PERSONA_CORE_BLOCK)
         if persona is not None:
             current_identity = persona.body.strip()
 
@@ -282,7 +282,7 @@ def distill_identity(
     base_doc = current_doc if current_doc is not None else identity_blocks.parse("")
     new_doc = identity_blocks.update_block(
         base_doc,
-        "persona_core",
+        identity_blocks.PERSONA_CORE_BLOCK,
         body=new_persona_body,
         source="distill-identity",
     )
@@ -293,7 +293,7 @@ def distill_identity(
         target_path=identity_path,
         old_body=current_identity,
         new_body=new_persona_body,
-        block_name="persona_core",
+        block_name=identity_blocks.PERSONA_CORE_BLOCK,
         source="distill-identity",
     )
 

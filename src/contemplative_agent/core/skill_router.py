@@ -131,7 +131,14 @@ class SkillRouter:
         self._embed_fn = embed_fn or _default_embed
         self._threshold = threshold
         self._log_dir = log_dir
-        self._cache: Dict[Path, Tuple[float, np.ndarray]] = {}
+        # Cache entry: (mtime, embedding, parsed_meta, body). Storing the
+        # parsed body + meta alongside the embedding means ``select`` does
+        # not re-read each skill file in its scoring loop — one read per
+        # cache miss, zero reads on cache hits.
+        self._cache: Dict[
+            Path,
+            Tuple[float, np.ndarray, skill_frontmatter.SkillMeta, str],
+        ] = {}
 
     # -----------------------------------------------------------------
     # Skill loading + embedding
@@ -150,9 +157,16 @@ class SkillRouter:
             return None
         return skill_frontmatter.parse(text)
 
-    def _embed_missing(self, paths: List[Path]) -> Dict[Path, np.ndarray]:
-        """Embed any skill whose cache entry is missing or stale."""
+    def _embed_missing(self, paths: List[Path]) -> None:
+        """Embed any skill whose cache entry is missing or stale.
+
+        Collects ``(path, mtime, meta, body)`` on the same pass it decides
+        what to embed, so the cache entry that lands after embedding
+        reuses the already-loaded content — no second ``stat()``, no
+        second ``read_text()``.
+        """
         need: List[Path] = []
+        pending: List[Tuple[float, skill_frontmatter.SkillMeta, str]] = []
         texts: List[str] = []
         for path in paths:
             try:
@@ -165,32 +179,22 @@ class SkillRouter:
             parsed = self._read_skill(path)
             if parsed is None:
                 continue
-            _, body = parsed
+            meta, body = parsed
             if not body.strip():
                 continue
             need.append(path)
+            pending.append((mtime, meta, body))
             texts.append(body)
         if not need:
-            return {}
+            return
         vectors = self._embed_fn(texts)
         if vectors is None or len(vectors) != len(need):
             logger.warning("Skill embedding failed (got %s for %d inputs)",
                            "None" if vectors is None else len(vectors), len(need))
-            return {}
-        updated: Dict[Path, np.ndarray] = {}
-        for path, vec in zip(need, vectors):
-            try:
-                mtime = path.stat().st_mtime
-            except OSError:
-                continue
+            return
+        for path, vec, (mtime, meta, body) in zip(need, vectors, pending):
             arr = np.asarray(vec, dtype=np.float32)
-            self._cache[path] = (mtime, arr)
-            updated[path] = arr
-        return updated
-
-    def _embedding_for(self, path: Path) -> Optional[np.ndarray]:
-        cached = self._cache.get(path)
-        return cached[1] if cached is not None else None
+            self._cache[path] = (mtime, arr, meta, body)
 
     # -----------------------------------------------------------------
     # Selection
@@ -233,15 +237,10 @@ class SkillRouter:
 
         scored: List[Tuple[Path, float, skill_frontmatter.SkillMeta, str]] = []
         for path in paths:
-            emb = self._embedding_for(path)
-            if emb is None:
+            cached = self._cache.get(path)
+            if cached is None:
                 continue
-            parsed = self._read_skill(path)
-            if parsed is None:
-                continue
-            meta, body = parsed
-            if not body.strip():
-                continue
+            _mtime, emb, meta, body = cached
             score = cosine(ctx_vec, emb)
             if score < self._threshold:
                 continue
