@@ -55,9 +55,7 @@ Language: [English](README.md) | 日本語
 
 このループは本プロジェクトにおける **Agent Knowledge Cycle (AKC)** の実装 — Research → Extract → Curate → Promote → Measure → Maintain の 6 フェーズからなる自己改善サイクル。もともと Claude Code ハーネスにおけるメタワークフロー改善のために設計されたもので、本プロジェクトはそれを自律エージェントの文脈で再実装している。`distill` が Extract、`insight` / `rules-distill` / `amend-constitution` が Curate、`distill-identity` が Promote、基準点スナップショット (ADR-0020) と `skill-reflect` (ADR-0023) が Measure に対応する。フェーズとコードの完全な対応表は [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping) を参照。原典のハーネス: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle)。
 
-内部では、ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持し、クエリは名前付きの *view*（意味的なシード）を通じて投影する。view はデータを移行せずに編集・差し替えができる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。各パターンには**出所記録 (provenance)**、**時間妥当性 (bitemporal validity)**、そして時間とともに減衰しつつ検索時に強化される**強度 (strength)** が付与される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈 (re-interpret)** される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
-
-アーキテクチャのレンズは**唯識 (Yogācāra) の八識モデル**（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)）。プロジェクトの目標は各層の**消去ではなく転依 (transformation, not elimination)** — アイデンティティは洗練すべき機能であって、解消すべき執着ではない。圧縮した対応付けとしては、エピソードログ ↔ 前五識（感官流）、ナレッジストア ↔ 阿頼耶識 (ālaya, 種子蔵)、アイデンティティブロック ↔ 末那識 (manas, 自己把握)。
+内部では、ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持し、クエリは名前付きの *view*（意味的なシード）を通じて投影する。view はデータを移行せずに編集・差し替えができる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。各パターンには**出所記録 (provenance)**、**時間妥当性 (bitemporal validity)**、そして時間とともに減衰しつつ検索時に強化される**強度 (strength)** が付与される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈 (re-interpret)** される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。メモリアーキテクチャの構造は**唯識 (Yogācāra) の八識モデル**を下敷きにしている。完全な対応付けは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) を参照。
 
 ## 主な特徴
 
@@ -175,7 +173,7 @@ v1.x からアップグレードする場合は、移行コマンドを一度だ
 - **core/** はプラットフォーム非依存。**adapters/** は core に依存（逆方向は禁止）。
 - Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）は行動プリセットとしてオプション採用 — アーキテクチャの前提ではなく哲学的共鳴。
 
-モジュール一覧、データフロー図、import グラフ、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。唯識 (Yogācāra) の枠組みと、これが記憶設計をどのように予測的に制約したかは [仕組み](#仕組み) セクション参照。
+モジュール一覧、データフロー図、import グラフ、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。唯識 (Yogācāra) の枠組みと、これが記憶設計をどのように予測的に制約したかは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) 参照。
 
 Docker によるネットワーク分離デプロイについては [設定ガイドの Docker セクション](docs/CONFIGURATION.ja.md#dockerオプション) を参照。
 

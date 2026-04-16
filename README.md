@@ -55,9 +55,7 @@ Raw actions flow upward through increasingly abstract layers. Each layer is opti
 
 This loop is the project's implementation of the **Agent Knowledge Cycle (AKC)** — a six-phase self-improvement cadence (Research → Extract → Curate → Promote → Measure → Maintain) originally developed as a Claude Code harness for meta-workflow improvement and re-implemented here for autonomous agents. `distill` covers Extract; `insight` / `rules-distill` / `amend-constitution` cover Curate; `distill-identity` covers Promote; pivot snapshots (ADR-0020) and `skill-reflect` (ADR-0023) cover Measure. Full phase-to-code mapping: [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping). The source harness: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle).
 
-Underneath, the knowledge layer stores each pattern as an embedding coordinate rather than a discrete category; queries project through named *views* (semantic seeds) that can be edited or replaced without migrating data ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md)). Patterns carry provenance, bitemporal validity, and a strength field that decays with time and is reinforced on retrieval ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)). When a new pattern lands near an older one, the older one is re-interpreted rather than overwritten ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
-
-The architectural lens is the Yogācāra eight-consciousness model ([ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)). The project's goal is *transformation* of these layers, not elimination — identity is a faculty to be refined, not an attachment to be dissolved. A compressed mapping: the episode stream corresponds to sense-consciousnesses (前五識), the knowledge store to the seed storehouse (阿頼耶識 / ālaya), and the identity block to the self-grasping view (末那識 / manas).
+Underneath, the knowledge layer stores each pattern as an embedding coordinate rather than a discrete category; queries project through named *views* (semantic seeds) that can be edited or replaced without migrating data ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md)). Patterns carry provenance, bitemporal validity, and a strength field that decays with time and is reinforced on retrieval ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)). When a new pattern lands near an older one, the older one is re-interpreted rather than overwritten ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)). The memory architecture draws its structure from the Yogācāra eight-consciousness model; see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md) for the full mapping.
 
 ## Key Features
 
@@ -175,7 +173,7 @@ Two invariants hold across the codebase:
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse).
 - The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are an optional behavioral preset — a philosophical resonance, not an architectural dependency.
 
-Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For the Yogācāra frame and how it constrained the memory design, see [How It Works](#how-it-works).
+Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For the Yogācāra frame and how it constrained the memory design, see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
 For Docker-based network-isolated deployment, see the [Docker section in the Configuration Guide](docs/CONFIGURATION.md#docker-optional).
 
