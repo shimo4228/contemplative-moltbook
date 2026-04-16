@@ -68,6 +68,15 @@ core/ ←── adapters/moltbook/ ←── cli.py (composition root)
 - **core/ は adapters/ を import しない** (依存方向: adapters → core)
 - cli.py は唯一の例外: core/ と adapters/ の両方を import
 - meditation adapter は core/ のみに依存 (moltbook adapter を import しない)
+- core/ モジュールはコンストラクタ引数で設定を受け取る (パラメータ化)
+- adapters/ が core/config の定数と adapter 固有の config を組み合わせて渡す
+- 協力者 (ReplyHandler, PostPipeline, FeedManager) は Agent を import しない。SessionContext + Callable で依存注入
+
+## Immutability
+
+- DTO とドメインオブジェクトは `frozen=True`。例外なし
+- accumulator パターンは reduce か一括生成で書く (mutation で書かない)
+- 蒸留パイプラインの原典保持、承認ゲートの diff 生成、bitemporal との整合のため
 
 ## Data Flow — Session Execution
 

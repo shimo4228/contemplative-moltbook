@@ -22,6 +22,16 @@
 - **N12** — `_io.now_iso(timespec="minutes")` を追加し、`_now_iso()` の 2 定義 (feedback / identity_blocks) と 7 箇所のインライン呼び出し (distill / knowledge_store / migration / insight / rules_distill / skill_reflect / memory_evolution / cli / meditation.report) を統合。
 - **N13** — `_io.append_jsonl_restricted(path, record)` を追加し、`umask(0o177) + open("a") + json.dumps` の JSONL 追記パターンを 3 箇所 (cli 監査ログ / episode_log / skill_router) から吸収。
 
+## Session D (2026-04-16) で解消した項目
+
+- **N4** — ADR-0026 で discrete category 層を撤去。Phase 1+2: `distill` が category gating を廃止し、views 軸に統一（commit `544ba04`）。Phase 3: pattern schema から `category` フィールドを完全削除 + `migrate-categories` CLI（commit `3ca5ad6`）+ 本番 migration 実行（Session E / 585 patterns）。
+
+## Session F (2026-04-16) で解消した項目
+
+- **N6** — `core/llm.py` の `_load_md_files` に mtime-keyed cache を追加（`identity_blocks._PROMPT_CACHE` と同形）。distill/insight の LLM hot path で skills/ rules/ の再読み込みを抑制（commit `c6e1c93`）。
+- **N11** — `inspect-identity-history --tail N` と `prune-skill-usage --older-than N [--dry-run]` の read-only CLI 2 本を追加（commit `4cd204d`）。append-only 規約は維持し、閲覧と手動クリーンアップの経路を提供。
+- **N5** — CLAUDE.md をロール分離で圧縮（170 → 100 行）。構造図・Import 規約・Immutability を `docs/CODEMAPS/architecture.md` に集約。CLI 一覧は頻出 15 個のみ残し、詳細は `moltbook-agent.md` にポインタ。
+
 ## 1. ADR-0023..0025 からの明示的な deferred（next ADR 候補）
 
 | # | 項目 | ADR | Severity | ポインタ / メモ |
@@ -45,19 +55,19 @@
 
 | # | 項目 | 場所 | Severity | メモ |
 |---|---|---|---|---|
-| **N4** | category 層と views 層が意味的に重複。`constitutional` は category AND view として存在し、しかも insight は `category="uncategorized"` で先に絞るので **constitutional view は skill 抽出から到達不能** | `distill.py:338–430`（`_classify_episodes`）、`insight.py:37`（`_INSIGHT_EXCLUDED_VIEWS`）、`insight.py:207` | medium | ADR-0019 で discrete label 廃止の方針が既に宣言済み（`migration.py:7` のコメント参照）。段階的廃止の道筋:<br>**Phase 1**: `insight` の `category=="uncategorized"` 事前フィルタを外し、`constitutional` view を `_INSIGHT_EXCLUDED_VIEWS` から取り除く。read 側を views に統一。<br>**Phase 2**: write 側の `_classify_episodes` を 3 値分類から binary `gated`（noise view centroid 一致で skip）に変える。constitutional / uncategorized の区別を廃止。<br>**Phase 3**: Pattern schema から `category` フィールドを完全に除去（下位互換は migration で吸収）。<br>スコープ感: ~150 LOC 程度、独立 ADR が妥当。 |
+| ~~**N4**~~ | ~~category 層と views 層が意味的に重複~~ | ~~`distill.py`、`insight.py`~~ | ~~medium~~ | **完了**（Session D / ADR-0026）。Phase 1+2+3 すべて実装、Session E で本番 migration 完了（585 patterns）。 |
 
 ### 2.3 pre-session コードの積み残し（`/simplify` で skip したもの）
 
 | # | 項目 | 場所 | Severity | メモ |
 |---|---|---|---|---|
-| **N5** | `CLAUDE.md` が CODEMAPS と内容重複（structure / CLI 一覧 / dependencies） | `CLAUDE.md:5–92` vs `docs/CODEMAPS/` | low | context-sync のロール分離に反する。今回は **あえて修正せず**、単独のドキュメント掃除セッションで対応。 |
-| **N6** | `_build_system_prompt` が LLM generate 呼び出しのたびに skills/ と rules/ の .md を glob + read | `src/contemplative_agent/core/llm.py:235, 242` | low | identity 側は `/simplify` で mtime キャッシュ追加済み。skills/ rules/ も同形式で吸収可。セッションあたり 50 generate × N ファイル単位の I/O。 |
+| ~~**N5**~~ | ~~`CLAUDE.md` が CODEMAPS と内容重複~~ | ~~`CLAUDE.md` vs `docs/CODEMAPS/`~~ | ~~low~~ | **完了**（Session F）。170 → 100 行。構造図・Import 規約・Immutability を architecture.md に集約、CLI 詳細は moltbook-agent.md にポインタ。 |
+| ~~**N6**~~ | ~~`_build_system_prompt` が LLM generate 呼び出しのたびに skills/ と rules/ の .md を glob + read~~ | ~~`src/contemplative_agent/core/llm.py:235, 242`~~ | ~~low~~ | **完了**（Session F / commit `c6e1c93`）。mtime-keyed cache を `_load_md_files` に追加、identity_blocks.py の `_PROMPT_CACHE` と同形。 |
 | ~~**N7**~~ | ~~`_dedup_patterns` の戻り値型注釈が `Tuple` に削られている~~ | `src/contemplative_agent/core/distill.py:717` | ~~medium~~ | **完了** (Session C)。`return_indices` 削除 + 6-tuple 固定 + 明示型注釈。 |
 | ~~**N8**~~ | ~~`apply_revision` が KnowledgeStore API をバイパス~~ | `src/contemplative_agent/core/distill.py:699` | ~~medium~~ | **完了** (Session C)。`_learned_patterns.extend(...)` を `add_revised_patterns()` 公開 API 経由に置換。 |
 | ~~**N9**~~ | ~~`_trust_for_source("mixed")` が定数と不整合~~ | `src/contemplative_agent/core/distill.py:463–470` | ~~low~~ | **完了** (Session C)。特殊ケース撤去、`TRUST_BASE_BY_SOURCE.get(...)` のみに。 |
 | ~~**N10**~~ | ~~同パッケージ import を `try/except Exception` で覆う~~ | `src/contemplative_agent/core/distill.py:673–678` | ~~low~~ | **完了** (Session C)。top-level import に移動、`MEMORY_EVOLUTION_PROMPT` 空判定で skip。 |
-| **N11** | `identity_history.jsonl` / `skill-usage-*.jsonl` の成長上限なし | `identity_blocks.py`、`skill_router.py` | low | ADR-0021 / ADR-0025 で明示的に「rotation なし」を選んでいる（append-only 規約）。将来 `inspect-identity-history` / `prune-usage-log` CLI を足す余地。 |
+| ~~**N11**~~ | ~~`identity_history.jsonl` / `skill-usage-*.jsonl` の成長上限なし~~ | ~~`identity_blocks.py`、`skill_router.py`~~ | ~~low~~ | **完了**（Session F / commit `4cd204d`）。`inspect-identity-history --tail N` + `prune-skill-usage --older-than N [--dry-run]` を追加。append-only 規約は維持、閲覧と手動 cleanup の経路を提供。 |
 | ~~**N12**~~ | ~~`_now_iso()` の 2 定義 + 8+ インライン呼び出し~~ | — | ~~low~~ | **完了** (Session C)。`_io.now_iso(timespec=...)` に統合。 |
 | ~~**N13**~~ | ~~`umask(0o177) + open("a")` JSONL 追記パターンの重複~~ | — | ~~low~~ | **完了** (Session C)。`_io.append_jsonl_restricted(path, record)` で 3 箇所を吸収。 |
 
