@@ -89,8 +89,15 @@ fi
 # Launch in detached tmux session. --permission-mode plan forces Plan Mode
 # at startup. The prompt is read from the temp file so shell quoting cannot
 # corrupt it.
+#
+# Unset headless-auth tokens before calling claude so the session uses the
+# interactive OAuth (keychain / subscription) flow. ``CLAUDE_CODE_OAUTH_TOKEN``
+# is sourced via ``~/.config/claude/env`` for CI / non-interactive work but
+# routes claude through API-style billing when active; we want subscription
+# billing for long planning sessions. Same reasoning for ``ANTHROPIC_API_KEY``
+# if a developer sets it for one-off scripts.
 tmux new-session -d -s "$SESSION" -c "$REPO" \
-    "claude --model opus --permission-mode plan \"\$(cat '$PROMPT_FILE')\"; rm -f '$PROMPT_FILE'; exec \$SHELL"
+    "unset CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_API_KEY; claude --model opus --permission-mode plan \"\$(cat '$PROMPT_FILE')\"; rm -f '$PROMPT_FILE'; exec \$SHELL"
 
 echo "✓ Launched Phase ${PHASE} session in tmux (name: ${SESSION})"
 echo ""
