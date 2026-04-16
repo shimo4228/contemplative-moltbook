@@ -235,8 +235,11 @@ Each paper below informed a specific design decision documented in the linked AD
 - Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *A Practical Memory Injection Attack against LLM Agents* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — query-only memory injection attacks on agent memory; motivates `source_type` + `trust_score` provenance so MINJA-class attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
 - Zhou, H., Guo, S., Liu, A., et al. (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — skills as persistent evolving memory units, retrieved, applied, and rewritten by outcome; informs the skill-as-memory loop ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
 
-### Related Work
+### Prior Work (Author)
 
-- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — prior work by the same author. AKC is the methodological framework this project re-implements in the autonomous-agent context (see [How It Works](#how-it-works)); originally developed as a Claude Code harness.
-- Mares, J. (2026). *VADUGWI: Deterministic 7-Dimensional Emotion Coordinates via Structural Pattern Recognition.* [doi:10.5281/zenodo.19383636](https://doi.org/10.5281/zenodo.19383636) — deterministic affect scoring; design inspiration, not adopted as a dependency.
-- Shilov, V. (2025). *CIMP (Change Intelligence Management Platform).* [github.com/cimpai/cimp](https://github.com/cimpai/cimp) — the "deterministic governance over probabilistic execution" framing behind the quality-gate Decision concept.
+- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — the methodological framework this project re-implements in the autonomous-agent context (see [How It Works](#how-it-works)); originally developed as a Claude Code harness.
+
+### Acknowledgments
+
+- Vasiliy Shilov ([CIMP](https://github.com/cimpai/cimp)) — Dev.to dialogue that shaped the view mechanism (ADR-0019).
+- Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — deterministic affect-scoring design inspiration.

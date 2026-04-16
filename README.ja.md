@@ -235,8 +235,11 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 - Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *A Practical Memory Injection Attack against LLM Agents* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — 通常クエリのみで実行可能な記憶注入攻撃 (memory injection)。出所記録 (`source_type`) と信頼度 (`trust_score`) の導入動機。MINJA 型の攻撃を構造的に可視化する（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
 - Zhou, H., Guo, S., Liu, A., 他 (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — スキルを永続的・進化可能な「記憶単位」として扱う枠組み。retrieve → apply → outcome に基づく rewrite ループの原型（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
 
-### 関連研究
+### 著者の先行研究
 
-- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — 同一著者による先行研究。本プロジェクトが自律エージェントの文脈で再実装している方法論の枠組み（[仕組み](#仕組み) 参照）。元々は Claude Code ハーネスとして開発された。
-- Mares, J. (2026). *VADUGWI: Deterministic 7-Dimensional Emotion Coordinates via Structural Pattern Recognition.* [doi:10.5281/zenodo.19383636](https://doi.org/10.5281/zenodo.19383636) — 決定論的感情スコアリング。設計の着想源だが依存としては採用せず。
-- Shilov, V. (2025). *CIMP (Change Intelligence Management Platform).* [github.com/cimpai/cimp](https://github.com/cimpai/cimp) — 「確率的実行に対する決定論的ガバナンス」という枠組み。品質ゲートの Decision 概念の源泉。
+- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — 本プロジェクトが自律エージェントの文脈で再実装している方法論の枠組み（[仕組み](#仕組み) 参照）。元々は Claude Code ハーネスとして開発された。
+
+### 謝辞
+
+- Vasiliy Shilov ([CIMP](https://github.com/cimpai/cimp)) — Dev.to での対話が view mechanism (ADR-0019) の着想に寄与。
+- Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — 決定論的感情スコアリングの設計着想。
