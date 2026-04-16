@@ -29,6 +29,7 @@ Records of key design decisions for this project.
 | [0021](0021-pattern-schema-trust-temporal-forgetting-feedback.md) | Pattern Schema Extension — Provenance / Bitemporal / Forgetting / Feedback | proposed | 2026-04-16 |
 | [0022](0022-memory-evolution-and-hybrid-retrieval.md) | Memory Evolution + Hybrid Retrieval (BM25) | proposed | 2026-04-16 |
 | [0023](0023-skill-as-memory-loop.md) | Skill-as-Memory Loop — Router, Usage Log, Reflective Write | proposed | 2026-04-16 |
+| [0024](0024-identity-block-separation.md) | Identity Block Separation — Frontmatter-Addressed Persona Blocks | proposed | 2026-04-16 |
 
 ## ADR Types
 

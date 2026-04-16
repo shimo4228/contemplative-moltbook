@@ -363,6 +363,72 @@ class TestDistillIdentity:
         assert isinstance(result, IdentityResult)
         assert "refined identity" in result.text
 
+    @patch("contemplative_agent.core.distill.generate")
+    def test_legacy_file_stays_legacy(self, mock_generate, tmp_path):
+        """ADR-0024: legacy plain-text identity roundtrips without gaining frontmatter."""
+        mock_generate.side_effect = ["raw analysis", "refined identity"]
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks.add_learned_pattern("Self-reflection pattern", embedding=[0.1, 0.2])
+        ks.save()
+        registry = MagicMock()
+        registry.find_by_view.return_value = [
+            {"pattern": "Self-reflection pattern", "importance": 0.7}
+        ]
+        identity_path = tmp_path / "identity.md"
+        identity_path.write_text("old persona\n", encoding="utf-8")
+
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks2.load()
+        result = distill_identity(
+            knowledge_store=ks2,
+            view_registry=registry,
+            identity_path=identity_path,
+        )
+        assert isinstance(result, IdentityResult)
+        assert "---" not in result.text
+        assert "blocks:" not in result.text
+        assert "refined identity" in result.text
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_block_format_preserves_non_persona_blocks(self, mock_generate, tmp_path):
+        """ADR-0024: distill refreshes persona_core only; other blocks untouched."""
+        mock_generate.side_effect = ["raw analysis", "refined identity"]
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks.add_learned_pattern("Self-reflection pattern", embedding=[0.1, 0.2])
+        ks.save()
+        registry = MagicMock()
+        registry.find_by_view.return_value = [
+            {"pattern": "Self-reflection pattern", "importance": 0.7}
+        ]
+        identity_path = tmp_path / "identity.md"
+        identity_path.write_text(
+            "---\n"
+            "blocks:\n"
+            "  - name: persona_core\n"
+            "    last_updated_at: 2026-01-01T00:00:00+00:00\n"
+            "    source: migration\n"
+            "  - name: current_goals\n"
+            "    last_updated_at: 2026-01-01T00:00:00+00:00\n"
+            "    source: agent-edit\n"
+            "---\n"
+            "## persona_core\n\nold persona\n\n"
+            "## current_goals\n\ncooperation research\n",
+            encoding="utf-8",
+        )
+
+        ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
+        ks2.load()
+        result = distill_identity(
+            knowledge_store=ks2,
+            view_registry=registry,
+            identity_path=identity_path,
+        )
+        assert isinstance(result, IdentityResult)
+        assert result.text.startswith("---")
+        assert "refined identity" in result.text
+        assert "cooperation research" in result.text
+        assert "## current_goals" in result.text
+
 
 class TestClassifyEpisodes:
     @patch("contemplative_agent.core.distill.embed_texts")
