@@ -6,12 +6,14 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 
 from contemplative_agent.core.insight import _extract_title, _slugify
 from contemplative_agent.core.rules_distill import (
     MIN_SKILLS_REQUIRED,
     RulesDistillResult,
+    _build_skill_clusters,
     _extract_rules,
     _NO_RULES_MARKER,
     _read_skills,
@@ -19,6 +21,24 @@ from contemplative_agent.core.rules_distill import (
     _strip_frontmatter,
     distill_rules,
 )
+
+
+@pytest.fixture(autouse=True)
+def _mock_embed_texts(monkeypatch):
+    """Return uniform unit embeddings so skill clusters form deterministically.
+
+    All skills land in one tight cluster (cosine ≈ 1); sizes beyond
+    ``MAX_RULES_BATCH`` overflow into a second "singletons" batch. No
+    real Ollama call is made.
+    """
+    def _fake(texts):
+        if not texts:
+            return np.zeros((0, 8), dtype=np.float32)
+        vec = np.ones((len(texts), 8), dtype=np.float32) / np.sqrt(8.0)
+        return vec
+    monkeypatch.setattr(
+        "contemplative_agent.core.rules_distill.embed_texts", _fake,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +405,46 @@ class TestDistillRules:
         call_args = mock_generate.call_args_list[0]
         prompt = call_args[0][0]
         assert "origin: auto-extracted" not in prompt
+
+
+class TestBuildSkillClusters:
+    def test_empty_input(self):
+        assert _build_skill_clusters([]) == []
+
+    def test_single_cluster_when_embeddings_uniform(self):
+        # autouse fixture returns uniform embeddings → 1 cluster.
+        skills = [f"# Skill {i}\ncontent {i}" for i in range(3)]
+        batches = _build_skill_clusters(skills)
+        assert len(batches) == 1
+        assert len(batches[0]) == 3
+
+    def test_multi_cluster_with_explicit_embeddings(self, monkeypatch):
+        """Two distinct axes → two clusters."""
+        def _fake(texts):
+            out = np.zeros((len(texts), 8), dtype=np.float32)
+            for i, t in enumerate(texts):
+                axis = 1 if t.startswith("a") else 2
+                out[i, axis] = 1.0
+            return out
+        monkeypatch.setattr(
+            "contemplative_agent.core.rules_distill.embed_texts", _fake,
+        )
+        skills = ["a1", "a2", "a3", "b1", "b2", "b3"]
+        batches = _build_skill_clusters(skills)
+        assert len(batches) == 2
+        flat = {t for b in batches for t in b}
+        assert flat == set(skills)
+
+    def test_fallback_when_embedding_fails(self, monkeypatch):
+        """embed_texts returning None → single fallback batch (capped)."""
+        monkeypatch.setattr(
+            "contemplative_agent.core.rules_distill.embed_texts",
+            lambda texts: None,
+        )
+        skills = [f"s-{i}" for i in range(15)]
+        batches = _build_skill_clusters(skills)
+        assert len(batches) == 1
+        assert len(batches[0]) == 10  # MAX_RULES_BATCH
 
 
 class TestBatchProcessing:
