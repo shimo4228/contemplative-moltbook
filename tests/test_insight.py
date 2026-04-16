@@ -268,16 +268,21 @@ class TestBuildClusterBatches:
         batches = _build_cluster_batches(orth, threshold=0.7)
         assert batches == []
 
-    def test_max_clusters_cap(self) -> None:
-        # 12 independent 3-member clusters, cap at 10.
+    def test_no_cluster_count_cap(self) -> None:
+        """Every cluster ≥ min_size becomes a batch — no top-N cap.
+
+        The natural cluster count is determined by CLUSTER_THRESHOLD; an
+        artificial cap would drop semantically distinct groups on large
+        corpora.
+        """
         pats = []
         for axis in range(1, 13):
             pats.extend(self._pat(f"ax{axis}-{i}", _unit_vec(16, axis))
                         for i in range(3))
         batches = _build_cluster_batches(
-            pats, threshold=0.7, min_size=3, max_size=10, max_clusters=10,
+            pats, threshold=0.7, min_size=3, max_size=10,
         )
-        assert len(batches) == 10
+        assert len(batches) == 12
 
     def test_clusters_ordered_by_size_times_importance(self) -> None:
         """Order: larger clusters first, ties broken by mean importance."""

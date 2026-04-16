@@ -35,7 +35,6 @@ MIN_PATTERNS_REQUIRED = 3
 MAX_SLUG_LENGTH = 50
 BATCH_SIZE = 10          # max patterns per cluster passed to the LLM
 CLUSTER_THRESHOLD = 0.70  # calibration: .reports/threshold-calibration-20260417.md
-MAX_CLUSTERS = 10         # top-N clusters kept per run
 
 
 @dataclass(frozen=True)
@@ -119,9 +118,8 @@ def _build_cluster_batches(
     threshold: float = CLUSTER_THRESHOLD,
     min_size: int = MIN_PATTERNS_REQUIRED,
     max_size: int = BATCH_SIZE,
-    max_clusters: int = MAX_CLUSTERS,
 ) -> List[Tuple[str, List[str]]]:
-    """Cluster patterns globally; keep top ``max_clusters`` by score.
+    """Cluster patterns globally; every cluster ≥ ``min_size`` becomes a batch.
 
     ``gated`` patterns (noise per ADR-0026) are skipped before
     clustering so noise centroids cannot pull meaningful clusters
@@ -131,6 +129,10 @@ def _build_cluster_batches(
 
     Patterns without an ``embedding`` field bypass clustering (handled
     inside ``cluster_patterns``).
+
+    Clusters are ordered by ``_cluster_score`` (size × mean
+    effective_importance) descending so the LLM sees the strongest
+    candidates first — an early LLM failure then costs less.
 
     Returns:
         List of (topic, pattern_texts) tuples. Topic names are neutral
@@ -151,7 +153,6 @@ def _build_cluster_batches(
         return []
 
     clusters.sort(key=_cluster_score, reverse=True)
-    clusters = clusters[:max_clusters]
 
     batches: List[Tuple[str, List[str]]] = []
     for idx, cluster in enumerate(clusters, start=1):
