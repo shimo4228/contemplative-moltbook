@@ -31,6 +31,8 @@ Records of key design decisions for this project.
 | [0023](0023-skill-as-memory-loop.md) | Skill-as-Memory Loop — Router, Usage Log, Reflective Write | proposed | 2026-04-16 |
 | [0024](0024-identity-block-separation.md) | Identity Block Separation — Frontmatter-Addressed Persona Blocks | proposed | 2026-04-16 |
 | [0025](0025-identity-history-and-migrate-cli.md) | Identity History Log Wiring + migrate-identity CLI | proposed | 2026-04-16 |
+| [0026](0026-retire-discrete-categories.md) | Retire Discrete Categories (Phase-3 Completion of ADR-0019) | proposed | 2026-04-16 |
+| [0027](0027-noise-as-seed.md) | Noise as Seed — From Binary Gate to Salience-Based Forgetting | proposed | 2026-04-16 |
 
 ## ADR Types
 
