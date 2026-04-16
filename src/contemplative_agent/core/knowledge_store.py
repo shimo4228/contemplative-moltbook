@@ -224,33 +224,6 @@ class KnowledgeStore:
     def _effective_importance(self, p: dict) -> float:
         return effective_importance(p)
 
-    def get_context_string(self, limit: int = 50) -> str:
-        """Return learned patterns as a bullet list for LLM context injection.
-
-        Returns top `limit` patterns sorted by effective importance
-        (base importance with time decay). Default 50 balances signal
-        quality with coverage for qwen3.5:9b's 32k context.
-
-        ADR-0009 / ADR-0026: category and subcategory filters have been
-        retired; use a ViewRegistry + ``find_by_view`` for semantic
-        routing.
-        """
-        from .forgetting import is_live, mark_accessed
-
-        pool = [p for p in self._learned_patterns if is_live(p)]
-        if not pool:
-            return ""
-        scored = sorted(
-            pool,
-            key=self._effective_importance,
-            reverse=True,
-        )
-        selected = scored[:limit]
-        now_dt = datetime.now(timezone.utc)
-        for p in selected:
-            mark_accessed(p, now=now_dt)
-        return "\n".join(f"- {p['pattern']}" for p in selected)
-
     def load(self) -> None:
         """Load knowledge from JSON file.
 

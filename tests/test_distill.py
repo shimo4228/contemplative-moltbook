@@ -689,16 +689,6 @@ class TestClassifyEpisodesNoiseLog:
         assert not any((tmp_path / "logs").glob("noise-*.jsonl"))
 
 
-class TestKnowledgeStore:
-    def test_get_context_string_no_subcategory_param(self):
-        """ADR-0009: subcategory parameter has been removed."""
-        ks = KnowledgeStore()
-        ks.add_learned_pattern("a")
-        # Should not accept subcategory keyword
-        with pytest.raises(TypeError):
-            ks.get_context_string(subcategory="x")  # type: ignore[call-arg]
-
-
 class TestThresholds:
     """Embedding thresholds are sane defaults."""
 

@@ -211,8 +211,7 @@ def extract_insight(
     knowledge_store.load()
 
     # ADR-0021: pull live-only patterns so bitemporally superseded /
-    # trust-floor / strength-floor entries never enter batching. This
-    # parallels get_context_string, which reads live-only by design.
+    # trust-floor / strength-floor entries never enter batching.
     # ADR-0026: dropped category="uncategorized" gate; views now own
     # routing, so constitutional-tagged patterns are reachable too.
     if full:
