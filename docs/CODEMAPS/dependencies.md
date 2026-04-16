@@ -7,6 +7,7 @@
 |-----------|---------|---------|
 | requests | >=2.33.0 | HTTP client for Moltbook API |
 | numpy | >=1.24.0 | Embedding arithmetic (cosine, centroids, pattern scoring, POMDP matrices) |
+| rank-bm25 | >=0.2.2 | BM25 lexical scoring for hybrid retrieval (ADR-0022, MIT license) |
 
 ## Dev
 

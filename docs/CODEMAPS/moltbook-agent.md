@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 43 | Token estimate: ~1600 -->
+<!-- Generated: 2026-04-16 | Files scanned: 49 | Token estimate: ~1800 -->
 # Moltbook Agent Codemap
 
 Bird's-eye view of the entire codebase. For deep dives, see
@@ -7,23 +7,29 @@ Bird's-eye view of the entire codebase. For deep dives, see
 ## Module Dependency Graph
 
 ```
-cli.py (1620L)  -- composition root, only file importing both core/ and adapters/
- -> core/  (21 modules)
+cli.py (1779L)  -- composition root, only file importing both core/ and adapters/
+ -> core/  (27 modules)
  |    _io.py (46L)                -- file I/O (write_restricted, truncate, archive_before_write)
  |    config.py (28L)             -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
  |    domain.py (295L)            -- DomainConfig + PromptTemplates + constitution loader
  |    prompts.py (65L)            -- lazy-loading proxy to config/prompts/*.md
- |    llm.py (420L)               -- Ollama interface, circuit breaker, sanitization, per-caller num_predict
+ |    llm.py (413L)               -- Ollama interface, circuit breaker; _build_system_prompt via identity_blocks.load_for_prompt (ADR-0024)
  |    embeddings.py (144L)        -- /api/embed wrapper (nomic-embed-text) + cosine + embed_one/embed_texts
  |    episode_embeddings.py (174L)-- EpisodeEmbeddingStore (SQLite sidecar, ADR-0019)
  |    episode_log.py (98L)        -- Layer 1: append-only JSONL episode storage
- |    knowledge_store.py (305L)   -- Layer 2: patterns (JSON) + update_view_telemetry (ADR-0020)
+ |    knowledge_store.py (393L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal/forgetting/feedback (ADR-0021) + view telemetry (ADR-0020)
  |    memory.py (490L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
- |    views.py (289L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, ADR-0019)
- |    migration.py (346L)         -- run_embed_backfill (one-shot ADR-0019 migration)
+ |    views.py (396L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, hybrid cosine+BM25 ADR-0022)
+ |    migration.py (346L)         -- run_embed_backfill (ADR-0019) + migrate_patterns_to_adr0021
  |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
+ |    forgetting.py (112L)        -- Ebbinghaus strength + effective_importance + is_live bitemporal gate (ADR-0021)
+ |    feedback.py (66L)           -- post-action success/failure aggregator feeding pattern counters (ADR-0021)
+ |    memory_evolution.py (250L)  -- A-Mem bidirectional update: find_neighbors/revise_neighbor/apply_revision (ADR-0022)
+ |    identity_blocks.py (549L)   -- identity block parse/render/update_block/load_for_prompt/migrate_to_blocks/append_history (ADR-0024/0025)
+ |    skill_frontmatter.py (205L) -- stdlib YAML subset parser for skill metadata (ADR-0023)
+ |    skill_router.py (432L)      -- cosine top-K skill selection + usage log + reflect prep (ADR-0023)
  |    scheduler.py (165L)         -- rate limit scheduling, persistence
- |    distill.py (665L)           -- embedding classify + 3-step distill + identity distill
+ |    distill.py (846L)           -- embedding classify + 3-step distill + identity distill (block-aware ADR-0024)
  |    insight.py (307L)           -- view-driven behavior pattern extraction (knowledge → skills)
  |    rules_distill.py (322L)     -- Practice/Rationale B-layer rules synthesis (skills → rules)
  |    constitution.py (106L)      -- constitutional amendment (constitutional view → ethics)
@@ -78,7 +84,7 @@ config/                           -- externalized templates (domain-swappable, g
   commented_cache.json            -- post dedup cache (0600)
 ```
 
-**Total: 43 modules, ~10500 LOC** (test count: see [INDEX.md](INDEX.md))
+**Total: 49 modules, ~12800 LOC** (test count: see [INDEX.md](INDEX.md))
 
 ## Key Classes
 
@@ -103,7 +109,7 @@ config/                           -- externalized templates (domain-swappable, g
 | `Scheduler` | core/scheduler.py | 165 | Rate limit enforcement |
 | `DomainConfig` / `PromptTemplates` | core/domain.py | — | @dataclass(frozen=True) |
 
-## CLI Commands (20 subcommands)
+## CLI Commands (22 subcommands)
 
 ```
 contemplative-agent init [--template <character>] [--config-dir PATH]
@@ -118,7 +124,11 @@ contemplative-agent insight [--days N] [--stage] [--full]
 contemplative-agent adopt-staged                            -- approve & adopt staged outputs (Tier 1, no LLM)
 contemplative-agent rules-distill [--full]
 contemplative-agent amend-constitution
-contemplative-agent embed-backfill [--patterns-only] [--dry-run]   -- one-shot ADR-0019 migration
+
+# Migrations (Tier 1, pure functions, idempotent)
+contemplative-agent embed-backfill [--patterns-only] [--dry-run]   -- ADR-0019 one-shot migration
+contemplative-agent migrate-patterns [--dry-run]                   -- ADR-0021 schema fill (provenance/bitemporal/forgetting/feedback)
+contemplative-agent migrate-identity [--dry-run]                   -- ADR-0024 legacy identity.md → block format
 
 # Audit
 contemplative-agent skill-stocktake [--stage]
@@ -145,7 +155,7 @@ Global flags:
   --approve / --guarded / --auto  Autonomy level
 ```
 
-## Prompt Templates (30)
+## Prompt Templates (32)
 
 In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 
@@ -160,9 +170,11 @@ In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 - insight_extraction
 - rules_distill, rules_distill_refine
 - constitution_amend
+- memory_evolution (ADR-0022 — revise neighbor pattern in light of new related pattern, NO_CHANGE marker for no-op)
 
 **Audit**:
 - stocktake_skills, stocktake_rules, stocktake_merge, stocktake_merge_rules
+- skill_reflect (ADR-0023 — revise a skill given failure contexts; NO_CHANGE marker when failures don't indicate a real problem)
 
 **Reports / experimental**:
 - weekly-analysis (Claude Code via launchd)
@@ -209,8 +221,12 @@ Circuit breaker: 5 consecutive LLM failures → open for 120s.
 | `snapshots/{cmd}_{ts}/` | dir | `MOLTBOOK_HOME` | Pivot snapshots (ADR-0020: manifest + views + constitution + centroids.npz) |
 | `history/identity/` | Markdown | `MOLTBOOK_HOME` | Identity archives (timestamped) |
 | `logs/audit.jsonl` | JSONL | `MOLTBOOK_HOME` | Approval history + `snapshot_path` cross-refs |
+| `logs/identity_history.jsonl` | JSONL (0600) | `MOLTBOOK_HOME` | Per-block identity change record (ADR-0024/0025): `{ts, block, source, old_hash, new_hash}`. Hashes only — snapshot subsystem holds full text. |
+| `logs/skill-usage-YYYY-MM-DD.jsonl` | JSONL (0600) | `MOLTBOOK_HOME` | Per-day skill selection + outcome log (ADR-0023); consumed by `skill-reflect` aggregator |
 | `reports/comment-reports/*.md` | Markdown | `MOLTBOOK_HOME` | Daily activity reports |
 | `reports/analysis/weekly-*.md` | Markdown | `MOLTBOOK_HOME` | Weekly analysis (Claude Code via launchd) |
+| `identity.md.bak.pre-adr0024` | Markdown | `MOLTBOOK_HOME` | One-time backup created by `migrate-identity` (ADR-0024) |
+| `knowledge.json.bak.pre-adr0021` | JSON | `MOLTBOOK_HOME` | One-time backup created by `migrate-patterns` (ADR-0021) |
 
 ## Security Boundaries
 

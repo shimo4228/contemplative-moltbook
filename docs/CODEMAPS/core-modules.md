@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 21 core modules | Token estimate: ~1100 -->
+<!-- Generated: 2026-04-16 | Files scanned: 27 core modules | Token estimate: ~1300 -->
 # Core Modules Codemap
 
 Platform-independent foundation (no Moltbook dependencies). All imports flow: adapters → core.
@@ -11,25 +11,31 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `config.py` | 28 | `FORBIDDEN_SUBSTRING_PATTERNS`, `VALID_ID_PATTERN`, `MAX_COMMENT_LENGTH` |
 | `domain.py` | 295 | `DomainConfig`, `PromptTemplates`, constitution loader |
 | `prompts.py` | 65 | Lazy-load proxy to `config/prompts/*.md` + placeholder resolution |
-| `llm.py` | 420 | Ollama interface, LLM functions, circuit breaker, sanitization, per-caller `num_predict` |
+| `llm.py` | 413 | Ollama interface, circuit breaker, sanitization; `_build_system_prompt` reads identity via `identity_blocks.load_for_prompt` (ADR-0024) |
 | `embeddings.py` | 144 | Ollama `/api/embed` wrapper (nomic-embed-text), `cosine`, `embed_one`, `embed_texts` |
 | `episode_embeddings.py` | 174 | `EpisodeEmbeddingStore` — SQLite sidecar for episode vectors (ADR-0019) |
 | `episode_log.py` | 98 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
-| `knowledge_store.py` | 305 | `KnowledgeStore` — patterns JSON, `add_learned_pattern`, `update_view_telemetry` (ADR-0020) |
+| `knowledge_store.py` | 393 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal/forgetting/feedback fields (ADR-0021) + view telemetry (ADR-0020) |
 | `memory.py` | 490 | `MemoryStore` facade, `Interaction`/`PostRecord`/`Insight` dataclasses, query helpers |
-| `views.py` | 289 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache |
-| `migration.py` | 346 | `run_embed_backfill()` — one-shot migration for ADR-0019 (patterns + episode sidecar) |
+| `views.py` | 396 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, hybrid cosine + BM25 scoring (ADR-0022) |
+| `migration.py` | 346 | `run_embed_backfill()` (ADR-0019) + `migrate_patterns_to_adr0021()` pattern-schema backfill |
 | `snapshot.py` | 178 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020 |
+| `forgetting.py` | 112 | Ebbinghaus strength decay (ADR-0021): `compute_strength`, `effective_importance`, `TRUST_FLOOR`, `STRENGTH_FLOOR`, `is_live` (bitemporal gate) |
+| `feedback.py` | 66 | Post-action success/failure aggregator (ADR-0021) feeding `pattern.success_count` / `failure_count` |
+| `memory_evolution.py` | 250 | A-Mem bidirectional update (ADR-0022): `find_neighbors` / `revise_neighbor` / `apply_revision` / `evolve_patterns` |
+| `identity_blocks.py` | 549 | Identity block parser/renderer (ADR-0024): `parse`, `render`, `update_block`, `load_for_prompt` (mtime-cached), `migrate_to_blocks`, `append_history`, `body_hash`, `PERSONA_CORE_BLOCK` |
+| `skill_frontmatter.py` | 205 | YAML-subset parser/renderer for skill-file metadata (`last_reflected_at`, `success_count`, `failure_count`, ADR-0023) |
+| `skill_router.py` | 432 | Context-conditioned skill router (ADR-0023): cosine top-K over `(title+body)` embedding, no-inject fallback, usage log, `record_outcome`, `aggregate_usage`, `needs_reflection` |
 | `scheduler.py` | 165 | Rate limit state, `has_read_budget`/`has_write_budget`, persistence |
 | `constitution.py` | 106 | `amend_constitution()` → `AmendmentResult` |
-| `distill.py` | 665 | `distill()`, `distill_identity()` — embedding centroid classification (ADR-0019) |
-| `insight.py` | 307 | `extract_insight()` → `InsightResult`; view-driven batch building |
+| `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021) + memory evolution pass (ADR-0022); `distill_identity()` block-aware via `identity_blocks` (ADR-0024) + history fields on `IdentityResult` (ADR-0025) |
+| `insight.py` | 307 | `extract_insight()` → `InsightResult`; view-driven batch building. **Note**: does not yet emit ADR-0023 frontmatter; does not filter by `valid_until` / `trust_score` — see `docs/progress/remaining-issues-2026-04-16.md` N1–N3 |
 | `rules_distill.py` | 322 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format |
 | `stocktake.py` | 363 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject |
 | `report.py` | 256 | `generate_report()` JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
 
-**Total: ~5120 LOC (21 modules)**
+**Total: ~7300 LOC (27 modules)**
 
 ## Key Dataclasses
 
@@ -44,12 +50,26 @@ Insight(timestamp, observation, insight_type)
 
 **ADR-0012 Result types** — core 関数が返す生成結果。ファイル書き込みは cli.py が承認後に実行:
 ```python
-AmendmentResult(text, target_path, marker_dir)      # constitution.py
-IdentityResult(text, target_path)                   # distill.py
-SkillResult(text, filename, target_path)            # insight.py
+AmendmentResult(text, target_path, marker_dir)           # constitution.py
+IdentityResult(text, target_path,                        # distill.py (+ADR-0025 history fields)
+               old_body="", new_body="",
+               block_name="persona_core",
+               source="distill-identity")
+SkillResult(text, filename, target_path)                 # insight.py
 InsightResult(skills, dropped_count, skills_dir)
-RuleResult(text, filename, target_path)             # rules_distill.py
+RuleResult(text, filename, target_path)                  # rules_distill.py
 RulesDistillResult(rules, dropped_count, rules_dir)
+MigrationResult(migrated, already_migrated=False,        # identity_blocks.py (ADR-0024/0025)
+                backup_path=None, rendered=None, document=None)
+```
+
+**ADR-0023 skill frontmatter / ADR-0024 identity blocks** — dataclasses under `skill_frontmatter.py` / `identity_blocks.py`:
+```python
+SkillMeta(last_reflected_at, success_count, failure_count, extra)   # skill_frontmatter.py
+Block(name, body, last_updated_at, source, extra)                   # identity_blocks.py
+IdentityDocument(blocks: Tuple[Block, ...], is_legacy: bool)        # identity_blocks.py
+SkillMatch(name, path, body, score, meta)                           # skill_router.py
+SkillUsageStats(name, selections, successes, failures, partials, failure_contexts)  # skill_router.py
 ```
 
 ## EpisodeLog Schema (JSONL)
@@ -64,7 +84,7 @@ Embedding sidecar (`embeddings.sqlite`, ADR-0019) indexes episode summaries for 
 
 ## KnowledgeStore Schema (JSON)
 
-File: `~/.config/moltbook/knowledge.json`. Each pattern:
+File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
 ```json
 {
   "pattern": "…",
@@ -73,12 +93,30 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern:
   "embedding": [..768 floats..],
   "gated": false,
   "last_classified_at": "2026-04-16T02:15:33Z",
-  "last_view_matches": {"constitutional": 0.72, "noise": 0.12, …}
+  "last_view_matches": {"constitutional": 0.72, "noise": 0.12, …},
+
+  "provenance": {"source_type": "self_reflection|external_reply|mixed|unknown",
+                 "source_episode_ids": ["..."],
+                 "sanitized": true,
+                 "pipeline_version": "adr-0021"},
+  "trust_score": 0.9,
+  "trust_updated_at": "2026-04-16T…",
+  "valid_from": "2026-04-16T…",
+  "valid_until": null,
+  "last_accessed_at": "2026-04-16T…",
+  "access_count": 0,
+  "strength": 1.0,
+  "success_count": 0,
+  "failure_count": 0
 }
 ```
 **Invariants**:
 - Patterns only; agents/topics/insights live in JSONL.
 - `gated` is behavioural (skipped in distill dedup); `last_view_matches` is read-only telemetry (ADR-0020 — never branch on it).
+- `valid_until=None` means live; superseded rows keep the timestamp (bitemporal soft-invalidate, ADR-0021). Retrieval must filter via `forgetting.is_live(p)`.
+- `effective_importance = importance × trust_score × strength × 0.95^days_since_accessed` — see `forgetting.effective_importance` (ADR-0021).
+- `success_count` / `failure_count` fed by `feedback.py` post-action updater (ADR-0021).
+- Legacy `category` field (`"constitutional" | "noise" | "uncategorized"`) still written by distill but scheduled for removal — see `docs/progress/remaining-issues-2026-04-16.md` N4.
 
 ## LLM Functions (core/llm.py)
 
