@@ -232,8 +232,7 @@ def distill_rules(
         for i in range(0, len(skill_texts), SKILLS_PER_BATCH)
     ]
     if len(batches) > 1 and len(batches[-1]) < MIN_SKILLS_REQUIRED:
-        batches[-2].extend(batches[-1])
-        batches.pop()
+        batches = batches[:-2] + [batches[-2] + batches[-1]]
 
     logger.info(
         "Processing %d skills in %d batches", len(skill_texts), len(batches)

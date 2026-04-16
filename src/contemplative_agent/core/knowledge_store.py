@@ -152,6 +152,19 @@ class KnowledgeStore:
         """
         return list(self._filtered_pool(category))
 
+    def replace_pattern(self, old_ref: dict, new_pattern: dict) -> bool:
+        """Replace a pattern by identity (``is``). Returns True if replaced.
+
+        Used by callers that construct a new dict representing a state
+        transition (e.g. bitemporal invalidation) and need to swap it in
+        without mutating the existing DTO.
+        """
+        for i, p in enumerate(self._learned_patterns):
+            if p is old_ref:
+                self._learned_patterns[i] = new_pattern
+                return True
+        return False
+
     def get_learned_patterns(self, category: Optional[str] = None) -> List[str]:
         """Return a copy of the learned patterns (text only).
 

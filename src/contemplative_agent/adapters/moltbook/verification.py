@@ -52,7 +52,7 @@ def deobfuscate(text: str) -> str:
         return text
 
     words = text.split(" ")
-    decoded_words = []
+    decoded_words: list[str] = []
     for word in words:
         if not word:
             decoded_words.append(word)

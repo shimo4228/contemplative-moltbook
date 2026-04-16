@@ -53,6 +53,13 @@ class TestAgentInit:
         assert agent._scheduler is None
         assert agent._actions_taken == []
 
+    def test_skill_router_on_ctx(self):
+        from contemplative_agent.core.skill_router import SkillRouter
+
+        agent = Agent()
+        assert isinstance(agent._skill_router, SkillRouter)
+        assert agent._ctx.skill_router is agent._skill_router
+
 
 class TestEnsureClient:
     @patch("contemplative_agent.adapters.moltbook.agent.Scheduler")
@@ -492,6 +499,103 @@ class TestRunPostCycle:
         agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
         # Should not raise
 
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(False, 0.0, None))
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="topic summary")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Post title")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1\ntopic2")
+    def test_post_success_records_skill_outcome(
+        self, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dedup,
+    ):
+        agent = Agent(autonomy=AutonomyLevel.AUTO)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client = MagicMock()
+        agent._scheduler = MagicMock()
+        agent._scheduler.can_post.return_value = True
+        agent._content = MagicMock()
+        agent._content.create_cooperation_post.return_value = (
+            "A body about how gates intersect with memory."
+        )
+
+        feed_resp = MagicMock()
+        feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
+        post_resp = MagicMock()
+        post_resp.json.return_value = {"id": "post-42"}
+        agent._client.get.return_value = feed_resp
+        agent._client.post.return_value = post_resp
+
+        agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
+
+        mock_router.select.assert_called_once()
+        select_kwargs = mock_router.select.call_args.kwargs
+        mock_router.record_outcome.assert_called_once()
+        outcome_args = mock_router.record_outcome.call_args
+        assert outcome_args.args[0] == select_kwargs["action_id"]
+        assert outcome_args.args[1] == "success"
+
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(True, 0.9, "prior"))
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="topic")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Dup title")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topics")
+    def test_post_dedup_gate_records_partial(
+        self, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dup,
+    ):
+        agent = Agent(autonomy=AutonomyLevel.AUTO)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client = MagicMock()
+        agent._scheduler = MagicMock()
+        agent._scheduler.can_post.return_value = True
+        agent._content = MagicMock()
+        agent._content.create_cooperation_post.return_value = "a body"
+
+        feed_resp = MagicMock()
+        feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
+        agent._client.get.return_value = feed_resp
+
+        agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
+
+        mock_router.select.assert_called_once()
+        mock_router.record_outcome.assert_called_once()
+        outcome = mock_router.record_outcome.call_args
+        assert outcome.args[1] == "partial"
+        assert "duplicate" in outcome.kwargs.get("note", "")
+
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(False, 0.0, None))
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="topic summary")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Notes on dedup gates")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1\ntopic2")
+    def test_post_client_error_records_failure(
+        self, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dedup,
+    ):
+        from contemplative_agent.adapters.moltbook.client import MoltbookClientError
+
+        agent = Agent(autonomy=AutonomyLevel.AUTO)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client = MagicMock()
+        agent._scheduler = MagicMock()
+        agent._scheduler.can_post.return_value = True
+        agent._content = MagicMock()
+        agent._content.create_cooperation_post.return_value = (
+            "We paused to revisit how gates intersect with memory."
+        )
+
+        feed_resp = MagicMock()
+        feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
+        agent._client.get.return_value = feed_resp
+        agent._client.post.side_effect = MoltbookClientError("network boom")
+
+        agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
+
+        mock_router.record_outcome.assert_called_once()
+        outcome = mock_router.record_outcome.call_args
+        assert outcome.args[1] == "failure"
+        assert "network boom" in outcome.kwargs.get("note", "")
+
 
 class TestRunSession:
     @patch("contemplative_agent.adapters.moltbook.agent.time")
@@ -526,7 +630,7 @@ class TestRunSession:
 
 
 class TestPrintReport:
-    def test_print_report(self, capsys):
+    def test_print_report(self, caplog):
         agent = Agent()
         agent._ctx.actions_taken.extend(["Action 1", "Action 2"])
         agent._scheduler = MagicMock()
@@ -534,21 +638,23 @@ class TestPrintReport:
         agent._content = MagicMock()
         agent._content.comment_to_post_ratio = 3.0
 
-        agent._print_report()
-        captured = capsys.readouterr()
-        assert "Session Report" in captured.out
-        assert "Actions taken: 2" in captured.out
-        assert "Action 1" in captured.out
+        with caplog.at_level("INFO", logger="contemplative_agent.adapters.moltbook.agent"):
+            agent._print_report()
+        messages = "\n".join(r.getMessage() for r in caplog.records)
+        assert "Session Report" in messages
+        assert "Actions taken: 2" in messages
+        assert "Action 1" in messages
 
-    def test_print_report_no_scheduler(self, capsys):
+    def test_print_report_no_scheduler(self, caplog):
         agent = Agent()
         agent._ctx.actions_taken.clear()
         agent._content = MagicMock()
         agent._content.comment_to_post_ratio = 0.0
 
-        agent._print_report()
-        captured = capsys.readouterr()
-        assert "Actions taken: 0" in captured.out
+        with caplog.at_level("INFO", logger="contemplative_agent.adapters.moltbook.agent"):
+            agent._print_report()
+        messages = "\n".join(r.getMessage() for r in caplog.records)
+        assert "Actions taken: 0" in messages
 
 
 class TestExtractNotificationFields:
@@ -823,6 +929,75 @@ class TestRunReplyCycle:
         agent._reply_handler.run_cycle(agent._client, agent._scheduler, time.time() + 3600)
 
         agent._client.post.assert_not_called()
+
+    @patch("contemplative_agent.adapters.moltbook.reply_handler.generate_reply", return_value="My reply")
+    def test_reply_success_records_skill_outcome(self, mock_reply, tmp_path):
+        agent = self._make_agent(tmp_path)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client.get_notifications.return_value = [
+            {
+                "type": "comment", "id": "n1", "post_id": "p1",
+                "content": "Nice post!", "post_content": "Original",
+                "agent_id": "a1", "agent_name": "Alice",
+            }
+        ]
+        agent._client.get_post_comments.return_value = []
+
+        agent._reply_handler.run_cycle(agent._client, agent._scheduler, time.time() + 3600)
+
+        mock_router.select.assert_called_once()
+        select_kwargs = mock_router.select.call_args.kwargs
+        assert select_kwargs["action_id"]  # non-empty
+        mock_router.record_outcome.assert_called_once()
+        outcome_args = mock_router.record_outcome.call_args
+        assert outcome_args.args[0] == select_kwargs["action_id"]
+        assert outcome_args.args[1] == "success"
+
+    @patch("contemplative_agent.adapters.moltbook.reply_handler.generate_reply", return_value="My reply")
+    def test_reply_failure_records_skill_outcome(self, mock_reply, tmp_path):
+        from contemplative_agent.adapters.moltbook.client import MoltbookClientError
+
+        agent = self._make_agent(tmp_path)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client.get_notifications.return_value = [
+            {
+                "type": "comment", "id": "n1", "post_id": "p1",
+                "content": "Nice post!", "post_content": "Original",
+                "agent_id": "a1", "agent_name": "Alice",
+            }
+        ]
+        agent._client.get_post_comments.return_value = []
+        agent._client.post.side_effect = MoltbookClientError(
+            "boom", status_code=500,
+        )
+
+        agent._reply_handler.run_cycle(agent._client, agent._scheduler, time.time() + 3600)
+
+        mock_router.select.assert_called_once()
+        mock_router.record_outcome.assert_called_once()
+        outcome_args = mock_router.record_outcome.call_args
+        assert outcome_args.args[1] == "failure"
+        assert "boom" in outcome_args.kwargs.get("note", "")
+
+    @patch("contemplative_agent.adapters.moltbook.reply_handler.generate_reply", return_value="My reply")
+    def test_reply_works_without_router(self, mock_reply, tmp_path):
+        """SessionContext.skill_router is Optional; reply path must tolerate None."""
+        agent = self._make_agent(tmp_path)
+        agent._ctx.skill_router = None
+        agent._client.get_notifications.return_value = [
+            {
+                "type": "comment", "id": "n1", "post_id": "p1",
+                "content": "Nice post!", "post_content": "Original",
+                "agent_id": "a1", "agent_name": "Alice",
+            }
+        ]
+        agent._client.get_post_comments.return_value = []
+
+        agent._reply_handler.run_cycle(agent._client, agent._scheduler, time.time() + 3600)
+
+        agent._client.post.assert_called_once()
 
 
 class TestCheckOwnPostComments:

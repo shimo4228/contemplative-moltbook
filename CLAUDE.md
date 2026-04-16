@@ -44,6 +44,12 @@ docs/CODEMAPS/        # アーキテクチャ詳細 (→ docs/CODEMAPS/INDEX.md)
 - adapters/ が core/config の定数と adapter 固有の config を組み合わせて渡す
 - 協力者 (ReplyHandler, PostPipeline, FeedManager) は Agent を import しない。SessionContext + Callable で依存注入
 
+### Immutability
+
+- DTO とドメインオブジェクトは `frozen=True`。例外なし
+- accumulator パターンは reduce か一括生成で書く (mutation で書かない)
+- 蒸留パイプラインの原典保持、承認ゲートの diff 生成、bitemporal との整合のため
+
 ## 開発環境
 
 ```bash

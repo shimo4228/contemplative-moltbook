@@ -138,7 +138,7 @@ def write_snapshot(
                 if c is not None:
                     centroids[name] = c
         if centroids:
-            np.savez(snap_dir / "centroids.npz", **centroids)
+            np.savez(snap_dir / "centroids.npz", **centroids)  # type: ignore[arg-type]
 
         manifest = {
             "command": command,

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 EMBED_BATCH_SIZE = 32
 
 
-@dataclass
+@dataclass(frozen=True)
 class BackfillStats:
     patterns_total: int = 0
     patterns_embedded: int = 0
@@ -49,7 +49,43 @@ class BackfillStats:
     episodes_failed: int = 0
     backup_path: Optional[Path] = None
     duration_seconds: float = 0.0
+    errors: Tuple[str, ...] = ()
+
+
+@dataclass
+class _BackfillBuilder:
+    """Internal mutable accumulator for BackfillStats.
+
+    Not exported — callers receive an immutable ``BackfillStats`` via
+    ``.build()``.
+    """
+
+    patterns_total: int = 0
+    patterns_embedded: int = 0
+    patterns_gated: int = 0
+    patterns_skipped: int = 0
+    episodes_total: int = 0
+    episodes_embedded: int = 0
+    episodes_skipped: int = 0
+    episodes_failed: int = 0
+    backup_path: Optional[Path] = None
+    duration_seconds: float = 0.0
     errors: List[str] = field(default_factory=list)
+
+    def build(self) -> BackfillStats:
+        return BackfillStats(
+            patterns_total=self.patterns_total,
+            patterns_embedded=self.patterns_embedded,
+            patterns_gated=self.patterns_gated,
+            patterns_skipped=self.patterns_skipped,
+            episodes_total=self.episodes_total,
+            episodes_embedded=self.episodes_embedded,
+            episodes_skipped=self.episodes_skipped,
+            episodes_failed=self.episodes_failed,
+            backup_path=self.backup_path,
+            duration_seconds=self.duration_seconds,
+            errors=tuple(self.errors),
+        )
 
 
 def backup_knowledge(knowledge_path: Path) -> Optional[Path]:
@@ -104,9 +140,9 @@ def backfill_pattern_embeddings(
     Patterns that were classified as ``noise`` under the legacy schema
     are pre-gated.
     """
-    stats = BackfillStats()
+    builder = _BackfillBuilder()
     patterns = knowledge.get_raw_patterns()
-    stats.patterns_total = len(patterns)
+    builder.patterns_total = len(patterns)
 
     # Build queues of patterns needing work
     needing_embedding: List[int] = []
@@ -116,44 +152,44 @@ def backfill_pattern_embeddings(
 
     if not needing_embedding:
         # Even if all have embeddings, gated may be missing
-        _backfill_gated(patterns, view_registry, stats, noise_threshold)
-        stats.patterns_skipped = stats.patterns_total
-        return stats
+        _backfill_gated(patterns, view_registry, builder, noise_threshold)
+        builder.patterns_skipped = builder.patterns_total
+        return builder.build()
 
     # Embed in batches
     for batch_start in range(0, len(needing_embedding), EMBED_BATCH_SIZE):
         batch_idx = needing_embedding[batch_start : batch_start + EMBED_BATCH_SIZE]
         texts = [patterns[i]["pattern"] for i in batch_idx]
         if dry_run:
-            stats.patterns_embedded += len(batch_idx)
+            builder.patterns_embedded += len(batch_idx)
             continue
         result = _bulk_embed(texts)
         if result is None or result.shape[0] != len(batch_idx):
-            stats.errors.append(
+            builder.errors.append(
                 f"embed batch starting at index {batch_idx[0]} failed; skipping"
             )
             continue
         for i, vec in zip(batch_idx, result):
             patterns[i]["embedding"] = [float(x) for x in vec]
-            stats.patterns_embedded += 1
+            builder.patterns_embedded += 1
 
     # Now compute gated for everything
-    _backfill_gated(patterns, view_registry, stats, noise_threshold, dry_run=dry_run)
+    _backfill_gated(patterns, view_registry, builder, noise_threshold, dry_run=dry_run)
 
-    return stats
+    return builder.build()
 
 
 def _backfill_gated(
     patterns: List[Dict],
     view_registry: ViewRegistry,
-    stats: BackfillStats,
+    builder: _BackfillBuilder,
     noise_threshold: float,
     dry_run: bool = False,
 ) -> None:
     """Fill `gated` field by comparing each pattern embedding to the noise centroid."""
     noise_centroid = view_registry.get_centroid("noise")
     if noise_centroid is None:
-        stats.errors.append(
+        builder.errors.append(
             "noise view centroid unavailable — cannot compute gated. "
             "Verify config/views/noise.md and Ollama embedding model."
         )
@@ -165,7 +201,7 @@ def _backfill_gated(
         if p.get("category") == "noise":
             if not dry_run:
                 p["gated"] = True
-            stats.patterns_gated += 1
+            builder.patterns_gated += 1
             continue
         emb = p.get("embedding")
         if not isinstance(emb, list):
@@ -176,7 +212,7 @@ def _backfill_gated(
         if not dry_run:
             p["gated"] = gated
         if gated:
-            stats.patterns_gated += 1
+            builder.patterns_gated += 1
 
 
 def _iter_episode_files(log_dir: Path, episodes_days: Optional[int]) -> List[Path]:
@@ -212,7 +248,7 @@ def backfill_episode_embeddings(
     Skips episodes whose id is already present in the sidecar. Bulk
     embeds in batches of EMBED_BATCH_SIZE for throughput.
     """
-    stats = BackfillStats()
+    builder = _BackfillBuilder()
     files = _iter_episode_files(log_dir, episodes_days)
 
     pending: List[Tuple[str, str, str]] = []  # (id, ts, text)
@@ -220,13 +256,13 @@ def backfill_episode_embeddings(
         try:
             records = EpisodeLog.read_file(path)
         except OSError as exc:
-            stats.errors.append(f"read failed for {path.name}: {exc}")
+            builder.errors.append(f"read failed for {path.name}: {exc}")
             continue
         for record in records:
-            stats.episodes_total += 1
+            builder.episodes_total += 1
             eid = episode_id_for(record)
             if store.has(eid):
-                stats.episodes_skipped += 1
+                builder.episodes_skipped += 1
                 continue
             text = _summarize_for_embedding(record)
             if not text:
@@ -234,19 +270,19 @@ def backfill_episode_embeddings(
             pending.append((eid, record.get("ts", ""), text))
 
     if not pending:
-        return stats
+        return builder.build()
 
     if dry_run:
-        stats.episodes_embedded = len(pending)
-        return stats
+        builder.episodes_embedded = len(pending)
+        return builder.build()
 
     for batch_start in range(0, len(pending), EMBED_BATCH_SIZE):
         batch = pending[batch_start : batch_start + EMBED_BATCH_SIZE]
         texts = [t for _, _, t in batch]
         result = _bulk_embed(texts)
         if result is None or result.shape[0] != len(batch):
-            stats.episodes_failed += len(batch)
-            stats.errors.append(
+            builder.episodes_failed += len(batch)
+            builder.errors.append(
                 f"episode embed batch failed at item {batch_start}"
             )
             continue
@@ -255,11 +291,11 @@ def backfill_episode_embeddings(
             for (eid, ts, _), vec in zip(batch, result)
         ]
         store.upsert_many(rows)
-        stats.episodes_embedded += len(rows)
+        builder.episodes_embedded += len(rows)
         if progress is not None:
-            progress(stats.episodes_embedded, len(pending))
+            progress(builder.episodes_embedded, len(pending))
 
-    return stats
+    return builder.build()
 
 
 def run_embed_backfill(
@@ -280,13 +316,13 @@ def run_embed_backfill(
     counts) so users can spot config/threshold issues before committing.
     """
     started = time.time()
-    stats = BackfillStats()
+    builder = _BackfillBuilder()
 
     # 1. Backup knowledge.json
     if not dry_run and knowledge_path.exists():
-        stats.backup_path = backup_knowledge(knowledge_path)
-        if stats.backup_path is not None:
-            logger.info("Backed up knowledge.json → %s", stats.backup_path.name)
+        builder.backup_path = backup_knowledge(knowledge_path)
+        if builder.backup_path is not None:
+            logger.info("Backed up knowledge.json → %s", builder.backup_path.name)
 
     # 2. Load knowledge + views
     knowledge = KnowledgeStore(path=knowledge_path)
@@ -300,7 +336,7 @@ def run_embed_backfill(
         noise_threshold=noise_threshold,
         dry_run=dry_run,
     )
-    _merge_pattern_stats(stats, pattern_stats)
+    _merge_pattern_stats(builder, pattern_stats)
     if not dry_run and pattern_stats.patterns_embedded > 0:
         knowledge.save()
         logger.info(
@@ -317,7 +353,7 @@ def run_embed_backfill(
             episodes_days=episodes_days,
             dry_run=dry_run,
         )
-        _merge_episode_stats(stats, episode_stats)
+        _merge_episode_stats(builder, episode_stats)
         logger.info(
             "episodes: %d total, %d newly embedded, %d skipped (already present), %d failed",
             episode_stats.episodes_total,
@@ -326,11 +362,11 @@ def run_embed_backfill(
             episode_stats.episodes_failed,
         )
 
-    stats.duration_seconds = time.time() - started
-    return stats
+    builder.duration_seconds = time.time() - started
+    return builder.build()
 
 
-def _merge_pattern_stats(dst: BackfillStats, src: BackfillStats) -> None:
+def _merge_pattern_stats(dst: _BackfillBuilder, src: BackfillStats) -> None:
     dst.patterns_total = src.patterns_total
     dst.patterns_embedded = src.patterns_embedded
     dst.patterns_gated = src.patterns_gated
@@ -338,7 +374,7 @@ def _merge_pattern_stats(dst: BackfillStats, src: BackfillStats) -> None:
     dst.errors.extend(src.errors)
 
 
-def _merge_episode_stats(dst: BackfillStats, src: BackfillStats) -> None:
+def _merge_episode_stats(dst: _BackfillBuilder, src: BackfillStats) -> None:
     dst.episodes_total = src.episodes_total
     dst.episodes_embedded = src.episodes_embedded
     dst.episodes_skipped = src.episodes_skipped
@@ -352,13 +388,33 @@ def _merge_episode_stats(dst: BackfillStats, src: BackfillStats) -> None:
 # ============================================================
 
 
-@dataclass
+@dataclass(frozen=True)
 class Adr0021MigrationStats:
     patterns_total: int = 0
     patterns_updated: int = 0  # received at least one new field
     patterns_already_migrated: int = 0  # had all fields already
     backup_path: Optional[Path] = None
+    errors: Tuple[str, ...] = ()
+
+
+@dataclass
+class _Adr0021MigrationBuilder:
+    """Internal mutable accumulator for Adr0021MigrationStats."""
+
+    patterns_total: int = 0
+    patterns_updated: int = 0
+    patterns_already_migrated: int = 0
+    backup_path: Optional[Path] = None
     errors: List[str] = field(default_factory=list)
+
+    def build(self) -> Adr0021MigrationStats:
+        return Adr0021MigrationStats(
+            patterns_total=self.patterns_total,
+            patterns_updated=self.patterns_updated,
+            patterns_already_migrated=self.patterns_already_migrated,
+            backup_path=self.backup_path,
+            errors=tuple(self.errors),
+        )
 
 
 def _ensure_adr0021_defaults(pattern: Dict) -> bool:
@@ -420,32 +476,32 @@ def migrate_patterns_to_adr0021(
     """
     from .knowledge_store import KnowledgeStore
 
-    stats = Adr0021MigrationStats()
+    builder = _Adr0021MigrationBuilder()
     if not knowledge_path.exists():
-        stats.errors.append(f"knowledge file not found: {knowledge_path}")
-        return stats
+        builder.errors.append(f"knowledge file not found: {knowledge_path}")
+        return builder.build()
 
     if not dry_run:
-        stats.backup_path = backup_knowledge(knowledge_path)
-        if stats.backup_path is not None:
-            logger.info("Backed up knowledge.json → %s", stats.backup_path.name)
+        builder.backup_path = backup_knowledge(knowledge_path)
+        if builder.backup_path is not None:
+            logger.info("Backed up knowledge.json → %s", builder.backup_path.name)
 
     store = KnowledgeStore(path=knowledge_path)
     store.load()
     patterns = store.get_raw_patterns()
-    stats.patterns_total = len(patterns)
+    builder.patterns_total = len(patterns)
 
     for pattern in patterns:
         if _ensure_adr0021_defaults(pattern):
-            stats.patterns_updated += 1
+            builder.patterns_updated += 1
         else:
-            stats.patterns_already_migrated += 1
+            builder.patterns_already_migrated += 1
 
-    if not dry_run and stats.patterns_updated > 0:
+    if not dry_run and builder.patterns_updated > 0:
         store.save()
         logger.info(
             "ADR-0021 migration: %d/%d patterns updated",
-            stats.patterns_updated, stats.patterns_total,
+            builder.patterns_updated, builder.patterns_total,
         )
 
-    return stats
+    return builder.build()

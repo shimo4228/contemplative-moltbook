@@ -690,14 +690,16 @@ def _distill_category(
                 continue
             new_entries.append((pattern, emb))
 
-        revised_rows = evolve_patterns(
+        batch = evolve_patterns(
             new_entries, live_same_cat, MEMORY_EVOLUTION_PROMPT,
         )
-        if revised_rows:
-            knowledge._learned_patterns.extend(revised_rows)
+        for old_ref, invalidated in batch.invalidations:
+            knowledge.replace_pattern(old_ref, invalidated)
+        if batch.revised_rows:
+            knowledge._learned_patterns.extend(batch.revised_rows)
             logger.info(
                 "[%s] Memory evolution: revised %d neighbor patterns",
-                category, len(revised_rows),
+                category, len(batch.revised_rows),
             )
 
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)

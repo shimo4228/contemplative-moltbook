@@ -20,7 +20,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Tuple
@@ -65,7 +65,7 @@ class SkillMatch:
     meta: skill_frontmatter.SkillMeta
 
 
-@dataclass
+@dataclass(frozen=True)
 class SkillUsageStats:
     """Per-skill aggregate of selection + outcome records."""
 
@@ -74,7 +74,7 @@ class SkillUsageStats:
     successes: int = 0
     failures: int = 0
     partials: int = 0
-    failure_contexts: List[str] = field(default_factory=list)
+    failure_contexts: Tuple[str, ...] = ()
 
     @property
     def outcomes(self) -> int:
@@ -403,25 +403,42 @@ def aggregate_usage(records: Iterable[Dict[str, Any]]) -> Dict[str, SkillUsageSt
             if isinstance(outcome, str):
                 outcomes_by_action[action_id] = (outcome, note if isinstance(note, str) else None)
 
-    stats: Dict[str, SkillUsageStats] = {}
+    # Internal accumulator — frozen SkillUsageStats is built once at the end.
+    raw: Dict[str, Dict[str, Any]] = {}
     for action_id, skill_names in selections_by_action.items():
         outcome_pair = outcomes_by_action.get(action_id)
         outcome, _note = outcome_pair if outcome_pair else (None, None)
         context_excerpt = contexts_by_action.get(action_id, "")
         for name in skill_names:
-            bucket = stats.setdefault(name, SkillUsageStats(name=name))
-            bucket.selections += 1
+            bucket = raw.setdefault(name, {
+                "selections": 0,
+                "successes": 0,
+                "failures": 0,
+                "partials": 0,
+                "failure_contexts": [],
+            })
+            bucket["selections"] += 1
             if outcome == "success":
-                bucket.successes += 1
+                bucket["successes"] += 1
             elif outcome == "failure":
-                bucket.failures += 1
+                bucket["failures"] += 1
                 if context_excerpt:
-                    bucket.failure_contexts.append(context_excerpt)
+                    bucket["failure_contexts"].append(context_excerpt)
             elif outcome == "partial":
-                bucket.partials += 1
+                bucket["partials"] += 1
                 if context_excerpt:
-                    bucket.failure_contexts.append(context_excerpt)
-    return stats
+                    bucket["failure_contexts"].append(context_excerpt)
+    return {
+        name: SkillUsageStats(
+            name=name,
+            selections=d["selections"],
+            successes=d["successes"],
+            failures=d["failures"],
+            partials=d["partials"],
+            failure_contexts=tuple(d["failure_contexts"]),
+        )
+        for name, d in raw.items()
+    }
 
 
 def needs_reflection(stats: SkillUsageStats) -> bool:

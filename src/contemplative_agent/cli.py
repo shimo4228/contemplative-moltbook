@@ -14,7 +14,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, cast
 
 if TYPE_CHECKING:
     from .core.memory import KnowledgeStore
@@ -996,10 +996,10 @@ def _take_snapshot(
     """
     if _is_dry_run(args):
         return None
-    from .core.snapshot import write_snapshot
+    from .core.snapshot import SnapshotCommand, write_snapshot
 
     return write_snapshot(
-        command=command,
+        command=cast(SnapshotCommand, command),
         views_dir=_resolve_views_dir(),
         constitution_dir=getattr(args, "constitution_dir", None) or CONSTITUTION_DIR,
         snapshots_dir=SNAPSHOTS_DIR,

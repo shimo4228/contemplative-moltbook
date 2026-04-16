@@ -20,6 +20,7 @@ from .config import (
     OLLAMA_MODEL,
     RATE_LIMITS,
     RATE_STATE_PATH,
+    SKILLS_DIR,
 )
 from .content import ContentManager
 from .feed_manager import FeedManager
@@ -38,9 +39,11 @@ from ...core.config import (
     VALID_ID_PATTERN,
 )
 from ...core.domain import DomainConfig, get_domain_config
+from ...core.embeddings import embed_texts
 from ...core.llm import configure as configure_llm
 from ...core.memory import MemoryStore
 from ...core.scheduler import Scheduler
+from ...core.skill_router import DEFAULT_THRESHOLD, SkillRouter
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +96,19 @@ class Agent:
         self._cycle_wait: float = ADAPTIVE_BACKOFF.base_cycle_wait
         self._consecutive_429_cycles: int = 0
 
+        # ADR-0023: SkillRouter scores context → skills and logs usage to
+        # skill-usage-YYYY-MM-DD.jsonl for skill-reflect to consume.
+        self._skill_router = SkillRouter(
+            skills_dir=SKILLS_DIR,
+            embed_fn=embed_texts,
+            log_dir=EPISODE_LOG_DIR,
+            threshold=DEFAULT_THRESHOLD,
+        )
+
         # Shared session state for collaborators
-        self._ctx = SessionContext(memory=self._memory)
+        self._ctx = SessionContext(
+            memory=self._memory, skill_router=self._skill_router,
+        )
 
         # Collaborators — receive explicit context instead of Agent reference
         self._feed_manager = FeedManager(
@@ -596,14 +610,23 @@ class Agent:
             logger.warning("Failed to generate activity report", exc_info=True)
 
     def _print_report(self) -> None:
-        """Print session summary."""
-        print("\n=== Session Report ===")
-        print(f"Actions taken: {len(self._actions_taken)}")
+        """Log session summary."""
+        logger.info("=== Session Report ===")
+        logger.info("Actions taken: %d", len(self._actions_taken))
         for action in self._actions_taken:
-            print(f"  - {action}")
+            logger.info("  - %s", action)
         if self._scheduler:
-            print(f"Comments remaining today: {self._scheduler.comments_remaining_today}")
-        print(f"Comment:Post ratio: {self._content.comment_to_post_ratio:.1f}")
-        print(f"Memory: {self._memory.interaction_count()} interactions, "
-              f"{self._memory.unique_agent_count()} agents known")
-        print("======================\n")
+            logger.info(
+                "Comments remaining today: %d",
+                self._scheduler.comments_remaining_today,
+            )
+        logger.info(
+            "Comment:Post ratio: %.1f",
+            self._content.comment_to_post_ratio,
+        )
+        logger.info(
+            "Memory: %d interactions, %d agents known",
+            self._memory.interaction_count(),
+            self._memory.unique_agent_count(),
+        )
+        logger.info("======================")

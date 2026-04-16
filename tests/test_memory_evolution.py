@@ -148,11 +148,15 @@ class TestApplyRevision:
             similarity=0.75,
         )
         now = datetime(2026, 4, 16, 12, 0, tzinfo=timezone.utc)
-        new_row = apply_revision(result, now=now)
-        # Neighbor soft-invalidated
-        assert neighbor["valid_until"] == "2026-04-16T12:00+00:00"
+        outcome = apply_revision(result, now=now)
+        assert outcome is not None
+        invalidated, new_row = outcome
+        # Original neighbor is untouched (immutability)
+        assert neighbor["valid_until"] is None
+        # Invalidated copy carries the new timestamp
+        assert invalidated["valid_until"] == "2026-04-16T12:00+00:00"
+        assert invalidated["pattern"] == neighbor["pattern"]
         # New row mirrors identity, not meta
-        assert new_row is not None
         assert new_row["pattern"] == neighbor["pattern"]
         assert new_row["embedding"] == neighbor["embedding"]
         assert new_row["importance"] == neighbor["importance"]
@@ -183,23 +187,29 @@ class TestEvolvePatterns:
         unrelated = _make_pattern("unrelated", _emb(0.0, 1.0))
         live = [neighbor, unrelated]
 
-        revised = evolve_patterns(
+        batch = evolve_patterns(
             [("new pattern text", new_emb)], live,
             prompt_template="{neighbor}|{new_pattern}",
             generate_fn=fake_generate,
         )
-        assert len(revised) == 1
-        assert neighbor["valid_until"] is not None
-        assert unrelated["valid_until"] is None  # unchanged
-        assert revised[0]["distilled"].startswith("Revised")
+        assert len(batch.revised_rows) == 1
+        assert len(batch.invalidations) == 1
+        old_ref, invalidated = batch.invalidations[0]
+        assert old_ref is neighbor
+        assert invalidated["valid_until"] is not None
+        # Original still untouched
+        assert neighbor["valid_until"] is None
+        assert unrelated["valid_until"] is None
+        assert batch.revised_rows[0]["distilled"].startswith("Revised")
 
     def test_no_prompt_template_is_no_op(self):
         new_emb = _emb(1.0, 0.0)
         neighbor = _make_pattern("x", _emb(0.75, 0.66))
-        revised = evolve_patterns(
+        batch = evolve_patterns(
             [("t", new_emb)], [neighbor], prompt_template="",
         )
-        assert revised == []
+        assert batch.invalidations == ()
+        assert batch.revised_rows == ()
         assert neighbor["valid_until"] is None
 
     def test_neighbor_only_revised_once_per_call(self):
@@ -213,17 +223,19 @@ class TestEvolvePatterns:
         neighbor = _make_pattern("shared neighbor", _emb(0.75, 0.66))
         new_a = _emb(1.0, 0.0)
         new_b = _emb(0.98, 0.2)  # also in band w.r.t. neighbor
-        revised = evolve_patterns(
+        batch = evolve_patterns(
             [("a", new_a), ("b", new_b)], [neighbor],
             prompt_template="{neighbor}|{new_pattern}",
             generate_fn=fake_generate,
         )
-        assert len(revised) == 1
+        assert len(batch.revised_rows) == 1
         assert len(calls) == 1  # neighbor only asked about once
 
     def test_empty_inputs_return_empty(self):
-        assert evolve_patterns([], [], "x") == []
-        assert evolve_patterns([("t", _emb(1.0, 0.0))], [], "x") == []
+        empty_a = evolve_patterns([], [], "x")
+        assert empty_a.invalidations == () and empty_a.revised_rows == ()
+        empty_b = evolve_patterns([("t", _emb(1.0, 0.0))], [], "x")
+        assert empty_b.invalidations == () and empty_b.revised_rows == ()
 
 
 class TestHybridRankBM25:

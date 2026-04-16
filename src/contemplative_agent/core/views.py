@@ -32,7 +32,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional
 
 import numpy as np
 

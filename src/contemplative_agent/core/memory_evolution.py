@@ -144,21 +144,21 @@ def apply_revision(
     result: EvolutionResult,
     *,
     now: Optional[datetime] = None,
-) -> Optional[Dict]:
-    """Soft-invalidate the neighbor and produce the revised pattern dict.
+) -> Optional[Tuple[Dict, Dict]]:
+    """Produce (invalidated_neighbor, revised_new_row) from a revision result.
 
-    Returns the new pattern row to be appended to the knowledge store, or
-    None if the result has no revision. The caller is responsible for
-    appending the returned row (this function does not touch KnowledgeStore
-    to keep it unit-testable without a store instance).
+    Returns None if the result has no revision. Both returned dicts are
+    fresh — the input ``neighbor`` is not mutated. The caller is
+    responsible for swapping the original neighbor for
+    ``invalidated_neighbor`` and appending ``revised_new_row``.
     """
     if result.revised_distilled is None:
         return None
     neighbor = result.neighbor
     now_iso = (now or datetime.now(timezone.utc)).isoformat(timespec="minutes")
 
-    # Soft-invalidate the original
-    neighbor["valid_until"] = now_iso
+    # Soft-invalidated copy (original left untouched)
+    invalidated: Dict = {**neighbor, "valid_until": now_iso}
 
     # Build the revised row. Preserve the semantic coordinate (embedding),
     # content identity (pattern), and operational metadata (importance,
@@ -190,7 +190,20 @@ def apply_revision(
         "success_count": 0,
         "failure_count": 0,
     }
-    return revised
+    return invalidated, revised
+
+
+@dataclass(frozen=True)
+class EvolutionBatch:
+    """Outcome of an end-to-end evolution run.
+
+    ``invalidations`` pairs each original neighbor (identity reference)
+    with a fresh dict carrying the new ``valid_until``. Callers apply
+    them via ``KnowledgeStore.replace_pattern``.
+    """
+
+    invalidations: Tuple[Tuple[Dict, Dict], ...]
+    revised_rows: Tuple[Dict, ...]
 
 
 def evolve_patterns(
@@ -203,25 +216,27 @@ def evolve_patterns(
     min_sim: float = EVOLUTION_MIN,
     max_sim_excl: float = EVOLUTION_MAX_EXCL,
     k: int = EVOLUTION_K,
-) -> List[Dict]:
+) -> EvolutionBatch:
     """End-to-end evolution for a batch of new patterns.
 
-    Mutates ``live_patterns`` entries in place (sets ``valid_until``) and
-    returns the list of newly-created revised rows for the caller to
-    persist. Safe to call with an empty ``prompt_template`` — evolution
-    is skipped and a warning logged.
+    Returns an ``EvolutionBatch`` describing per-neighbor invalidations
+    and new revised rows. Does not mutate ``live_patterns`` entries —
+    callers must ``KnowledgeStore.replace_pattern(old, new)`` for each
+    invalidation and extend their store with ``revised_rows``.
 
     Each neighbor is revised at most once per call even if multiple new
     patterns would target it; the first (highest-sim) wins.
     """
+    empty = EvolutionBatch(invalidations=(), revised_rows=())
     if not prompt_template:
         logger.warning("memory_evolution.md not loaded — skipping evolution step")
-        return []
+        return empty
     if not new_entries or not live_patterns:
-        return []
+        return empty
 
+    invalidations: List[Tuple[Dict, Dict]] = []
     revised_rows: List[Dict] = []
-    already_revised: set = set()
+    already_processed: set = set()
     for new_text, new_emb in new_entries:
         pairs = find_neighbors(
             new_text, new_emb, live_patterns,
@@ -229,22 +244,27 @@ def evolve_patterns(
         )
         for pair in pairs:
             key = id(pair.neighbor)
-            if key in already_revised:
+            if key in already_processed:
                 continue
-            # Skip neighbors already invalidated mid-loop by a prior revision
+            # Skip neighbors that were already invalidated before this call
             if pair.neighbor.get("valid_until") is not None:
-                already_revised.add(key)
+                already_processed.add(key)
                 continue
             result = revise_neighbor(pair, prompt_template, generate_fn=generate_fn)
             if result.revised_distilled is None:
-                already_revised.add(key)
+                already_processed.add(key)
                 continue
-            new_row = apply_revision(result, now=now)
-            if new_row is not None:
-                revised_rows.append(new_row)
-                already_revised.add(key)
+            outcome = apply_revision(result, now=now)
+            if outcome is not None:
+                invalidated, revised_row = outcome
+                invalidations.append((pair.neighbor, invalidated))
+                revised_rows.append(revised_row)
+                already_processed.add(key)
                 logger.info(
                     "Evolution: revised neighbor (sim=%.2f) in light of new pattern",
                     pair.similarity,
                 )
-    return revised_rows
+    return EvolutionBatch(
+        invalidations=tuple(invalidations),
+        revised_rows=tuple(revised_rows),
+    )
