@@ -30,7 +30,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Topics**:
 - Full module dependency graph with line counts (49 modules)
 - 20+ key classes (Agent, SessionContext, FeedManager, ReplyHandler, PostPipeline, etc.)
-- CLI commands (init, register, run, distill, distill-identity, insight, skill-reflect, rules-distill, adopt-staged, migrate-patterns, migrate-identity, skill-stocktake, rules-stocktake, generate-report, solve, meditate, install-schedule, ...)
+- CLI commands (init, register, run, distill, distill-identity, insight, skill-reflect, rules-distill, adopt-staged, migrate-patterns, migrate-categories, migrate-identity, skill-stocktake, rules-stocktake, generate-report, solve, meditate, install-schedule, ...)
 - LLM functions (12 in core/llm.py + insight.py + meditation)
 - Prompt templates (32 templates, domain placeholders)
 - Persistent state files
@@ -125,7 +125,7 @@ Package versions, transitive dependencies, security notes.
 | Moltbook adapter modules | 12 |
 | Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) + result types (see core-modules.md) |
-| CLI commands | 23 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich, embed-backfill, migrate-patterns, migrate-identity) |
+| CLI commands | 24 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich, embed-backfill, migrate-patterns, migrate-categories, migrate-identity) |
 | Prompt templates | 32 (added: memory_evolution, skill_reflect) |
 | Config templates | 11 (config/templates/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |

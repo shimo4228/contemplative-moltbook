@@ -290,6 +290,111 @@ class TestRunEmbedBackfill:
         assert 0.0 <= DEFAULT_NOISE_THRESHOLD <= 1.0
 
 
+class TestDropCategoryField:
+    """ADR-0026: ``drop_category_field`` removes the legacy ``category`` field,
+    preserving legacy ``category == "noise"`` as ``gated = True``."""
+
+    def test_drops_category_field(self, tmp_path):
+        from contemplative_agent.core.migration import drop_category_field
+
+        path = tmp_path / "k.json"
+        data = [
+            {"pattern": "p1", "importance": 0.5, "category": "uncategorized",
+             "distilled": "2026-04-15T07:00"},
+            {"pattern": "p2", "importance": 0.5, "category": "constitutional",
+             "distilled": "2026-04-15T07:01"},
+        ]
+        path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+
+        stats = drop_category_field(path)
+        assert stats.patterns_total == 2
+        assert stats.patterns_updated == 2
+        assert stats.patterns_gated_from_noise == 0
+        assert stats.backup_path is not None and stats.backup_path.exists()
+
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        assert all("category" not in p for p in loaded)
+
+    def test_legacy_noise_becomes_gated(self, tmp_path):
+        from contemplative_agent.core.migration import drop_category_field
+
+        path = tmp_path / "k.json"
+        data = [
+            {"pattern": "noisy ping", "importance": 0.3, "category": "noise",
+             "distilled": "2026-04-15T07:00"},
+        ]
+        path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+
+        stats = drop_category_field(path)
+        assert stats.patterns_updated == 1
+        assert stats.patterns_gated_from_noise == 1
+
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        assert loaded[0].get("gated") is True
+        assert "category" not in loaded[0]
+
+    def test_preserves_existing_gated_flag(self, tmp_path):
+        from contemplative_agent.core.migration import drop_category_field
+
+        path = tmp_path / "k.json"
+        # ``gated`` already set explicitly — migration must not override it
+        data = [
+            {"pattern": "weird edge case", "importance": 0.4, "category": "noise",
+             "gated": False, "distilled": "2026-04-15T07:00"},
+        ]
+        path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+
+        stats = drop_category_field(path)
+        assert stats.patterns_updated == 1
+        assert stats.patterns_gated_from_noise == 0  # flag already present
+
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        assert loaded[0].get("gated") is False
+        assert "category" not in loaded[0]
+
+    def test_idempotent_on_already_migrated(self, tmp_path):
+        from contemplative_agent.core.migration import drop_category_field
+
+        path = tmp_path / "k.json"
+        # No ``category`` field → already migrated
+        data = [
+            {"pattern": "clean", "importance": 0.5, "distilled": "2026-04-15T07:00"},
+        ]
+        path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+
+        stats = drop_category_field(path)
+        assert stats.patterns_total == 1
+        assert stats.patterns_updated == 0
+        assert stats.patterns_already_migrated == 1
+        # No backup when nothing changed? backup happens before mutation check
+        # so it may still exist — but the file content stays identical.
+
+    def test_dry_run_does_not_mutate(self, tmp_path):
+        from contemplative_agent.core.migration import drop_category_field
+
+        path = tmp_path / "k.json"
+        data = [
+            {"pattern": "p1", "importance": 0.5, "category": "uncategorized",
+             "distilled": "2026-04-15T07:00"},
+        ]
+        original_text = json.dumps(data) + "\n"
+        path.write_text(original_text, encoding="utf-8")
+
+        stats = drop_category_field(path, dry_run=True)
+        assert stats.patterns_updated == 1
+        assert stats.backup_path is None
+        assert path.read_text(encoding="utf-8") == original_text
+
+    def test_missing_file_records_error(self, tmp_path):
+        from contemplative_agent.core.migration import drop_category_field
+
+        path = tmp_path / "does-not-exist.json"
+        stats = drop_category_field(path)
+        assert stats.patterns_total == 0
+        assert stats.errors
+        assert "not found" in stats.errors[0]
+
+
 class TestIterEpisodeFilesDaysFilterADR0021:
     """ADR-0021 / migration.py:225-235 — the ``episodes_days`` filter parses
     filename date stems (``YYYY-MM-DD.jsonl``). Files with non-date stems

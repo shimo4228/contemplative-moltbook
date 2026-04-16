@@ -162,14 +162,16 @@ def apply_revision(
 
     # Build the revised row. Preserve the semantic coordinate (embedding),
     # content identity (pattern), and operational metadata (importance,
-    # category, source/episodes). Bump provenance to "mixed" to reflect
-    # that the interpretation now carries context from a later observation.
+    # source/episodes). Bump provenance to "mixed" to reflect that the
+    # interpretation now carries context from a later observation.
+    # ADR-0026: ``category`` is no longer propagated — routing is via
+    # ``ViewRegistry`` at query time.
     old_prov = dict(neighbor.get("provenance") or {"source_type": "unknown"})
     new_prov = {
         "source_type": "mixed",
         "source_episode_ids": old_prov.get("source_episode_ids", []),
         "sanitized": bool(old_prov.get("sanitized", True)),
-        "pipeline_version": "memory_evolution@0.22",
+        "pipeline_version": "memory_evolution@0.26",
         "derived_from": old_prov.get("pipeline_version", "unknown"),
         "evolution_similarity": round(result.similarity, 3),
     }
@@ -177,7 +179,6 @@ def apply_revision(
         "pattern": neighbor.get("pattern", ""),
         "distilled": result.revised_distilled,
         "importance": float(neighbor.get("importance", 0.5)),
-        "category": neighbor.get("category", "uncategorized"),
         "embedding": list(neighbor.get("embedding") or []),
         "gated": bool(neighbor.get("gated", False)),
         "provenance": new_prov,

@@ -32,7 +32,6 @@ from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
     DISTILL_IMPORTANCE_PROMPT,
-    DISTILL_CONSTITUTIONAL_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
     MEMORY_EVOLUTION_PROMPT,
@@ -121,12 +120,10 @@ def distill(
     total_added = 0
     total_updated = 0
 
-    # ADR-0026 Phase 2: single distill pass over all kept records. The
-    # ``category`` argument is a transitional placeholder until Phase 3
-    # drops it entirely.
+    # ADR-0026 Phase 3: single distill pass over all kept records.
     if classified.kept:
         cat_results = _distill_category(
-            list(classified.kept), knowledge, "uncategorized", source_date, dry_run,
+            list(classified.kept), knowledge, source_date, dry_run,
         )
         all_results.extend(cat_results.results)
         total_added += cat_results.added
@@ -209,16 +206,12 @@ def distill_identity(
         logger.warning(msg)
         return msg
 
-    # Identity is distilled from self-reflection patterns only. Routing is now
-    # done via the "self_reflection" view's embedding cosine, not a discrete
-    # subcategory field. Rationale: self-reflection captures internal states;
-    # mixing behavioral norms into identity dilutes persona specificity via
-    # the Emptiness axiom.
-    candidates = [
-        p for p in knowledge.get_raw_patterns()
-        if p.get("category", "uncategorized") == "uncategorized"
-    ]
-    matched = view_registry.find_by_view("self_reflection", candidates)
+    # Identity is distilled from self-reflection patterns only. Routing is
+    # done via the "self_reflection" view's embedding cosine (ADR-0009,
+    # ADR-0026). Rationale: self-reflection captures internal states;
+    # mixing behavioral norms into identity dilutes persona specificity
+    # via the Emptiness axiom.
+    matched = view_registry.find_by_view("self_reflection", knowledge.get_raw_patterns())
     if not matched:
         msg = "No self-reflection patterns available for identity distillation."
         logger.info(msg)
@@ -474,16 +467,16 @@ class _CategoryResult:
 def _distill_category(
     records: List[Dict],
     knowledge: KnowledgeStore,
-    category: str,
     source_date: Optional[str],
     dry_run: bool,
 ) -> _CategoryResult:
-    """Run the 3-step distill pipeline for a single category of records.
+    """Run the 3-step distill pipeline over the kept records (ADR-0026).
 
-    Dedup is performed only against existing patterns of the same category.
+    The per-category dedup scope has been retired alongside the
+    ``category`` field: dedup runs against the full live pool.
     """
     batches = [records[i:i + BATCH_SIZE] for i in range(0, len(records), BATCH_SIZE)]
-    logger.info("[%s] Processing %d episodes in %d batches", category, len(records), len(batches))
+    logger.info("Processing %d episodes in %d batches", len(records), len(batches))
 
     all_patterns: List[str] = []
     all_importances: List[float] = []
@@ -509,23 +502,20 @@ def _distill_category(
 
         batch_source_type = _derive_source_type(batch)
 
-        step1_prompt = DISTILL_CONSTITUTIONAL_PROMPT if category == "constitutional" else DISTILL_PROMPT
-        prompt = step1_prompt.format(
-            episodes="\n".join(episode_lines),
-        )
+        prompt = DISTILL_PROMPT.format(episodes="\n".join(episode_lines))
 
         # Step 1: Extract — free-form output, with rules/axioms as lens
         result = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
         if result is None:
-            logger.warning("[%s] Batch %d/%d: step 1 (extract) failed", category, batch_idx + 1, len(batches))
+            logger.warning("Batch %d/%d: step 1 (extract) failed", batch_idx + 1, len(batches))
             continue
 
         # Step 2: Summarize — concise patterns as JSON string array
         refine_prompt = DISTILL_REFINE_PROMPT.format(raw_output=result)
         refined = generate(refine_prompt, num_predict=1500)
         if refined is None:
-            logger.warning("[%s] Batch %d/%d: step 2 (summarize) failed, using step 1 output",
-                           category, batch_idx + 1, len(batches))
+            logger.warning("Batch %d/%d: step 2 (summarize) failed, using step 1 output",
+                           batch_idx + 1, len(batches))
             refined = result
 
         all_results.append(refined)
@@ -572,8 +562,8 @@ def _distill_category(
             all_episode_ids.append(list(batch_episode_ids[:5]))
         imp_summary = ", ".join(f"{i:.1f}" for i in batch_importances) if batch_importances else "none"
         logger.info(
-            "[%s] Batch %d/%d: %d episodes (prompt %d chars) → %d patterns (%d rejected) [importance: %s]",
-            category, batch_idx + 1, len(batches), len(batch), len(prompt), len(batch_patterns), rejected,
+            "Batch %d/%d: %d episodes (prompt %d chars) → %d patterns (%d rejected) [importance: %s]",
+            batch_idx + 1, len(batches), len(batch), len(prompt), len(batch_patterns), rejected,
             imp_summary,
         )
 
@@ -585,48 +575,45 @@ def _distill_category(
     new_embeddings_arr = embed_texts(all_patterns)
     if new_embeddings_arr is None or new_embeddings_arr.shape[0] != len(all_patterns):
         logger.warning(
-            "[%s] Failed to embed %d new patterns; storing without embedding (dedup degraded)",
-            category, len(all_patterns),
+            "Failed to embed %d new patterns; storing without embedding (dedup degraded)",
+            len(all_patterns),
         )
         new_embeddings: List[Optional[np.ndarray]] = [None] * len(all_patterns)
     else:
         new_embeddings = [new_embeddings_arr[i] for i in range(len(all_patterns))]
 
-    # Dedup within category only: constitutional and uncategorized are independent
-    # namespaces. Cross-category overlap is acceptable — the same insight may be
-    # relevant both as ethical principle and behavioral pattern.
-    existing_same_cat = [
-        p for p in knowledge.get_raw_patterns()
-        if p.get("category", "uncategorized") == category
-    ]
-    pre_filter = len(existing_same_cat)
-    existing_same_cat = [
-        p for p in existing_same_cat
+    # ADR-0026: dedup scope is the full live pool. Cross-axis overlap is
+    # acceptable — the semantic coordinate is shared regardless of which
+    # view a pattern is routed through at query time.
+    existing_patterns = list(knowledge.get_raw_patterns())
+    pre_filter = len(existing_patterns)
+    existing_patterns = [
+        p for p in existing_patterns
         if effective_importance(p) >= DEDUP_IMPORTANCE_FLOOR
     ]
-    if pre_filter > len(existing_same_cat):
-        logger.info("[%s] Dedup scope: %d/%d patterns (importance floor %.2f)",
-                    category, len(existing_same_cat), pre_filter, DEDUP_IMPORTANCE_FLOOR)
+    if pre_filter > len(existing_patterns):
+        logger.info("Dedup scope: %d/%d patterns (importance floor %.2f)",
+                    len(existing_patterns), pre_filter, DEDUP_IMPORTANCE_FLOOR)
 
     (
         add_patterns, add_importances, add_embeddings,
         add_indices, skipped, updated,
     ) = _dedup_patterns(
-        all_patterns, all_importances, new_embeddings, existing_same_cat,
+        all_patterns, all_importances, new_embeddings, existing_patterns,
         mutate_existing=not dry_run,
     )
 
     if dry_run:
         logger.info(
-            "[%s] Dry run — %d patterns found, %d skipped, %d would soft-invalidate",
-            category, len(all_patterns), skipped, updated,
+            "Dry run — %d patterns found, %d skipped, %d would soft-invalidate",
+            len(all_patterns), skipped, updated,
         )
         return _CategoryResult(results=tuple(all_results), added=0, updated=0)
 
     if updated:
         logger.info(
-            "[%s] Dedup: %d soft-invalidated (bitemporal) and replaced with boosted new patterns",
-            category, updated,
+            "Dedup: %d soft-invalidated (bitemporal) and replaced with boosted new patterns",
+            updated,
         )
 
     ts = now_iso()
@@ -642,32 +629,30 @@ def _distill_category(
             "source_type": source_type,
             "source_episode_ids": episode_ids,
             "sanitized": True,
-            "pipeline_version": "distill@0.21",
+            "pipeline_version": "distill@0.26",
         }
         knowledge.add_learned_pattern(
             pattern,
             source=source_date,
             importance=importance,
-            category=category,
             embedding=emb_list,
             provenance=provenance,
             trust_score=_trust_for_source(source_type),
             valid_from=ts,
         )
-        logger.info("[%s] Added pattern (importance=%.1f, source=%s): %s",
-                     category, importance, source_type, pattern[:80])
+        logger.info("Added pattern (importance=%.1f, source=%s): %s",
+                     importance, source_type, pattern[:80])
 
     # ADR-0022 (IV-4) Memory Evolution: for each newly added pattern, revise
     # topically-related *older* patterns' distilled text. The revision runs
-    # against the same-category live pool (excludes just-added patterns'
-    # own representations by construction — they aren't neighbors of
-    # themselves in the [EVOLUTION_MIN, SIM_UPDATE) band). The prompt may
-    # be empty if config/prompts/memory_evolution.md is absent — skip then.
+    # against the full live pool (excludes just-added patterns' own
+    # representations by construction — they aren't neighbors of themselves
+    # in the [EVOLUTION_MIN, SIM_UPDATE) band). The prompt may be empty if
+    # config/prompts/memory_evolution.md is absent — skip then.
     if MEMORY_EVOLUTION_PROMPT:
-        live_same_cat = [
+        live_patterns = [
             p for p in knowledge.get_raw_patterns()
-            if p.get("category", "uncategorized") == category
-            and p.get("valid_until") is None
+            if p.get("valid_until") is None
             and isinstance(p.get("embedding"), list)
         ]
         new_entries: List[Tuple[str, np.ndarray]] = []
@@ -677,15 +662,15 @@ def _distill_category(
             new_entries.append((pattern, emb))
 
         batch = evolve_patterns(
-            new_entries, live_same_cat, MEMORY_EVOLUTION_PROMPT,
+            new_entries, live_patterns, MEMORY_EVOLUTION_PROMPT,
         )
         for old_ref, invalidated in batch.invalidations:
             knowledge.replace_pattern(old_ref, invalidated)
         if batch.revised_rows:
             knowledge.add_revised_patterns(batch.revised_rows)
             logger.info(
-                "[%s] Memory evolution: revised %d neighbor patterns",
-                category, len(batch.revised_rows),
+                "Memory evolution: revised %d neighbor patterns",
+                len(batch.revised_rows),
             )
 
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)

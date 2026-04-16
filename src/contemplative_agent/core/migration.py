@@ -464,6 +464,121 @@ def _ensure_adr0021_defaults(pattern: Dict) -> bool:
     return changed
 
 
+# ============================================================
+# ADR-0026: Drop the ``category`` pattern field.
+#
+# Legacy rows may carry ``category: "noise"`` from pre-0019 LLM
+# classification. Preserve that signal as ``gated = True`` before
+# removing the field; other category values are semantically redundant
+# with the view registry and are dropped outright.
+# ============================================================
+
+
+@dataclass(frozen=True)
+class Adr0026MigrationStats:
+    patterns_total: int = 0
+    patterns_updated: int = 0  # had ``category`` removed
+    patterns_gated_from_noise: int = 0  # legacy ``category == "noise"`` preserved as gated
+    patterns_already_migrated: int = 0  # no ``category`` field in the first place
+    backup_path: Optional[Path] = None
+    errors: Tuple[str, ...] = ()
+
+
+@dataclass
+class _Adr0026MigrationBuilder:
+    patterns_total: int = 0
+    patterns_updated: int = 0
+    patterns_gated_from_noise: int = 0
+    patterns_already_migrated: int = 0
+    backup_path: Optional[Path] = None
+    errors: List[str] = field(default_factory=list)
+
+    def build(self) -> Adr0026MigrationStats:
+        return Adr0026MigrationStats(
+            patterns_total=self.patterns_total,
+            patterns_updated=self.patterns_updated,
+            patterns_gated_from_noise=self.patterns_gated_from_noise,
+            patterns_already_migrated=self.patterns_already_migrated,
+            backup_path=self.backup_path,
+            errors=tuple(self.errors),
+        )
+
+
+def drop_category_field(
+    knowledge_path: Path,
+    *,
+    dry_run: bool = False,
+) -> Adr0026MigrationStats:
+    """Remove the ``category`` field from every pattern.
+
+    Idempotent: running twice is a no-op. A pre-migration backup is
+    created before any mutation. Patterns with ``category == "noise"``
+    are preserved as ``gated = True`` (binary gate decision separate
+    from the retired ternary label).
+
+    Operates on the raw JSON to bypass ``KnowledgeStore.load``, which
+    silently drops ``category`` on read since ADR-0026 — the migration
+    needs to see the pre-migration state.
+    """
+    builder = _Adr0026MigrationBuilder()
+    if not knowledge_path.exists():
+        builder.errors.append(f"knowledge file not found: {knowledge_path}")
+        return builder.build()
+
+    try:
+        raw_text = knowledge_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        builder.errors.append(f"read failed: {exc}")
+        return builder.build()
+
+    try:
+        raw_data = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        builder.errors.append(f"json parse failed: {exc}")
+        return builder.build()
+
+    if not isinstance(raw_data, list):
+        builder.errors.append("knowledge.json is not a JSON array")
+        return builder.build()
+
+    builder.patterns_total = len(raw_data)
+
+    for pattern in raw_data:
+        if not isinstance(pattern, dict):
+            continue
+        if "category" not in pattern:
+            builder.patterns_already_migrated += 1
+            continue
+        if pattern.get("category") == "noise" and not isinstance(pattern.get("gated"), bool):
+            pattern["gated"] = True
+            builder.patterns_gated_from_noise += 1
+        del pattern["category"]
+        builder.patterns_updated += 1
+
+    if dry_run:
+        return builder.build()
+
+    if builder.patterns_updated == 0:
+        return builder.build()
+
+    builder.backup_path = backup_knowledge(knowledge_path)
+    if builder.backup_path is not None:
+        logger.info("Backed up knowledge.json → %s", builder.backup_path.name)
+
+    knowledge_path.write_text(
+        json.dumps(raw_data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    logger.info(
+        "ADR-0026 migration: %d/%d patterns updated (%d legacy noise → gated)",
+        builder.patterns_updated,
+        builder.patterns_total,
+        builder.patterns_gated_from_noise,
+    )
+
+    return builder.build()
+
+
 def migrate_patterns_to_adr0021(
     knowledge_path: Path,
     *,

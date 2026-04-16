@@ -88,6 +88,8 @@ contemplative-agent embed-backfill --patterns-only # patterns のみ
 contemplative-agent embed-backfill --dry-run       # 件数と推定時間のみ
 contemplative-agent migrate-patterns               # ADR-0021 移行: provenance/trust/bitemporal/forgetting/feedback 欠損フィールドを補完 (冪等)
 contemplative-agent migrate-patterns --dry-run     # 変更対象の件数のみ表示
+contemplative-agent migrate-categories             # ADR-0026 移行: legacy `category` field を削除 (legacy "noise" は gated=True に保存, 冪等)
+contemplative-agent migrate-categories --dry-run   # 変更対象の件数のみ表示
 contemplative-agent migrate-identity               # ADR-0024 移行: legacy 平文 identity.md を block 形式に変換 (冪等)
 contemplative-agent migrate-identity --dry-run     # backup path + block 形式プレビュー (書き込みなし)
 contemplative-agent sync-data                     # 研究データを別リポジトリに同期

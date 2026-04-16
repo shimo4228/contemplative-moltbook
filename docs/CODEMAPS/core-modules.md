@@ -118,7 +118,7 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
 - `valid_until=None` means live; superseded rows keep the timestamp (bitemporal soft-invalidate, ADR-0021). Retrieval must filter via `forgetting.is_live(p)`.
 - `effective_importance = importance × trust_score × strength × 0.95^days_since_accessed` — see `forgetting.effective_importance` (ADR-0021).
 - `success_count` / `failure_count` fed by `feedback.py` post-action updater (ADR-0021).
-- Legacy `category` field (`"constitutional" | "noise" | "uncategorized"`) still written by distill but scheduled for removal — see `docs/progress/remaining-issues-2026-04-16.md` N4.
+- `category` field removed by ADR-0026. Run `contemplative-agent migrate-categories` on legacy `knowledge.json` to drop the field (legacy `category == "noise"` is preserved as `gated = True`).
 
 ## LLM Functions (core/llm.py)
 
@@ -156,14 +156,14 @@ Fallback body (used when seed_from resolves to nothing).
 ### Knowledge Distill (`distill()`)
 
 ```
-Step 0 — Embedding classify (ADR-0019, no LLM):
-  embed all episode summaries → cosine against noise and constitutional centroids
-  → noise (sim ≥ 0.55) | constitutional (else sim ≥ 0.55) | uncategorized
-  noise records are excluded from distillation
+Step 0 — Embedding gate (ADR-0019/ADR-0026, no LLM):
+  embed all episode summaries → cosine against the noise view centroid
+  → gated (sim ≥ 0.55, excluded from distill) | kept (otherwise)
+  Constitutional / uncategorized routing collapsed into a single "kept"
+  bucket — topic routing happens at query time via views.
 
-Step 1 — Extract (batch_size=30, per-category):
-  uncategorized → LLM(DISTILL_PROMPT) → repeated-fact patterns
-  constitutional → LLM(DISTILL_CONSTITUTIONAL_PROMPT) → ethical insights
+Step 1 — Extract (batch_size=30):
+  kept → LLM(DISTILL_PROMPT) → repeated-fact patterns
 
 Step 2 — Refine:
   → LLM(DISTILL_REFINE_PROMPT) → JSON {"patterns": [...]}
@@ -196,7 +196,7 @@ View-driven batching (ADR-0019):
 
 1. `KnowledgeStore` patterns (non-gated).
 2. Exclude patterns matching the `self_reflection` view (routed to `distill_identity`).
-3. `_build_view_batches()` — for each loaded view (except `noise`, `constitutional`, `self_reflection`), rank patterns by cosine and keep top 10 by importance.
+3. `_build_view_batches()` — for each loaded view (except `noise` and `self_reflection`; ADR-0026 restored `constitutional` to the skill-extraction path), rank patterns by cosine and keep top 10 by importance.
 4. `_extract_skill()` — one LLM call per batch → one skill Markdown.
 5. `validate` + slugify → `SkillResult` list.
 6. Writes gated by cli.py per-file approval.

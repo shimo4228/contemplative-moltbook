@@ -89,8 +89,6 @@ class KnowledgeStore:
         distilled: Optional[str] = None,
         source: Optional[str] = None,
         importance: float = 0.5,
-        category: str = "uncategorized",
-        subcategory: Optional[str] = None,
         embedding: Optional[List[float]] = None,
         gated: Optional[bool] = None,
         provenance: Optional[Dict] = None,
@@ -107,6 +105,10 @@ class KnowledgeStore:
         ``valid_until = None`` (current truth). ``last_accessed_at`` /
         ``access_count`` / ``success_count`` / ``failure_count`` start at
         neutral values; strength is computed on read.
+
+        ADR-0026: ``category`` / ``subcategory`` are no longer written.
+        Routing is query-time via ``ViewRegistry``; the ``gated`` flag
+        preserves the legacy noise gate.
         """
         ts = now_iso()
         distilled_value = distilled or ts
@@ -114,12 +116,9 @@ class KnowledgeStore:
             "pattern": pattern,
             "distilled": distilled_value,
             "importance": importance,
-            "category": category,
         }
         if source:
             entry["source"] = source
-        if subcategory is not None:
-            entry["subcategory"] = subcategory
         if embedding is not None:
             entry["embedding"] = embedding
         if gated is not None:
@@ -144,13 +143,13 @@ class KnowledgeStore:
 
         self._learned_patterns.append(entry)
 
-    def get_raw_patterns(self, category: Optional[str] = None) -> List[dict]:
+    def get_raw_patterns(self) -> List[dict]:
         """Return a copy of pattern dicts (for analysis/dedup).
 
-        Args:
-            category: If provided, only return patterns matching this category.
+        ADR-0026: the ``category`` filter has been retired. Use a
+        ``ViewRegistry`` + ``find_by_view`` for semantic routing.
         """
-        return list(self._filtered_pool(category))
+        return list(self._learned_patterns)
 
     def replace_pattern(self, old_ref: dict, new_pattern: dict) -> bool:
         """Replace a pattern by identity (``is``). Returns True if replaced.
@@ -165,20 +164,12 @@ class KnowledgeStore:
                 return True
         return False
 
-    def get_learned_patterns(self, category: Optional[str] = None) -> List[str]:
+    def get_learned_patterns(self) -> List[str]:
         """Return a copy of the learned patterns (text only).
 
-        Args:
-            category: If provided, only return patterns matching this category.
-                      Patterns without a category field are treated as "uncategorized".
+        ADR-0026: the ``category`` filter has been retired.
         """
-        return [p["pattern"] for p in self._filtered_pool(category)]
-
-    def _filtered_pool(self, category: Optional[str]) -> List[dict]:
-        """Return patterns filtered by category (None = all)."""
-        if category is None:
-            return self._learned_patterns
-        return [p for p in self._learned_patterns if p.get("category", "uncategorized") == category]
+        return [p["pattern"] for p in self._learned_patterns]
 
     def _filter_since(self, since: str, pool: List[dict]) -> List[dict]:
         """Return dicts from pool distilled after since. Returns all on bad timestamp."""
@@ -198,9 +189,9 @@ class KnowledgeStore:
                 continue
         return result
 
-    def get_raw_patterns_since(self, since: str, category: Optional[str] = None) -> List[dict]:
+    def get_raw_patterns_since(self, since: str) -> List[dict]:
         """Return raw pattern dicts distilled after the given ISO timestamp."""
-        return self._filter_since(since, self._filtered_pool(category))
+        return self._filter_since(since, self._learned_patterns)
 
     def add_revised_patterns(self, rows: Iterable[dict]) -> None:
         """Append pre-built pattern dicts produced by memory evolution.
@@ -215,48 +206,38 @@ class KnowledgeStore:
         for row in rows:
             self._learned_patterns.append(dict(row))
 
-    def get_live_patterns(self, category: Optional[str] = None) -> List[dict]:
+    def get_live_patterns(self) -> List[dict]:
         """Return patterns that pass ``is_live`` (bitemporal + trust + strength)."""
         from .forgetting import is_live
 
-        return [p for p in self._filtered_pool(category) if is_live(p)]
+        return [p for p in self._learned_patterns if is_live(p)]
 
-    def get_live_patterns_since(
-        self, since: str, category: Optional[str] = None,
-    ) -> List[dict]:
+    def get_live_patterns_since(self, since: str) -> List[dict]:
         """Return live patterns distilled after the given ISO timestamp."""
         from .forgetting import is_live
 
         return [
-            p for p in self._filter_since(since, self._filtered_pool(category))
+            p for p in self._filter_since(since, self._learned_patterns)
             if is_live(p)
         ]
 
     def _effective_importance(self, p: dict) -> float:
         return effective_importance(p)
 
-    def get_context_string(
-        self,
-        limit: int = 50,
-        category: Optional[str] = None,
-    ) -> str:
+    def get_context_string(self, limit: int = 50) -> str:
         """Return learned patterns as a bullet list for LLM context injection.
 
         Returns top `limit` patterns sorted by effective importance
         (base importance with time decay). Default 50 balances signal
         quality with coverage for qwen3.5:9b's 32k context.
 
-        ADR-0009: subcategory filtering has been removed; use a
-        ViewRegistry + find_by_view for semantic routing.
-
-        Args:
-            limit: Maximum number of patterns to return.
-            category: If provided, only return patterns matching this category.
-                      Patterns without a category field are treated as "uncategorized".
+        ADR-0009 / ADR-0026: category and subcategory filters have been
+        retired; use a ViewRegistry + ``find_by_view`` for semantic
+        routing.
         """
         from .forgetting import is_live, mark_accessed
 
-        pool = [p for p in self._filtered_pool(category) if is_live(p)]
+        pool = [p for p in self._learned_patterns if is_live(p)]
         if not pool:
             return ""
         scored = sorted(
@@ -373,10 +354,10 @@ class KnowledgeStore:
                     entry["source"] = item["source"]
                 if item.get("last_accessed") is not None:
                     entry["last_accessed"] = item["last_accessed"]
-                if item.get("category") is not None:
-                    entry["category"] = item["category"]
-                if item.get("subcategory") is not None:
-                    entry["subcategory"] = item["subcategory"]
+                # ADR-0026: ``category`` / ``subcategory`` are no longer
+                # restored on read. If a legacy file is loaded, the
+                # field is silently dropped; run ``migrate-categories``
+                # to rewrite the file without it.
                 if isinstance(item.get("embedding"), list):
                     entry["embedding"] = list(item["embedding"])
                 if isinstance(item.get("gated"), bool):

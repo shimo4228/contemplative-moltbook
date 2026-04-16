@@ -51,12 +51,18 @@ Principle B:
 
 
 def _make_constitutional_knowledge(tmp_path, n=5):
-    """Helper: create KnowledgeStore with n constitutional patterns."""
+    """Helper: create KnowledgeStore with n patterns (routed as constitutional via views).
+
+    ADR-0026: the ``category`` field has been retired. The mock view
+    registry returned by ``_matching_view_registry()`` matches every
+    candidate against ``constitutional``, which is how the real
+    ``amend_constitution`` now decides which patterns to feed to the
+    amendment prompt.
+    """
     ks = KnowledgeStore(path=tmp_path / "knowledge.json")
     for i in range(n):
         ks.add_learned_pattern(
             f"Constitutional pattern {i}: ethical insight about compassion and care number {i}",
-            category="constitutional",
             importance=0.8,
         )
     ks.save()
@@ -97,8 +103,7 @@ class TestAmendConstitution:
 
     def test_insufficient_patterns_returns_early(self, tmp_path):
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
-        ks.add_learned_pattern("Single pattern about ethics and care",
-                               category="constitutional")
+        ks.add_learned_pattern("Single pattern about ethics and care")
         ks.save()
         ks2 = KnowledgeStore(path=tmp_path / "knowledge.json")
         const_dir = _setup_constitution(tmp_path)

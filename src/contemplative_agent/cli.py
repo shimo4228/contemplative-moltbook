@@ -1037,6 +1037,42 @@ def _handle_migrate_patterns(args: argparse.Namespace, _parser: argparse.Argumen
         )
 
 
+def _handle_migrate_categories(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    """ADR-0026 migration: drop the ``category`` field from every pattern."""
+    from .core.migration import drop_category_field
+
+    stats = drop_category_field(KNOWLEDGE_PATH, dry_run=args.dry_run)
+
+    print()
+    print("=== migrate-categories summary (ADR-0026) ===")
+    if stats.backup_path:
+        print(f"  backup                : {stats.backup_path.name}")
+    elif args.dry_run:
+        print("  backup                : (skipped — dry-run)")
+    print(f"  patterns total        : {stats.patterns_total}")
+    print(f"  patterns updated      : {stats.patterns_updated}")
+    print(f"  legacy noise → gated  : {stats.patterns_gated_from_noise}")
+    print(f"  already migrated      : {stats.patterns_already_migrated}")
+    if stats.errors:
+        print("  errors:")
+        for err in stats.errors:
+            print(f"    - {err}")
+    if args.dry_run:
+        print("  (dry-run — no file writes performed)")
+
+    if not args.dry_run and stats.patterns_updated > 0:
+        _log_approval(
+            "migrate-categories",
+            KNOWLEDGE_PATH,
+            approved=True,
+            content=(
+                f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
+                f"updated={stats.patterns_updated}/{stats.patterns_total} "
+                f"gated_from_noise={stats.patterns_gated_from_noise}"
+            ),
+        )
+
+
 def _handle_migrate_identity(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     """ADR-0024/0025: migrate legacy plain-text identity.md to block format."""
     print()
@@ -1751,6 +1787,16 @@ def main() -> None:
         help="Report what would change without writing knowledge.json or creating a backup",
     )
 
+    # migrate-categories (ADR-0026)
+    migrate_cat_parser = subparsers.add_parser(
+        "migrate-categories",
+        help="ADR-0026: drop the ``category`` field (legacy ``noise`` preserved as gated=True)",
+    )
+    migrate_cat_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report what would change without writing knowledge.json or creating a backup",
+    )
+
     # migrate-identity (ADR-0024 / ADR-0025)
     migrate_id_parser = subparsers.add_parser(
         "migrate-identity",
@@ -1798,6 +1844,7 @@ def main() -> None:
         "sync-data": _handle_sync_data,
         "adopt-staged": _handle_adopt_staged,
         "migrate-patterns": _handle_migrate_patterns,
+        "migrate-categories": _handle_migrate_categories,
         "migrate-identity": _handle_migrate_identity,
     }
     handler = no_llm_handlers.get(args.command)
