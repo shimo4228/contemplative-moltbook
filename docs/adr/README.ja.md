@@ -26,6 +26,11 @@
 | [0018](0018-per-caller-num-predict-embedding-stocktake.ja.md) | caller 別 num_predict + embedding-only stocktake | accepted | 2026-04-15 |
 | [0019](0019-discrete-categories-to-embedding-views.ja.md) | 離散カテゴリ廃止 → Embedding + Views `[AKC: Promote]` | accepted | 2026-04-15 |
 | [0020](0020-pivot-snapshots-for-replayability.ja.md) | Pivot スナップショットで再現可能性確保 `[AKC: Curate]` | accepted | 2026-04-16 |
+| [0021](0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md) | Pattern スキーマ拡張 — Provenance / Bitemporal / Forgetting / Feedback | proposed | 2026-04-16 |
+| [0022](0022-memory-evolution-and-hybrid-retrieval.ja.md) | Memory Evolution + Hybrid Retrieval (BM25) | proposed | 2026-04-16 |
+| [0023](0023-skill-as-memory-loop.ja.md) | Skill-as-Memory ループ — Router / Usage Log / Reflective Write | proposed | 2026-04-16 |
+| [0024](0024-identity-block-separation.ja.md) | Identity Block Separation — Frontmatter で addressing する persona ブロック | proposed | 2026-04-16 |
+| [0025](0025-identity-history-and-migrate-cli.ja.md) | Identity History ログ配線 + migrate-identity CLI | proposed | 2026-04-16 |
 
 ## ADR の種別
 
