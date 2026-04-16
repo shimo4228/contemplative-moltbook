@@ -77,6 +77,7 @@ class PromptTemplates:
     stocktake_rules: str = ""
     stocktake_merge: str = ""
     stocktake_merge_rules: str = ""
+    memory_evolution: str = ""
 
 
 
@@ -186,6 +187,7 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         stocktake_rules=_read_md_file(directory / "stocktake_rules.md", required=False),
         stocktake_merge=_read_md_file(directory / "stocktake_merge.md", required=False),
         stocktake_merge_rules=_read_md_file(directory / "stocktake_merge_rules.md", required=False),
+        memory_evolution=_read_md_file(directory / "memory_evolution.md", required=False),
     )
 
 

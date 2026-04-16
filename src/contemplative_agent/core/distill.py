@@ -624,6 +624,41 @@ def _distill_category(
         logger.info("[%s] Added pattern (importance=%.1f, source=%s): %s",
                      category, importance, source_type, pattern[:80])
 
+    # ADR-0022 (IV-4) Memory Evolution: for each newly added pattern, revise
+    # topically-related *older* patterns' distilled text. The revision runs
+    # against the same-category live pool (excludes just-added patterns'
+    # own representations by construction — they aren't neighbors of
+    # themselves in the [EVOLUTION_MIN, SIM_UPDATE) band).
+    try:
+        from .memory_evolution import evolve_patterns
+        from .prompts import MEMORY_EVOLUTION_PROMPT
+    except Exception:  # pragma: no cover — defensive, should not happen
+        MEMORY_EVOLUTION_PROMPT = ""
+        evolve_patterns = None  # type: ignore[assignment]
+
+    if evolve_patterns is not None and MEMORY_EVOLUTION_PROMPT:
+        live_same_cat = [
+            p for p in knowledge.get_raw_patterns()
+            if p.get("category", "uncategorized") == category
+            and p.get("valid_until") is None
+            and isinstance(p.get("embedding"), list)
+        ]
+        new_entries: List[Tuple[str, np.ndarray]] = []
+        for pattern, emb in zip(add_patterns, add_embeddings):
+            if emb is None:
+                continue
+            new_entries.append((pattern, emb))
+
+        revised_rows = evolve_patterns(
+            new_entries, live_same_cat, MEMORY_EVOLUTION_PROMPT,
+        )
+        if revised_rows:
+            knowledge._learned_patterns.extend(revised_rows)
+            logger.info(
+                "[%s] Memory evolution: revised %d neighbor patterns",
+                category, len(revised_rows),
+            )
+
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)
 
 

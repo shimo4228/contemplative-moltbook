@@ -19,7 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["requests>=2.33.0", "numpy>=1.24.0"]
+dependencies = ["requests>=2.33.0", "numpy>=1.24.0", "rank-bm25>=0.2.2"]
 
 [project.urls]
 Homepage = "https://github.com/shimo4228/contemplative-agent"
