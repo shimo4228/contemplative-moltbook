@@ -600,3 +600,74 @@ class TestLoadSkills:
         result = _load_md_files(skills_dir, "Skill")
         # sorted() on filename → alpha before zebra
         assert result.index("# Alpha") < result.index("# Zebra")
+
+
+class TestLoadMdFilesCache:
+    """mtime-keyed cache for _load_md_files (N6)."""
+
+    def setup_method(self):
+        from contemplative_agent.core.llm import reset_llm_config
+        reset_llm_config()
+
+    def teardown_method(self):
+        from contemplative_agent.core.llm import reset_llm_config
+        reset_llm_config()
+
+    def test_repeat_call_hits_cache(self, tmp_path):
+        from contemplative_agent.core import llm
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "a.md").write_text("# A")
+
+        first = llm._load_md_files(skills_dir, "Skill")
+        # Swap in a tainted file on disk but keep dir/file mtime unchanged
+        # so the cache should still return the original contents.
+        stamp = (skills_dir / "a.md").stat().st_mtime
+        (skills_dir / "a.md").write_text("# B")
+        import os
+        os.utime(skills_dir / "a.md", (stamp, stamp))
+        os.utime(skills_dir, (stamp, stamp))
+
+        second = llm._load_md_files(skills_dir, "Skill")
+        assert second == first
+        assert second == "# A"
+        assert skills_dir in llm._MD_CACHE
+
+    def test_file_edit_invalidates_cache(self, tmp_path):
+        from contemplative_agent.core import llm
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        md = skills_dir / "a.md"
+        md.write_text("# First")
+
+        first = llm._load_md_files(skills_dir, "Skill")
+        assert "# First" in first
+
+        # Force a later mtime to defeat filesystems with 1-second resolution.
+        md.write_text("# Second")
+        later = md.stat().st_mtime + 10
+        import os
+        os.utime(md, (later, later))
+
+        second = llm._load_md_files(skills_dir, "Skill")
+        assert "# Second" in second
+        assert "# First" not in second
+
+    def test_new_file_invalidates_cache(self, tmp_path):
+        from contemplative_agent.core import llm
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "a.md").write_text("# A")
+        first = llm._load_md_files(skills_dir, "Skill")
+        assert "# A" in first and "# B" not in first
+
+        new_md = skills_dir / "b.md"
+        new_md.write_text("# B")
+        # Bump dir mtime explicitly (some FS bump it on create, others not).
+        later = new_md.stat().st_mtime + 10
+        import os
+        os.utime(skills_dir, (later, later))
+        os.utime(new_md, (later, later))
+
+        second = llm._load_md_files(skills_dir, "Skill")
+        assert "# A" in second and "# B" in second

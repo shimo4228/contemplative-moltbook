@@ -8,7 +8,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -38,6 +38,11 @@ _default_system_prompt: Optional[str] = None
 _axiom_prompt: Optional[str] = None
 _skills_dir: Optional[Path] = None
 _rules_dir: Optional[Path] = None
+
+# Cache for _load_md_files results, keyed by directory path.
+# Value is (mtime_key, concatenated_contents). Invalidated automatically
+# when any *.md file is added, removed, or edited (mtime_key covers both).
+_MD_CACHE: Dict[Path, Tuple[float, str]] = {}
 
 
 def configure(
@@ -92,6 +97,7 @@ def reset_llm_config() -> None:
     _axiom_prompt = None
     _skills_dir = None
     _rules_dir = None
+    _MD_CACHE.clear()
     _circuit.reset()
 
 
@@ -187,17 +193,48 @@ def validate_identity_content(content: str) -> bool:
     return True
 
 
+def _mtime_key(directory: Path, md_paths: list) -> float:
+    """Composite mtime covering dir add/delete and per-file edits.
+
+    Max of directory mtime (bumped on entry add/remove) and each
+    file's mtime (bumped on content edit). Returns 0.0 if stat fails.
+    """
+    try:
+        stamps = [directory.stat().st_mtime]
+    except OSError:
+        return 0.0
+    for p in md_paths:
+        try:
+            stamps.append(p.stat().st_mtime)
+        except OSError:
+            continue
+    return max(stamps)
+
+
 def _load_md_files(directory: Optional[Path], label: str) -> str:
     """Load and concatenate .md files from a directory.
 
     Each file is validated against forbidden patterns; tainted files are skipped.
     Returns concatenated contents, or empty string if directory is missing/empty.
+
+    Result is cached by ``(directory, composite mtime)`` so repeat
+    calls inside a session (distill/insight loops invoke
+    ``_build_system_prompt`` many times) skip the per-file
+    read+validate when nothing has changed. Cache is invalidated
+    automatically on any .md add, remove, or edit.
     """
     if directory is None or not directory.is_dir():
         return ""
 
+    md_paths = sorted(directory.glob("*.md"))
+    mtime = _mtime_key(directory, md_paths)
+
+    cached = _MD_CACHE.get(directory)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+
     items = []
-    for path in sorted(directory.glob("*.md")):
+    for path in md_paths:
         try:
             content = path.read_text(encoding="utf-8").strip()
             if content and validate_identity_content(content):
@@ -207,7 +244,9 @@ def _load_md_files(directory: Optional[Path], label: str) -> str:
         except OSError as exc:
             logger.warning("Failed to read %s file %s: %s", label, path.name, exc)
 
-    return "\n\n".join(items)
+    result = "\n\n".join(items)
+    _MD_CACHE[directory] = (mtime, result)
+    return result
 
 
 def _build_system_prompt() -> str:
