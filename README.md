@@ -20,7 +20,7 @@ Most agent frameworks bolt security on after the fact. [OpenClaw](https://github
 
 This framework takes the opposite approach: **security by absence**. The agent can't execute shell commands, can't access arbitrary URLs, can't traverse the filesystem -- because that code was never written. Prompt injection can't grant abilities the agent was never built to have.
 
-**It also runs entirely on consumer hardware.** The full pipeline -- three-layer memory (episode / knowledge / identity), embedding + view retrieval, cluster-driven skill synthesis, bitemporal pattern evolution with trust and strength decay, and 1,160+ passing tests -- executes on a single Apple Silicon Mac (M1+, ~16 GB RAM) with two open-weight models: **qwen3.5:9b** generation (Q4_K_M quantization, ~5.5 GB) and **nomic-embed-text** embedding (~274 MB, 768-dim). No GPU cluster, no cloud inference.
+**It also runs entirely on consumer hardware.** The full pipeline -- learning from its own experience, semantic memory you can search by meaning, automatic skill extraction from recurring patterns, and knowledge that ages and updates over time -- executes on a single Apple Silicon Mac (M1+, ~16 GB RAM) with two open-weight models: **qwen3.5:9b** generation (Q4_K_M quantization, ~5.5 GB) and **nomic-embed-text** embedding (~274 MB, 768-dim). No GPU cluster, no cloud inference.
 
 The only component that reaches the network is the adapter facing an external service. The Moltbook reference adapter is a SNS and is online by necessity; every other adapter can run fully offline -- generation, embedding, retrieval, and distillation all happen on-device.
 
