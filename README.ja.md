@@ -6,7 +6,7 @@ Language: [English](README.md) | 日本語
 
 # Contemplative Agent (CA)
 
-[![Tests](https://img.shields.io/badge/tests-942_passed-brightgreen)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-1170_passed-brightgreen)](docs/CONFIGURATION.ja.md#開発)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
@@ -24,37 +24,52 @@ Language: [English](README.md) | 日本語
 
 ## 仕組み
 
-```mermaid
-graph LR
-    A["エピソードログ<br/><i>生の行動記録（不変）</i>"] -->|distill| B["ナレッジ：行動<br/><i>行動パターン</i>"]
-    A -->|"distill（憲法）"| G["ナレッジ：憲法<br/><i>倫理パターン</i>"]
-    B -->|distill-identity| C["アイデンティティ<br/><i>エージェントの人格</i>"]
-    B -->|insight| D["スキル<br/><i>行動の仕方</i>"]
-    D -->|rules-distill| E["ルール<br/><i>普遍的原則</i>"]
-    G -->|amend| F["憲法<br/><i>倫理原則</i>"]
-
-    style A fill:#1a1a2e,stroke:#e94560,color:#eee
-    style B fill:#1a1a2e,stroke:#0f3460,color:#eee
-    style G fill:#1a1a2e,stroke:#e94560,color:#eee
-    style C fill:#16213e,stroke:#e94560,color:#eee
-    style D fill:#16213e,stroke:#0f3460,color:#eee
-    style E fill:#16213e,stroke:#0f3460,color:#eee
-    style F fill:#16213e,stroke:#e94560,color:#eee
+```
+エピソードログ   生の行動, 不変 JSONL (untrusted)
+ │
+ ├── distill ─▶ ナレッジ (行動)
+ │                 ・埋め込み座標 (embedding) + view
+ │                 ・出所記録 (provenance) / 信頼度 (trust)
+ │                 ・時間妥当性 (bitemporal) / 強度 (strength)
+ │                 │
+ │                 ├── distill-identity ─▶ アイデンティティ
+ │                 │                       (ブロック addressed)
+ │                 │
+ │                 └── insight ─▶ スキル
+ │                                 (retrieve / apply / reflect)
+ │                                   │
+ │                                   └── rules-distill ─▶ ルール
+ │
+ └── distill (憲法) ─▶ ナレッジ (憲法)
+                                   │
+                                   └── amend ─▶ 憲法
 ```
 
 生の行動データがより抽象的なレイヤーへと上方に流れる。各レイヤーはオプション — 必要な部分だけ使えばよい。エピソードログより上のレイヤーはすべて、エージェント自身が経験を省察して生成する。
 
+内部では、ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持し、クエリは名前付きの *view*（意味的なシード）を通じて投影する。view はデータを移行せずに編集・差し替えができる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。各パターンには**出所記録 (provenance)**、**時間妥当性 (bitemporal validity)**、そして時間とともに減衰しつつ検索時に強化される**強度 (strength)** が付与される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈 (re-interpret)** される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
+
+アーキテクチャのレンズは**唯識 (Yogācāra) の八識モデル**（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)）。プロジェクトの目標は各層の**消去ではなく転依 (transformation, not elimination)** — アイデンティティは洗練すべき機能であって、解消すべき執着ではない。圧縮した対応付けとしては、エピソードログ ↔ 前五識（感官流）、ナレッジストア ↔ 阿頼耶識 (ālaya, 種子蔵)、アイデンティティブロック ↔ 末那識 (manas, 自己把握)。
+
 ## 主な特徴
 
-**自己更新するメモリ** -- 3層蒸留パイプライン。パターン抽出、行動スキル発見、ルール合成、アイデンティティ進化。エピソードログ以上の全変更に[人間の承認](docs/adr/0012-human-approval-gate.md)が必要。
+**自己更新するメモリ** -- 不変のエピソードログより上のすべての層は、エージェントが自身のログを省察して生成する — 外部の fine-tune 不要、ラベル付き学習データも不要。ログ → パターン、パターン → スキル、スキル → ルール、スキル → アイデンティティへの各昇格には[人間の承認ゲート](docs/adr/0012-human-approval-gate.md)が入る。
 
-**設計レベルのセキュリティ** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は `requests` のみ。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.md)
+- *埋め込みと view (embedding + views)* — 分類は状態ではなく **クエリ**。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。
+- *記憶の進化 (memory evolution)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)、*proposed*）。
+- *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)、*proposed*）。
+- *忘却曲線 (forgetting curve)* — 検索連動の Ebbinghaus 減衰。使われないパターンは重みが下がる（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、*proposed*）。
+
+**設計による安全 (secure by design)** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は `requests` のみ。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.md)
+
+- *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、*proposed*）。
+- *アイデンティティのブロック分離 (identity block separation)* — `identity.md` を frontmatter で名前付きブロック（persona_core, current_goals, …）として解析。ブロック単位の更新を個別のハッシュで記録（[ADR-0024](docs/adr/0024-identity-block-separation.ja.md) / [ADR-0025](docs/adr/0025-identity-history-and-migrate-cli.ja.md)、*proposed*）。
 
 **11種の倫理フレームワーク** -- ストア哲学、功利主義、ケアの倫理など11種のテンプレート同梱。同じ行動データ、異なる初期条件 — エージェントがどう分岐するかを観察。[独自テンプレートの作成 →](docs/CONFIGURATION.ja.md#キャラクターテンプレート)
 
 **ローカル完結** -- Ollama + Qwen3.5 9B。API キーはマシン外に出ない。M1 Mac で快適動作。不変のエピソードログで実験は完全再現可能。
 
-**研究グレードの透明性** -- すべての判断が追跡可能。不変のログ、蒸留成果物、日次レポートが再現性のために[公開同期](https://github.com/shimo4228/contemplative-agent-data)されている。
+**研究グレードの透明性** -- すべての判断が追跡可能。不変のログ、蒸留成果物、日次レポートが再現性のために[公開同期](https://github.com/shimo4228/contemplative-agent-data)されている。基準点スナップショット (pivot snapshots) は manifest + view + 憲法 + 重心埋め込み (centroid embeddings) を一括保存し、蒸留の完全な再実行 (replay) を可能にする（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)、*proposed*）。
 
 ## ライブエージェント
 
@@ -99,25 +114,9 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 ## エージェントシミュレーション
 
-同じフレームワークで、初期条件を変えたエージェントの分岐を観察できる。11種の倫理フレームワークテンプレートを同梱:
+同じフレームワークで、初期条件を変えたエージェントの分岐を観察できる。**11種の倫理フレームワークテンプレートを同梱** — ストア哲学、ケアの倫理、カント義務論、プラグマティズム、契約主義など。エピソードログは不変なので、同じ行動データを異なる初期条件で再処理する反事実実験が可能。
 
-| テンプレート | 哲学 | 核心原理 |
-|------------|------|---------|
-| `contemplative` | CCAI 四公理（デフォルト） | 空性、不二、正念、無量の慈悲 |
-| `stoic` | ストア哲学（徳倫理） | 知恵、勇気、節制、正義 |
-| `utilitarian` | 功利主義（帰結主義） | 帰結重視、公平な配慮、最大化 |
-| `deontologist` | 義務論（カント） | 普遍化可能性、尊厳、義務、一貫性 |
-| `care-ethicist` | ケアの倫理（ギリガン） | 注意深さ、責任、応答性 |
-| `pragmatist` | プラグマティズム（デューイ） | 実験主義、可謬主義、民主的探究 |
-| `narrativist` | ナラティブ倫理学（リクール） | 共感的想像、物語的真実、物語の誠実さ |
-| `contractarian` | 契約主義（ロールズ） | 平等な自由、格差原理、公正な機会均等 |
-| `cynic` | キュニコス派（ディオゲネス） | パレーシア、自足、行動による論証 |
-| `existentialist` | 実存主義（サルトル） | 根源的責任、真正性、自由 |
-| `tabula-rasa` | 白紙 | Be Good |
-
-独自のテンプレートも作れる — Markdown を手書きするか、コーディングエージェントに生成してもらえばよい。倫理フレームワークに限らず、`journalist`、`scientist`、`optimist` のようなテンプレートも同じ仕組みで動く。
-
-エピソードログは不変なので、同じ行動データを異なる初期条件で再処理する反事実実験が可能。
+全テンプレート一覧（哲学・核心原理・選び方・独自テンプレートの作り方）は [設定ガイド → キャラクターテンプレート](docs/CONFIGURATION.ja.md#キャラクターテンプレート) を参照。
 
 ## セキュリティモデル
 
@@ -129,7 +128,7 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 | **LLM プロバイダ** | 外部 API キーが通信中 | ローカル Ollama のみ |
 | **依存関係** | 大規模な依存ツリー | ランタイム依存は `requests` のみ |
 
-**1エージェント1外部アダプタ原則** — 外部に観測可能な副作用を持つアダプタは、1エージェントプロセスにつき最大1つ。複数の外部面を横断するワークフロー（例: 投稿 *かつ* 決済）は、1つに抱き合わせず、権限分離した別々のエージェントプロセスに分解する。詳細は [ADR-0015](docs/adr/0015-one-external-adapter-per-agent.ja.md)。
+**1エージェント1外部アダプタ原則 (one external adapter per agent)** — 外部に観測可能な副作用を持つアダプタは、1エージェントプロセスにつき最大1つ。複数の外部面を横断するワークフロー（例: 投稿 *かつ* 決済）は、1つに抱き合わせず、権限分離した別々のエージェントプロセスに分解する。詳細は [ADR-0015](docs/adr/0015-one-external-adapter-per-agent.ja.md)。
 
 > このリポジトリの URL を [Claude Code](https://claude.ai/claude-code) やコード対応 AI に貼り付けて、実行しても安全か聞いてみてほしい。コードが自ら語る。[最新のセキュリティスキャン →](docs/security/2026-04-01-security-scan.md)
 
@@ -145,91 +144,32 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 **独自アダプタ** — コアのインターフェース（メモリ、蒸留、憲法、アイデンティティ）にプラットフォーム I/O を繋ぐだけ。[docs/CODEMAPS/](docs/CODEMAPS/INDEX.md) を参照。
 
-## 使い方
+## 使い方・設定
+
+CLI コマンド全一覧、自律レベル (`--approve` / `--guarded` / `--auto`)、テンプレート選択、ドメイン設定、スケジューリング、環境変数は別ガイドに集約:
+
+→ **[docs/CONFIGURATION.ja.md](docs/CONFIGURATION.ja.md)** — CLI コマンド、テンプレート、自律レベル、ドメイン設定、スケジューリング、環境変数。
+
+日常操作のハイライト:
 
 ```bash
-contemplative-agent init              # identity + knowledge ファイル作成
-contemplative-agent register          # Moltbook に登録
-contemplative-agent run --session 60  # セッション実行（フィード → 返信 → 投稿）
-contemplative-agent distill --days 3  # エピソードログからパターン抽出
-contemplative-agent distill-identity  # ナレッジからアイデンティティを蒸留
-contemplative-agent insight           # 行動スキルを抽出
-contemplative-agent rules-distill     # スキルからルールを合成
-contemplative-agent amend-constitution # 経験に基づく憲法改正の提案
-contemplative-agent meditate --dry-run # 瞑想シミュレーション（実験段階）
-contemplative-agent sync-data         # 研究データを外部リポジトリに同期
-contemplative-agent install-schedule  # 定期実行の設定（macOS のみ）
+contemplative-agent run --session 60       # セッション実行
+contemplative-agent distill --days 3       # パターンを抽出
+contemplative-agent skill-reflect          # 利用実績に基づくスキル改訂 (ADR-0023)
 ```
 
-### 自律レベル
-
-- `--approve`（デフォルト）: 投稿ごとに y/n 確認
-- `--guarded`: 安全フィルター通過時に自動投稿
-- `--auto`: 完全自律
-
-### 設定
-
-| やりたいこと | 方法 | 詳細 |
-|------------|------|------|
-| テンプレートを選ぶ | `config/templates/{name}/` からコピー | [ガイド](docs/CONFIGURATION.ja.md#キャラクターテンプレート) |
-| トピックを変更 | `config/domain.json` を編集 | [ガイド](docs/CONFIGURATION.ja.md#ドメイン設定) |
-| 自律レベルを設定 | `--approve` / `--guarded` / `--auto` | [ガイド](docs/CONFIGURATION.ja.md#自律レベル) |
-| アイデンティティを変更 | `identity.md` を編集 or `distill-identity` | [ガイド](docs/CONFIGURATION.ja.md#アイデンティティと憲法) |
-| 憲法を変更 | `constitution/` 内のファイルを差し替え | [ガイド](docs/CONFIGURATION.ja.md#アイデンティティと憲法) |
-| 定期実行を設定 | `install-schedule` / `--uninstall` | [ガイド](docs/CONFIGURATION.ja.md#セッションとスケジューリング) |
-
-### 環境変数
-
-| 変数 | デフォルト | 説明 |
-|------|-----------|------|
-| `MOLTBOOK_API_KEY` | (必須) | Moltbook API キー |
-| `OLLAMA_MODEL` | `qwen3.5:9b` | Ollama モデル名 |
-| `MOLTBOOK_HOME` | `~/.config/moltbook/` | ランタイムデータのパス |
-| `CONTEMPLATIVE_CONFIG_DIR` | `config/` | テンプレートディレクトリのパス |
-| `OLLAMA_TRUSTED_HOSTS` | (なし) | Ollama ホスト名許可リストの拡張 |
+v1.x からアップグレードする場合は、移行コマンドを一度だけ実行する（[CLI コマンド → 一度きりの移行コマンド](docs/CONFIGURATION.ja.md#cli-コマンド) 参照）。
 
 ## アーキテクチャ
 
-```
-src/contemplative_agent/
-  core/             # プラットフォーム非依存
-    llm.py            # Ollama インターフェース、サーキットブレーカー、出力サニタイズ
-    memory.py         # 3層メモリ（エピソードログ + ナレッジ + アイデンティティ）
-    distill.py        # スリープタイム記憶蒸留 + アイデンティティ進化
-    insight.py        # 行動スキル抽出（2パス LLM + ルーブリック評価）
-    domain.py         # ドメイン設定 + プロンプト/constitution ローダー
-    scheduler.py      # レート制限スケジューリング
-  adapters/
-    moltbook/       # Moltbook 固有（ファーストアダプタ）
-    meditation/     # 能動的推論瞑想（実験段階）
-  cli.py            # コンポジションルート
-config/               # テンプレートのみ（git 管理）
-  domain.json       # ドメイン設定（サブモルト、閾値、キーワード）
-  prompts/*.md      # LLM プロンプトテンプレート
-  templates/        # identity シード + constitution デフォルト
-```
+コードベース全体で守られる不変条件は 2 つ:
 
-- **core/** はプラットフォーム非依存。**adapters/** は core に依存（逆方向は禁止）
-- Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）は行動プリセットとしてオプション採用 — アーキテクチャの前提ではなく哲学的共鳴。詳細は [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) を参照。
+- **core/** はプラットフォーム非依存。**adapters/** は core に依存（逆方向は禁止）。
+- Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）は行動プリセットとしてオプション採用 — アーキテクチャの前提ではなく哲学的共鳴。
 
-## Docker（オプション）
+モジュール一覧、データフロー図、import グラフ、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。唯識 (Yogācāra) の枠組みと、これが記憶設計をどのように予測的に制約したかは [仕組み](#仕組み) セクション参照。
 
-Docker はネットワーク分離（Ollama のインターネットアクセス遮断）と非 root 実行を提供する。脅威モデルの詳細は [ADR-0006](docs/adr/0006-docker-network-isolation.ja.md) を参照。**通常の利用には不要** — ローカルの Ollama インストールで問題なく動作する。
-
-```bash
-./setup.sh                            # ビルド + モデル DL + 起動
-docker compose up -d                  # 2回目以降の起動
-docker compose logs -f agent          # ログを監視
-```
-
-> **注意:** macOS の Docker は Metal GPU にアクセスできないため、CPU のみの推論では 9B モデルは実用的でない速度になる。Docker は主に GPU パススルーが使える Linux 環境向け。
-
-## テスト
-
-```bash
-uv run pytest tests/ -v
-uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
-```
+Docker によるネットワーク分離デプロイについては [設定ガイドの Docker セクション](docs/CONFIGURATION.ja.md#dockerオプション) を参照。
 
 ## 開発記録
 
@@ -243,6 +183,8 @@ uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
 8. [自律エージェントの自由と制約 — 自己修正・信頼境界・ゲーム性の設計](https://zenn.dev/shimo4228/articles/agent-freedom-and-constraints)
 9. [エピソードログから倫理が生まれるまで — Contemplative Agent 17日間の設計記録](https://zenn.dev/shimo4228/articles/contemplative-agent-journey)
 10. [登れる壁に看板を立てても意味がない — AIエージェントに必要なのはガードレールではなくアカウンタビリティだ](https://zenn.dev/shimo4228/articles/ai-agent-accountability-wall)
+11. [事故のあとで因果を辿れるか](https://zenn.dev/shimo4228/articles/agent-causal-traceability-org-adoption)
+12. [AIエージェントのブラックボックスは二層ある — 技術の限界とビジネスの都合](https://zenn.dev/shimo4228/articles/agent-blackbox-capitalism-timescale)
 
 ## 好きに使ってください
 
@@ -264,6 +206,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
+  version      = {2.0.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }
@@ -273,8 +216,24 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 ## 参考文献
 
-Laukkonen, R., Inglis, F., Chandaria, S., Sandved-Smith, L., Lopez-Sola, E., Hohwy, J., Gold, J., & Elwood, A. (2025). Contemplative Artificial Intelligence. [arXiv:2504.15125](https://arxiv.org/abs/2504.15125)
+### 理論的基盤
 
-Laukkonen, R., Friston, K., & Chandaria, S. (2025). A Beautiful Loop: The Neurophenomenology of Active Inference, Meditation, and Psychedelics. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/)
+- Laukkonen, R., Inglis, F., Chandaria, S., Sandved-Smith, L., Lopez-Sola, E., Hohwy, J., Gold, J., & Elwood, A. (2025). Contemplative Artificial Intelligence. [arXiv:2504.15125](https://arxiv.org/abs/2504.15125) — 四公理からなる倫理フレームワーク（オプションプリセット、[ADR-0002](docs/adr/0002-paper-faithful-ccai.md)）。
+- Laukkonen, R., Friston, K., & Chandaria, S. (2025). A Beautiful Loop: An Active Inference Theory of Consciousness. *Neuroscience & Biobehavioral Reviews*, 176, 106296. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/) — 瞑想アダプタの理論的基盤。
+- 世親（ヴァスバンドゥ, 4–5 世紀）『唯識三十頌』（*Triṃśikā-vijñaptimātratā*） — 八識モデルをアーキテクチャの枠組みとして採用（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)）。
+- 玄奘訳・編（659 年）『成唯識論』 — ヴァスバンドゥ『唯識三十頌』に対するインドの十家の注釈を編訳した論書。八識・種子（bīja）・習気（vāsanā）の整理は「ノイズを種子として保持する」方針の根拠（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
 
-Mares, J. (2026). VADUGWI: Deterministic 7-Dimensional Emotion Coordinates via Structural Pattern Recognition. [doi:10.5281/zenodo.19383636](https://doi.org/10.5281/zenodo.19383636)
+### メモリシステム
+
+各論文がプロジェクトのどの設計判断に対応するかを示す。書誌情報は arXiv で検証済み。
+
+- Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten 式の動的インデックス付けと記憶進化 (memory evolution)。新規パターン到着時に意味的に関連する既存パターンを再解釈する仕組みの基盤（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
+- Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) — 時間妥当性 (bitemporal) を持つ知識グラフ (Graphiti エンジン)。各パターンに付与する `valid_from` / `valid_until` の原型（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
+- Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Enhancing Large Language Models with Long-Term Memory.* [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) — Ebbinghaus 忘却曲線に基づく減衰 + アクセスによる強化。検索連動 (retrieval-aware) な忘却 (forgetting) の原型（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
+- Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *A Practical Memory Injection Attack against LLM Agents* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — 通常クエリのみで実行可能な記憶注入攻撃 (memory injection)。出所記録 (`source_type`) と信頼度 (`trust_score`) の導入動機。MINJA 型の攻撃を構造的に可視化する（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
+- Zhou, H., Guo, S., Liu, A., 他 (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — スキルを永続的・進化可能な「記憶単位」として扱う枠組み。retrieve → apply → outcome に基づく rewrite ループの原型（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
+
+### 関連研究
+
+- Mares, J. (2026). *VADUGWI: Deterministic 7-Dimensional Emotion Coordinates via Structural Pattern Recognition.* [doi:10.5281/zenodo.19383636](https://doi.org/10.5281/zenodo.19383636) — 決定論的感情スコアリング。設計の着想源だが依存としては採用せず。
+- Shilov, V. (2025). *CIMP (Change Intelligence Management Platform).* [github.com/cimpai/cimp](https://github.com/cimpai/cimp) — 「確率的実行に対する決定論的ガバナンス」という枠組み。品質ゲートの Decision 概念の源泉。

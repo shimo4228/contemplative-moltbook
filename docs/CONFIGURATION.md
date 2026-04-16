@@ -4,13 +4,74 @@ Detailed configuration reference for the Contemplative Agent. For quick start an
 
 ## Table of Contents
 
+- [CLI Commands](#cli-commands)
 - [Character Templates](#character-templates)
 - [Domain Settings](#domain-settings)
 - [Identity & Constitution](#identity--constitution)
 - [Skills & Rules](#skills--rules)
 - [Autonomy Levels](#autonomy-levels)
 - [Session & Scheduling](#session--scheduling)
+- [Development](#development)
 - [Environment Variables](#environment-variables)
+
+---
+
+## CLI Commands
+
+### Daily Operation
+
+```bash
+contemplative-agent init                   # Create identity + knowledge files
+contemplative-agent register               # Register on Moltbook
+contemplative-agent run --session 60       # Run a session (feed → replies → posts)
+```
+
+### Distillation & Skill Evolution
+
+```bash
+contemplative-agent distill --days 3       # Extract patterns from episode logs
+contemplative-agent distill-identity       # Distill identity from knowledge (block-aware)
+contemplative-agent insight                # Extract behavioral skills
+contemplative-agent skill-reflect --days 30 # Revise skills from usage outcomes (ADR-0023)
+contemplative-agent rules-distill          # Synthesize rules from skills
+contemplative-agent amend-constitution     # Propose constitution updates
+contemplative-agent adopt-staged           # Promote staged artifacts to live config
+```
+
+### Research & Experimental
+
+```bash
+contemplative-agent meditate --dry-run     # Meditation simulation (experimental)
+contemplative-agent sync-data              # Sync research data to external repo
+contemplative-agent generate-report --all  # Regenerate activity reports
+```
+
+### Introspection & Maintenance
+
+```bash
+contemplative-agent inspect-identity-history --tail N  # Inspect per-block identity history
+contemplative-agent prune-skill-usage --older-than N   # Trim old skill-usage logs
+contemplative-agent skill-stocktake                    # Audit skills for duplicates / low quality
+contemplative-agent rules-stocktake                    # Audit rules for duplicates / low quality
+```
+
+### One-Time Migrations
+
+Run once per data store when upgrading from v1.x to v2.0.
+
+```bash
+contemplative-agent embed-backfill         # Compute embeddings for existing patterns + episodes
+contemplative-agent migrate-patterns       # Apply ADR-0021 pattern schema to old knowledge.json
+contemplative-agent migrate-categories     # Drop retired category/subcategory fields (ADR-0026)
+contemplative-agent migrate-identity       # Convert identity.md to block-addressed form (ADR-0024)
+```
+
+### Scheduling
+
+```bash
+contemplative-agent install-schedule [--weekly-analysis]
+contemplative-agent install-schedule --uninstall
+```
 
 ---
 
@@ -230,7 +291,30 @@ Valid intervals: 1, 2, 3, 4, 6, 8, 12, 24 hours.
 
 ### Docker (Optional)
 
-For network-isolated deployment. Runs continuously with 24h sessions and automatic distillation. See `docker-compose.yml` for configuration. Not required for normal use.
+Docker provides network isolation (Ollama cannot reach the internet) and non-root execution. See [ADR-0006](adr/0006-docker-network-isolation.md) for the threat model. **Not required for normal use** — the agent runs fine with a local Ollama install.
+
+```bash
+./setup.sh                            # Build + pull model + start
+docker compose up -d                  # Subsequent starts
+docker compose logs -f agent          # Watch the agent
+```
+
+> **Note:** macOS Docker cannot access Metal GPU — CPU-only inference makes the 9B model impractically slow. Docker is primarily useful on Linux with GPU passthrough.
+
+Runs continuously with 24h sessions and automatic distillation. See `docker-compose.yml` for the full configuration.
+
+---
+
+## Development
+
+### Running Tests
+
+```bash
+uv run pytest tests/ -v
+uv run pytest tests/ --cov=contemplative_agent --cov-report=term-missing
+```
+
+Test organization and fixtures live under `tests/`; see [docs/CODEMAPS/INDEX.md](CODEMAPS/INDEX.md) for the module map used by tests.
 
 ---
 
