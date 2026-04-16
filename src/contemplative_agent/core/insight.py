@@ -25,6 +25,7 @@ from .llm import generate, validate_identity_content
 from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
 from .prompts import INSIGHT_EXTRACTION_PROMPT
+from .skill_frontmatter import parse as parse_skill_frontmatter, render as render_skill_frontmatter
 from .views import ViewRegistry
 
 logger = logging.getLogger(__name__)
@@ -291,8 +292,12 @@ def extract_insight(
         else:
             file_path = Path(filename)
 
+        # Merge ADR-0023 router fields into the LLM's legacy frontmatter block
+        # (stacking two blocks leaks legacy metadata into the router's body embed).
+        existing_meta, body = parse_skill_frontmatter(skill_text)
+        rendered = render_skill_frontmatter(existing_meta, body)
         skill_results.append(SkillResult(
-            text=skill_text,
+            text=rendered,
             filename=filename,
             target_path=file_path,
         ))
