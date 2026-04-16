@@ -309,3 +309,65 @@ class TestTrustBaseBySource:
     def test_all_within_range(self):
         for name, value in TRUST_BASE_BY_SOURCE.items():
             assert 0.0 <= value <= 1.0, f"{name}={value} out of range"
+
+
+class TestReplacePatternADR0021:
+    """ADR-0021 / knowledge_store.py:155-166 — replace_pattern swaps a
+    pattern by identity (``is``). If this breaks, bitemporal invalidation
+    fails silently: the old pattern stays live and the chain corrupts."""
+
+    def test_returns_true_and_swaps_in_place(self, tmp_path: Path):
+        store = KnowledgeStore(path=tmp_path / "k.json")
+        store.add_learned_pattern(
+            "long enough pattern to pass the valid pattern gate easily",
+        )
+        old = store._learned_patterns[0]
+        new = dict(old)
+        new["valid_until"] = "2026-05-01T00:00:00+00:00"
+
+        assert store.replace_pattern(old, new) is True
+        assert len(store._learned_patterns) == 1
+        assert store._learned_patterns[0] is new
+
+    def test_returns_false_when_target_not_present(self, tmp_path: Path):
+        store = KnowledgeStore(path=tmp_path / "k.json")
+        store.add_learned_pattern(
+            "long enough pattern to pass the valid pattern gate easily",
+        )
+        stranger = {"pattern": "not in store", "distilled": "2026-01-01"}
+
+        assert store.replace_pattern(stranger, {"pattern": "irrelevant"}) is False
+        assert len(store._learned_patterns) == 1
+
+
+class TestFilterSinceBadTimestampADR0021:
+    """ADR-0021 / knowledge_store.py:183-199 — bad ``since`` ISO returns the
+    full pool; individual records with malformed ``distilled`` are skipped
+    rather than crashing the whole filter."""
+
+    def test_bad_since_string_falls_back_to_full_pool(self, tmp_path: Path):
+        store = KnowledgeStore(path=tmp_path / "k.json")
+        store.add_learned_pattern(
+            "pattern alpha that is long enough to pass the valid gate easily",
+        )
+        store.add_learned_pattern(
+            "pattern beta that is long enough to pass the valid gate easily",
+        )
+
+        result = store.get_raw_patterns_since("not-an-iso-timestamp")
+        assert len(result) == 2
+
+    def test_record_with_bad_distilled_is_skipped(self, tmp_path: Path):
+        store = KnowledgeStore(path=tmp_path / "k.json")
+        store.add_learned_pattern(
+            "good pattern with a properly formatted distilled timestamp field",
+        )
+        store._learned_patterns.append({
+            "pattern": "broken record with malformed distilled",
+            "distilled": "not-a-real-iso",
+            "importance": 0.5,
+        })
+
+        result = store.get_raw_patterns_since("2020-01-01T00:00:00+00:00")
+        assert any("good pattern" in p["pattern"] for p in result)
+        assert not any("broken record" in p["pattern"] for p in result)

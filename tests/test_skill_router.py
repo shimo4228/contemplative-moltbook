@@ -373,3 +373,44 @@ def test_skill_match_shape() -> None:
         meta=SkillMeta(),
     )
     assert match.name == "x.md" and match.score == 0.9
+
+
+class TestEmbedFailureADR0023:
+    """ADR-0023 / skill_router.py:192-194 — when the embedder returns None
+    or a wrong-sized vector, ``_embed_missing`` logs and bails without
+    writing to the cache. Prevents index errors on the next select() call
+    that would otherwise index into a partially-populated cache."""
+
+    def test_embed_returning_none_bails_without_cache_write(
+        self, tmp_path: Path, caplog,
+    ) -> None:
+        skills_dir = tmp_path / "skills"
+        log_dir = tmp_path / "logs"
+        _write_skill(skills_dir, "alpha.md", "# Alpha\n\nalpha body")
+
+        def none_embed(texts: List[str]) -> Optional[np.ndarray]:
+            return None
+
+        router = SkillRouter(skills_dir, embed_fn=none_embed, log_dir=log_dir)
+        with caplog.at_level("WARNING", logger="contemplative_agent.core.skill_router"):
+            matches = router.select("query")
+        assert matches == []
+        assert "skill embedding failed" in caplog.text.lower()
+
+    def test_embed_wrong_length_bails_without_cache_write(
+        self, tmp_path: Path, caplog,
+    ) -> None:
+        skills_dir = tmp_path / "skills"
+        log_dir = tmp_path / "logs"
+        _write_skill(skills_dir, "alpha.md", "# Alpha\n\nalpha body")
+        _write_skill(skills_dir, "beta.md", "# Beta\n\nbeta body")
+
+        def short_embed(texts: List[str]) -> np.ndarray:
+            # expected 2 rows, returns 1
+            return np.array([[1.0, 0.0]], dtype=np.float32)
+
+        router = SkillRouter(skills_dir, embed_fn=short_embed, log_dir=log_dir)
+        with caplog.at_level("WARNING", logger="contemplative_agent.core.skill_router"):
+            matches = router.select("query")
+        assert matches == []
+        assert "skill embedding failed" in caplog.text.lower()

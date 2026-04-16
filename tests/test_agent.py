@@ -597,6 +597,77 @@ class TestRunPostCycle:
         assert outcome.args[1] == "failure"
         assert "network boom" in outcome.kwargs.get("note", "")
 
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(False, 0.0, None))
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="topic summary")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="Test Title")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_test_content", return_value=True)
+    def test_gated_by_test_content_records_partial(
+        self, mock_test_content, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dedup,
+    ):
+        """ADR-0023 / post_pipeline.py:112-117 — test-content gate must record
+        partial outcome so the router learns "this skill produced gated output",
+        and must NOT call client.post."""
+        agent = Agent(autonomy=AutonomyLevel.AUTO)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client = MagicMock()
+        agent._scheduler = MagicMock()
+        agent._scheduler.can_post.return_value = True
+        agent._content = MagicMock()
+        agent._content.create_cooperation_post.return_value = "Scaffold output"
+
+        feed_resp = MagicMock()
+        feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
+        agent._client.get.return_value = feed_resp
+
+        agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
+
+        agent._client.post.assert_not_called()
+        mock_router.record_outcome.assert_called_once()
+        outcome = mock_router.record_outcome.call_args
+        assert outcome.args[1] == "partial"
+        assert outcome.kwargs.get("note") == "gated:test_content"
+
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(False, 0.0, None))
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="topic summary")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="A thoughtful title")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1")
+    def test_gated_by_not_confirmed_records_partial(
+        self, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dedup,
+    ):
+        """ADR-0023 / post_pipeline.py:143-147 — when confirm_action returns
+        False (APPROVE mode rejection), record partial + note=gated:not_confirmed.
+        Otherwise the router would think "post succeeded" for rejected drafts."""
+        agent = Agent(autonomy=AutonomyLevel.APPROVE)
+        mock_router = MagicMock()
+        agent._ctx.skill_router = mock_router
+        agent._client = MagicMock()
+        agent._scheduler = MagicMock()
+        agent._scheduler.can_post.return_value = True
+        agent._content = MagicMock()
+        agent._content.create_cooperation_post.return_value = (
+            "A body about how gates intersect with memory."
+        )
+
+        feed_resp = MagicMock()
+        feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
+        agent._client.get.return_value = feed_resp
+
+        # APPROVE mode asks the user; simulate rejection at the pipeline
+        # seam where confirm_action is injected (not via Agent method swap,
+        # since PostPipeline captures the callable at construction time).
+        agent._post_pipeline._confirm_action = MagicMock(return_value=False)
+        agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
+
+        agent._client.post.assert_not_called()
+        mock_router.record_outcome.assert_called_once()
+        outcome = mock_router.record_outcome.call_args
+        assert outcome.args[1] == "partial"
+        assert outcome.kwargs.get("note") == "gated:not_confirmed"
+
 
 class TestRunSession:
     @patch("contemplative_agent.adapters.moltbook.agent.time")

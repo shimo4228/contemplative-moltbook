@@ -131,6 +131,33 @@ class TestEnrichNoOp:
         assert enrich(ks) == 0
 
 
+class TestDistillJSONFallbackADR0021:
+    """ADR-0021 / distill.py:548-555 — when the refine step returns text
+    that is not valid JSON, the bullet-point parser recovers patterns from
+    lines starting with ``- ``. In production the LLM occasionally
+    violates the JSON-only instruction; without this fallback the whole
+    batch would silently yield zero patterns."""
+
+    @patch("contemplative_agent.core.distill.generate")
+    def test_bullet_list_recovered_when_refine_is_not_json(
+        self, mock_generate, mock_embed_distinct, tmp_path,
+    ):
+        mock_generate.side_effect = [
+            "Some free-form analysis.",
+            # Refine step returns bullets, NOT JSON — tests the fallback.
+            "- First bullet pattern that explains quoting details clearly here\n"
+            "- Second bullet pattern that reveals generic replies stall people",
+            json.dumps({"scores": [7, 5]}),
+        ]
+
+        log = _make_log(tmp_path)
+        ks = KnowledgeStore(path=tmp_path / "knowledge.json")
+        result = distill(days=1, episode_log=log, knowledge_store=ks)
+
+        assert "First bullet pattern" in result
+        assert "Second bullet pattern" in result
+
+
 class TestParseImportanceScores:
     def test_json_format(self):
         assert _parse_importance_scores('{"scores": [8, 5]}', 2) == [0.8, 0.5]

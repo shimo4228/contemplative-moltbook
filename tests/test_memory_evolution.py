@@ -237,6 +237,49 @@ class TestEvolvePatterns:
         empty_b = evolve_patterns([("t", _emb(1.0, 0.0))], [], "x")
         assert empty_b.invalidations == () and empty_b.revised_rows == ()
 
+    def test_already_invalidated_neighbor_is_skipped(self):
+        """ADR-0022 / memory_evolution.py:250-252 — neighbors that already
+        carry ``valid_until`` must not be re-revised. Otherwise the
+        bitemporal chain branches and data silently corrupts."""
+        fake_gen_calls = []
+
+        def fake_generate(prompt, **kw) -> str:
+            fake_gen_calls.append(prompt)
+            return "Revised interpretation that should never be produced."
+
+        new_emb = _emb(1.0, 0.0)
+        already_invalid = _make_pattern(
+            "previously invalidated neighbor", _emb(0.75, 0.66),
+            valid_until="2026-03-01T00:00:00+00:00",
+        )
+        batch = evolve_patterns(
+            [("new pattern text", new_emb)], [already_invalid],
+            prompt_template="{neighbor}|{new_pattern}",
+            generate_fn=fake_generate,
+        )
+        assert batch.invalidations == ()
+        assert batch.revised_rows == ()
+        assert fake_gen_calls == []  # LLM never invoked
+
+    def test_revise_none_output_is_skipped(self):
+        """ADR-0022 / memory_evolution.py:254-256 — when the LLM (or parse)
+        returns ``revised_distilled=None``, the neighbor is skipped without
+        crashing or half-writing an invalidation row."""
+        def fake_generate(prompt, **kw) -> str:
+            return ""  # parse treats empty as None → result.revised_distilled = None
+
+        new_emb = _emb(1.0, 0.0)
+        neighbor = _make_pattern("neighbor pattern", _emb(0.75, 0.66))
+        batch = evolve_patterns(
+            [("new pattern text", new_emb)], [neighbor],
+            prompt_template="{neighbor}|{new_pattern}",
+            generate_fn=fake_generate,
+        )
+        assert batch.invalidations == ()
+        assert batch.revised_rows == ()
+        # Original untouched
+        assert neighbor.get("valid_until") is None
+
 
 class TestHybridRankBM25:
     """ADR-0022 IV-5: hybrid cosine+BM25 scoring in ViewRegistry._rank."""

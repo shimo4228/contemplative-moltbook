@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from contemplative_agent.core.skill_frontmatter import (
     SkillMeta,
+    _coerce_int,
+    _coerce_str_or_none,
     parse,
     render,
     update_meta,
@@ -152,3 +156,54 @@ class TestUpdateMeta:
         out = update_meta(meta, last_reflected_at="2026-04-16T10:00")
         assert out.extra == {"x": "y"}
         assert out.last_reflected_at == "2026-04-16T10:00"
+
+
+class TestCoerceInt:
+    """ADR-0023 / skill_frontmatter.py:47-57 — _coerce_int must absorb every
+    primitive the tiny YAML parser can emit. If a path falls through to
+    the wrong branch, skill metadata silently flips to ``default`` (0 for
+    success/failure counts) and the router mis-ranks skills."""
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (True, 1),          # bool branch
+            (False, 0),         # bool branch (distinct from None)
+            (3, 3),             # int branch
+            (3.7, 3),           # float branch
+            ("5", 5),           # str → int
+            ("  7 ", 7),        # str with whitespace
+            ("not-a-number", 0),  # str → ValueError → default
+            (None, 0),          # fallthrough default
+            ([1, 2], 0),        # unexpected type → default
+        ],
+    )
+    def test_covers_every_branch(self, value, expected):
+        assert _coerce_int(value) == expected
+
+    def test_explicit_default_used_on_failure(self):
+        assert _coerce_int("xxx", default=42) == 42
+        assert _coerce_int(None, default=99) == 99
+
+
+class TestCoerceStrOrNone:
+    """ADR-0023 / skill_frontmatter.py:60-68 — _coerce_str_or_none must
+    treat YAML null markers as None and coerce unexpected types via
+    ``str()`` rather than silently dropping them."""
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (None, None),
+            ("", None),
+            ("  ", None),
+            ("null", None),
+            ("None", None),
+            ("~", None),
+            ("2026-04-16", "2026-04-16"),
+            ("  spaced  ", "spaced"),
+            (42, "42"),           # non-str fallback via str()
+        ],
+    )
+    def test_covers_every_branch(self, value, expected):
+        assert _coerce_str_or_none(value) == expected

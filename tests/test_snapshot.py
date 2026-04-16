@@ -218,6 +218,65 @@ class TestWriteSnapshot:
         finally:
             os.chmod(unwritable.parent, 0o700)
 
+    def test_returns_none_on_oserror_after_snap_dir_created(
+        self, layout, view_registry, monkeypatch,
+    ):
+        """ADR-0020 / snapshot.py:162-164 — once snap_dir.mkdir succeeds, any
+        later OSError (copy / npz / manifest write) is swallowed and
+        write_snapshot returns None. The unwritable-parent test above covers
+        the earlier mkdir failure (124-126); this covers the second except."""
+        import contemplative_agent.core.snapshot as snap_mod
+
+        def fail(*args, **kwargs):
+            raise OSError("simulated copy failure")
+
+        monkeypatch.setattr(snap_mod, "_copy_markdown_tree", fail)
+
+        result = write_snapshot(
+            command="distill",
+            views_dir=layout["views"],
+            constitution_dir=layout["constitution"],
+            snapshots_dir=layout["snapshots"],
+            view_registry=view_registry,
+        )
+        assert result is None
+
+
+class TestApplyPatternTelemetryErrorHandling:
+    """ADR-0020 / snapshot.py:176-178 — _apply_pattern_telemetry swallows
+    OSError from KnowledgeStore.update_view_telemetry and returns 0, so a
+    broken knowledge.json does not abort the snapshot pipeline."""
+
+    def test_returns_zero_when_store_save_raises(
+        self, layout, view_registry, tmp_path, monkeypatch,
+    ):
+        import json as _json
+        from contemplative_agent.core.knowledge_store import KnowledgeStore
+
+        patterns = [{"pattern": "p1", "importance": 0.8, "embedding": [1.0] * 8}]
+        store_path = tmp_path / "kd" / "knowledge.json"
+        store_path.parent.mkdir()
+        store_path.write_text(_json.dumps(patterns), encoding="utf-8")
+        store = KnowledgeStore(path=store_path)
+        store.load()
+
+        def fail(*args, **kwargs):
+            raise OSError("simulated telemetry write failure")
+
+        monkeypatch.setattr(store, "update_view_telemetry", fail)
+
+        # snapshot itself succeeds; telemetry failure is logged + silent
+        path = write_snapshot(
+            command="distill",
+            views_dir=layout["views"],
+            constitution_dir=layout["constitution"],
+            snapshots_dir=layout["snapshots"],
+            view_registry=view_registry,
+            knowledge_store=store,
+        )
+        assert path is not None
+        assert (path / "manifest.json").exists()
+
 
 class TestPatternTelemetry:
     def _make_store(self, tmp_path: Path, patterns: list[dict]) -> KnowledgeStore:

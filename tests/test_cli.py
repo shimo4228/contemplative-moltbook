@@ -1937,3 +1937,60 @@ class TestAdoptStagedHistoryHook:
         assert not history.exists(), "rejected adoption MUST NOT append history"
         # Original file untouched
         assert "old body" in identity.read_text(encoding="utf-8")
+
+
+class TestMigrateIdentityADR0025:
+    """ADR-0025 / cli.py:1073-1074 + 1095-1096 — two silent failure paths in
+    migrate-identity CLI: (a) migrate_to_blocks returns migrated=True but
+    document=None (shouldn't happen but must not silently succeed), and
+    (b) append_history raises OSError (migration succeeds, but the audit
+    trail that ADR-0025 was built to record is lost without a warning)."""
+
+    def test_unexpected_noop_when_document_is_none(self, tmp_path, capsys):
+        from contemplative_agent.core import identity_blocks
+
+        identity = tmp_path / "identity.md"
+        identity.write_text("legacy body\n", encoding="utf-8")
+
+        fake_result = identity_blocks.MigrationResult(
+            migrated=True,
+            backup_path=tmp_path / "identity.md.bak.pre-adr0024",
+            document=None,  # unexpected: migrated claims True but no doc
+        )
+        args = MagicMock()
+        args.dry_run = False
+        with patch("contemplative_agent.cli.IDENTITY_PATH", identity), \
+             patch.object(identity_blocks, "migrate_to_blocks", return_value=fake_result):
+            _handle_migrate_identity(args, MagicMock())
+
+        captured = capsys.readouterr().out
+        assert "returned no-op unexpectedly" in captured
+
+    def test_append_history_oserror_logged_but_migration_succeeds(
+        self, tmp_path, caplog, monkeypatch,
+    ):
+        from contemplative_agent.core import identity_blocks
+
+        identity = tmp_path / "identity.md"
+        identity.write_text("legacy persona text\n", encoding="utf-8")
+        history = tmp_path / "logs" / "identity_history.jsonl"
+        audit = tmp_path / "logs" / "audit.jsonl"
+
+        def fail_append(*args, **kwargs):
+            raise OSError("simulated history write failure")
+
+        args = MagicMock()
+        args.dry_run = False
+        with patch("contemplative_agent.cli.IDENTITY_PATH", identity), \
+             patch("contemplative_agent.cli.IDENTITY_HISTORY_PATH", history), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit), \
+             patch.object(identity_blocks, "append_history", fail_append):
+            with caplog.at_level(logging.WARNING, logger="contemplative_agent.cli"):
+                _handle_migrate_identity(args, MagicMock())
+
+        # Migration body succeeded (file in block format) even though history failed
+        assert identity.read_text(encoding="utf-8").startswith("---\nblocks:")
+        assert any(
+            "failed to append identity history" in r.getMessage().lower()
+            for r in caplog.records
+        )

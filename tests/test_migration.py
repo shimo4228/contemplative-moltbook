@@ -288,3 +288,45 @@ class TestRunEmbedBackfill:
 
     def test_default_threshold_in_range(self):
         assert 0.0 <= DEFAULT_NOISE_THRESHOLD <= 1.0
+
+
+class TestIterEpisodeFilesDaysFilterADR0021:
+    """ADR-0021 / migration.py:225-235 — the ``episodes_days`` filter parses
+    filename date stems (``YYYY-MM-DD.jsonl``). Files with non-date stems
+    are silently skipped, and only files within the cutoff participate in
+    the backfill.
+
+    If this filter breaks: ``--days=7`` silently processes the entire log
+    archive (or nothing), blowing up embedding cost or producing an empty
+    backfill with no error."""
+
+    @patch("contemplative_agent.core.migration.embed_texts")
+    def test_days_filter_excludes_old_and_bad_stems(self, mock_embed, tmp_path):
+        from datetime import datetime, timezone, timedelta
+
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+
+        today = datetime.now(timezone.utc).date()
+        old = today - timedelta(days=30)
+        for d, body in [(today, "recent"), (old, "old")]:
+            rec = {
+                "ts": f"{d.isoformat()}T07:00:00Z",
+                "type": "post",
+                "data": {"title": "t", "body": body},
+            }
+            with (log_dir / f"{d.isoformat()}.jsonl").open("w", encoding="utf-8") as f:
+                f.write(json.dumps(rec) + "\n")
+
+        # File with a non-date stem — must be silently skipped, not crashed
+        (log_dir / "not-a-date.jsonl").write_text(
+            json.dumps({"ts": "x", "type": "post",
+                        "data": {"title": "n", "body": "nada"}}) + "\n",
+            encoding="utf-8",
+        )
+
+        mock_embed.return_value = np.array([[0.1, 0.2, 0.3]], dtype=np.float32)
+        store = EpisodeEmbeddingStore(db_path=tmp_path / "embeddings.sqlite")
+        stats = backfill_episode_embeddings(log_dir, store, episodes_days=3)
+
+        assert stats.episodes_total == 1  # only today's file

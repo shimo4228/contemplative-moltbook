@@ -502,3 +502,118 @@ class TestAppendHistory:
             source="distill-identity",
         )
         assert hist.exists()
+
+    def test_chmod_failure_does_not_abort(self, tmp_path: Path, monkeypatch):
+        """ADR-0025 / identity_blocks.py:384-386 — chmod(0o600) on history
+        file may fail on exotic filesystems; the write must still succeed."""
+        hist = tmp_path / "identity_history.jsonl"
+        original_chmod = Path.chmod
+
+        def fail_chmod(self, mode):
+            if self.name.endswith("identity_history.jsonl"):
+                raise OSError("simulated chmod failure")
+            return original_chmod(self, mode)
+
+        monkeypatch.setattr(Path, "chmod", fail_chmod)
+        append_history(
+            hist, block="persona_core",
+            old_body="", new_body="new body",
+            source="migration",
+        )
+        assert hist.exists()
+        line = hist.read_text(encoding="utf-8").strip()
+        assert json.loads(line)["block"] == "persona_core"
+
+
+class TestParseFrontmatterErrorsADR0024:
+    """ADR-0024 / identity_blocks.py:436-464 — every malformed block schema
+    must degrade to legacy rather than raise. If any of these branches
+    regresses, ``parse()`` will start crashing on slightly-off YAML that
+    users / migration tools produce."""
+
+    def test_missing_blocks_marker_degrades_to_legacy(self):
+        # first non-empty line is not 'blocks:' (436-440)
+        text = "---\nname: not-a-marker\n---\n\nbody\n"
+        doc = parse(text)
+        assert doc.is_legacy is True
+
+    def test_first_item_field_not_name_degrades_to_legacy(self):
+        # list item begins with 'source:' instead of 'name:' (450-453)
+        text = "---\nblocks:\n  - source: agent-edit\n---\n\nbody\n"
+        doc = parse(text)
+        assert doc.is_legacy is True
+
+    def test_block_with_empty_name_degrades_to_legacy(self):
+        # 'name: ""' leaves name empty after _split_kv (462-464)
+        text = '---\nblocks:\n  - name: ""\n---\n\nbody\n'
+        doc = parse(text)
+        assert doc.is_legacy is True
+
+    def test_continuation_field_without_colon_degrades_to_legacy(self):
+        # '    bad-line-no-colon' has no ':' (_split_kv, 469-471)
+        text = (
+            "---\n"
+            "blocks:\n"
+            "  - name: persona_core\n"
+            "    bad-line-no-colon\n"
+            "---\n"
+            "\n"
+            "body\n"
+        )
+        doc = parse(text)
+        assert doc.is_legacy is True
+
+
+class TestLoadForPromptIOErrorsADR0024:
+    """ADR-0024 / identity_blocks.py:267-282 — _load_prompt / load_for_prompt
+    must degrade to empty string on stat() or read_text() OSError.
+    Otherwise a transient disk error silently takes down the agent at
+    identity-prompt assembly time."""
+
+    def test_stat_oserror_returns_empty(self, tmp_path: Path, monkeypatch):
+        path = tmp_path / "identity.md"
+        path.write_text("persona text", encoding="utf-8")
+        original_stat = Path.stat
+        call_count = [0]
+
+        def fail_stat(self, *args, **kwargs):
+            # Path.exists() also routes through stat; let the first call
+            # succeed so exists() returns True, then fail the explicit
+            # stat() at line 266 that _load_prompt makes on mtime.
+            if self.name == "identity.md":
+                call_count[0] += 1
+                if call_count[0] > 1:
+                    raise OSError("simulated stat failure")
+            return original_stat(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", fail_stat)
+        import contemplative_agent.core.identity_blocks as ib
+        ib._PROMPT_CACHE = None
+
+        result = load_for_prompt(path)
+        assert result == ""
+
+    def test_read_text_oserror_returns_empty(self, tmp_path: Path, monkeypatch):
+        path = tmp_path / "identity.md"
+        path.write_text("persona text", encoding="utf-8")
+        original_read = Path.read_text
+
+        def fail_read(self, *args, **kwargs):
+            if self.name == "identity.md":
+                raise OSError("simulated read failure")
+            return original_read(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", fail_read)
+        # Clear any cached prompt from prior calls
+        import contemplative_agent.core.identity_blocks as ib
+        ib._PROMPT_CACHE = None
+
+        result = load_for_prompt(path)
+        assert result == ""
+
+    def test_missing_file_returns_empty(self, tmp_path: Path):
+        """Defensive: nonexistent identity.md returns '' (no crash)."""
+        path = tmp_path / "does-not-exist.md"
+        import contemplative_agent.core.identity_blocks as ib
+        ib._PROMPT_CACHE = None
+        assert load_for_prompt(path) == ""
