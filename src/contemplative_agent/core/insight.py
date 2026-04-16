@@ -21,6 +21,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from .knowledge_store import effective_importance
 from .llm import generate, validate_identity_content
 from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
@@ -127,8 +128,11 @@ def _build_view_batches(
         if view_name in _INSIGHT_EXCLUDED_VIEWS:
             continue
         matched = view_registry.find_by_view(view_name, raw_patterns)
-        # Re-rank by importance within the view's already-filtered set.
-        matched.sort(key=lambda p: p.get("importance", 0.5), reverse=True)
+        # effective_importance = importance × time_decay × trust_score × strength
+        # (ADR-0021). Without trust weighting, self_reflection (0.9) and
+        # external_reply (0.55) patterns rank equally when their base
+        # importances match — insight then over-emits from shaky sources.
+        matched.sort(key=effective_importance, reverse=True)
         texts = [p["pattern"] for p in matched[:batch_size]]
         if len(texts) < min_batch_size:
             small.extend(texts)
@@ -204,15 +208,18 @@ def extract_insight(
 
     knowledge_store.load()
 
+    # ADR-0021: pull live-only patterns so bitemporally superseded /
+    # trust-floor / strength-floor entries never enter batching. This
+    # parallels get_context_string, which reads live-only by design.
     if full:
-        raw_patterns = knowledge_store.get_raw_patterns(category="uncategorized")
+        raw_patterns = knowledge_store.get_live_patterns(category="uncategorized")
     else:
         last_run = _read_last_insight(skills_dir)
         if last_run:
-            raw_patterns = knowledge_store.get_raw_patterns_since(last_run, category="uncategorized")
+            raw_patterns = knowledge_store.get_live_patterns_since(last_run, category="uncategorized")
             logger.info("Incremental mode: %d new patterns since %s", len(raw_patterns), last_run)
         else:
-            raw_patterns = knowledge_store.get_raw_patterns(category="uncategorized")
+            raw_patterns = knowledge_store.get_live_patterns(category="uncategorized")
             logger.info("No previous insight run found, processing all %d patterns", len(raw_patterns))
 
     # self-reflection patterns are routed to distill_identity, not skill extraction.

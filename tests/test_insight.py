@@ -305,3 +305,63 @@ class TestBuildViewBatches:
         assert len(batches) == 1
         _, texts = batches[0]
         assert texts == ["high", "mid", "low"]
+
+    def test_effective_importance_orders_by_trust(self) -> None:
+        """N3: trust_score differences must break ties on equal importance.
+
+        Without effective_importance, a low-trust external_reply pattern
+        (trust=0.55) ranks equally with a high-trust self_reflection
+        pattern (trust=0.9) when their base importances match.
+        """
+        registry = MagicMock()
+        registry.names.return_value = ["technical"]
+        pats = [
+            {"pattern": "low-trust", "importance": 0.5,
+             "trust_score": 0.55, "embedding": [0.1, 0.2]},
+            {"pattern": "high-trust", "importance": 0.5,
+             "trust_score": 0.9, "embedding": [0.1, 0.2]},
+        ]
+        registry.find_by_view.return_value = pats
+
+        batches = _build_view_batches(pats, registry, batch_size=30, min_batch_size=2)
+        assert len(batches) == 1
+        _, texts = batches[0]
+        assert texts[0] == "high-trust"
+        assert texts[1] == "low-trust"
+
+
+class TestExtractInsightSupersededExclusion:
+    """N2: extract_insight must skip patterns whose valid_until is set."""
+
+    def test_superseded_patterns_excluded(
+        self, tmp_path: Path, view_registry_one_topic,
+    ) -> None:
+        ks = KnowledgeStore(path=tmp_path / "k.json")
+        # 3 live patterns + 2 superseded (valid_until set).
+        for i in range(3):
+            ks.add_learned_pattern(f"live-{i}", embedding=[0.1, 0.2])
+        for i in range(2):
+            ks.add_learned_pattern(f"dead-{i}", embedding=[0.1, 0.2],
+                                    valid_until="2020-01-01T00:00:00+00:00")
+        ks.save()
+
+        seen_batches = []
+
+        def fake_build(raw_patterns, _registry, **_kwargs):
+            seen_batches.append([p["pattern"] for p in raw_patterns])
+            return []
+
+        with patch(
+            "contemplative_agent.core.insight._build_view_batches",
+            side_effect=fake_build,
+        ):
+            result = extract_insight(
+                knowledge_store=ks,
+                view_registry=view_registry_one_topic,
+            )
+
+        # extract_insight returns "Failed to extract" when no batches produce skills.
+        assert "Failed" in str(result) or "Insufficient" in str(result)
+        assert seen_batches, "expected _build_view_batches to be called"
+        # Only live patterns reach batching.
+        assert set(seen_batches[0]) == {"live-0", "live-1", "live-2"}

@@ -2,11 +2,18 @@
 
 今日のセッション（ADR-0023 / 0024 / 0025 + `/simplify`）の後に残っている課題の棚卸し。着手順序は Severity と依存関係から判断してよい。ここに書いてあるもの以外は今のところ認識していない。
 
+## Session A (2026-04-16) で解消した項目
+
+- **N1** — insight が ADR-0023 frontmatter を emit（commit `617f740`）
+- **D1** — skill_router を reply_handler / post_pipeline から配線（commit `5cae245`）
+- **N3** — insight の top-N を `effective_importance` (trust×strength 込み) で並び替え（Session A）
+- **N2** — insight が `is_live(p)` を尊重、superseded pattern を skill 抽出から除外（Session A）
+
 ## 1. ADR-0023..0025 からの明示的な deferred（next ADR 候補）
 
 | # | 項目 | ADR | Severity | ポインタ / メモ |
 |---|---|---|---|---|
-| **D1** | `skill_router` を `agent.run_session` / `agent.do_solve` に配線する | ADR-0023 | medium | Router はテスト済みだがライブループから呼ばれていない。`skill-usage-YYYY-MM-DD.jsonl` は配線されるまで生成されない。 |
+| ~~**D1**~~ | ~~`skill_router` を `agent.run_session` / `agent.do_solve` に配線する~~ | ~~ADR-0023~~ | ~~medium~~ | **完了** (commit `5cae245`) |
 | **D2** | `skill-reflect` CLI を追加（承認ゲート付き、`insight --stage` と同じ形） | ADR-0023 | medium | `config/prompts/skill_reflect.md` と `SkillRouter.needs_reflection()` / `aggregate_usage()` は既に存在。消費側がない。 |
 | **D3** | 識別子ブロックごとの distill routing（`current_goals` を自分のビュー + 自分のプロンプトで refresh 等） | ADR-0024 | high-effort | ブロックごとの prompt を **qwen3.5:9b 自身に書かせる** 必要あり（prompt-model-match memory）。config の形状追加 + 複数ファイルに影響。 |
 | **D4** | runtime `agent-edit` tool（セッション中に個別ブロックを更新できる） | ADR-0024 | deep | ADR-0013 authorship-problem + ADR-0017 manas フレームと接続。実装前に独立 ADR で設計議論が必要。 |
@@ -17,9 +24,9 @@
 
 | # | 項目 | 場所 | Severity | メモ |
 |---|---|---|---|---|
-| **N1** | `insight` が生成する skill ファイルに ADR-0023 frontmatter が入らない | `src/contemplative_agent/core/insight.py:295`、`src/contemplative_agent/cli.py:1254` | **high** | `skill_router.select` は `success_count − failure_count` でタイブレークするが、新スキルは (0−0=0) で全タイ → タイブレークが事実上効かない。`extract_insight()` が `last_reflected_at: null, success_count: 0, failure_count: 0` のブロックを先頭に出すだけで良い。 |
-| **N2** | `insight` が ADR-0021 の `valid_until` フィルタを尊重していない | `src/contemplative_agent/core/insight.py:207, 211` | medium | `get_raw_patterns(category="uncategorized")` は superseded pattern を除外しない。比較対象: `knowledge_store.get_context_string()` は `is_live(p)` でフィルタ済み。insight が古い真実から skill を抽出しうる。 |
-| **N3** | `insight` が `trust_score` を使わずに `importance` のみで top-N を決めている | `src/contemplative_agent/core/insight.py:130` | medium | self_reflection 由来（trust=0.9）と external_reply 由来（trust=0.55）が同じ重みで並ぶ。`effective_importance = importance × trust_score × strength` を使って並び替えるだけで改善。 |
+| ~~**N1**~~ | ~~`insight` が生成する skill ファイルに ADR-0023 frontmatter が入らない~~ | `src/contemplative_agent/core/insight.py:295` | ~~**high**~~ | **完了** (commit `617f740`)。parse-then-render で LLM の legacy frontmatter と router fields を単一ブロックにマージ。 |
+| ~~**N2**~~ | ~~`insight` が ADR-0021 の `valid_until` フィルタを尊重していない~~ | `src/contemplative_agent/core/insight.py:207, 211` | ~~medium~~ | **完了**（Session A）。`extract_insight` が `is_live(p)` で superseded pattern を除外。テスト: `TestExtractInsightSupersededExclusion`。 |
+| ~~**N3**~~ | ~~`insight` が `trust_score` を使わずに `importance` のみで top-N を決めている~~ | `src/contemplative_agent/core/insight.py:130` | ~~medium~~ | **完了**（Session A）。`_build_view_batches` が `effective_importance` で並び替え、trust×strength を反映。テスト: `test_effective_importance_orders_by_trust`。 |
 
 ### 2.2 `noise / uncategorized / constitutional` 分類の冗長性
 

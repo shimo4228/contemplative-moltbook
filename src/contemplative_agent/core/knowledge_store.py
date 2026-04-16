@@ -202,6 +202,23 @@ class KnowledgeStore:
         """Return raw pattern dicts distilled after the given ISO timestamp."""
         return self._filter_since(since, self._filtered_pool(category))
 
+    def get_live_patterns(self, category: Optional[str] = None) -> List[dict]:
+        """Return patterns that pass ``is_live`` (bitemporal + trust + strength)."""
+        from .forgetting import is_live
+
+        return [p for p in self._filtered_pool(category) if is_live(p)]
+
+    def get_live_patterns_since(
+        self, since: str, category: Optional[str] = None,
+    ) -> List[dict]:
+        """Return live patterns distilled after the given ISO timestamp."""
+        from .forgetting import is_live
+
+        return [
+            p for p in self._filter_since(since, self._filtered_pool(category))
+            if is_live(p)
+        ]
+
     def _effective_importance(self, p: dict) -> float:
         return effective_importance(p)
 
