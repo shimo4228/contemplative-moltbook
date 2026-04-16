@@ -254,12 +254,19 @@ class KnowledgeStore:
     def load(self) -> None:
         """Load knowledge from JSON file.
 
+        Idempotent: resets ``_learned_patterns`` before parsing so
+        repeat calls on the same instance cannot duplicate entries.
+        Several commands (e.g. ``insight``) load at both the CLI
+        handler and the core function layer; without this reset a
+        subsequent ``save()`` would persist the doubled list.
+
         Validates content against forbidden patterns to detect
         tainted data that may have been injected via compromised
         external content during distillation.
 
         Also handles legacy Markdown format for migration.
         """
+        self._learned_patterns = []
         if self._path is None or not self._path.exists():
             logger.debug("No knowledge file at %s", self._path)
             return

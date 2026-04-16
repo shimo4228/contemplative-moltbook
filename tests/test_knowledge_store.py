@@ -25,6 +25,45 @@ from contemplative_agent.core.forgetting import (
 from contemplative_agent.core.feedback import record_outcome, record_outcome_batch
 
 
+class TestLoadIdempotency:
+    """Regression: load() must reset state so repeated calls do not duplicate.
+
+    Multiple commands (insight, distill, distill-identity) call load()
+    at both the CLI handler and core function layer. Without idempotency
+    a subsequent save() persists the doubled list — observed in the wild
+    as 285 pairs with identical valid_from on a production knowledge.json.
+    """
+
+    def test_load_twice_does_not_duplicate(self, tmp_path: Path):
+        path = tmp_path / "k.json"
+        store = KnowledgeStore(path=path)
+        store.add_learned_pattern("first observed behavior pattern in agent logs")
+        store.add_learned_pattern("second observed behavior pattern in agent logs")
+        store.save()
+
+        fresh = KnowledgeStore(path=path)
+        fresh.load()
+        first_count = len(fresh.get_raw_patterns())
+        fresh.load()
+        second_count = len(fresh.get_raw_patterns())
+
+        assert first_count == 2
+        assert second_count == first_count
+
+    def test_load_resets_preexisting_in_memory_state(self, tmp_path: Path):
+        path = tmp_path / "k.json"
+        store = KnowledgeStore(path=path)
+        store.add_learned_pattern("persisted pattern written to disk")
+        store.save()
+
+        fresh = KnowledgeStore(path=path)
+        fresh.add_learned_pattern("in-memory only pattern not on disk")
+        fresh.load()
+
+        texts = [p["pattern"] for p in fresh.get_raw_patterns()]
+        assert texts == ["persisted pattern written to disk"]
+
+
 class TestAddLearnedPatternADR0021:
     def test_defaults_for_new_pattern(self, tmp_path: Path):
         store = KnowledgeStore(path=tmp_path / "k.json")
