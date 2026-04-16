@@ -1368,7 +1368,6 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
         skills_dir=SKILLS_DIR,
         episode_log=EpisodeLog(log_dir=log_dir),
         full=args.full,
-        view_registry=view_registry,
     )
     if isinstance(result, str):
         print(result)

@@ -1,18 +1,13 @@
 """Insight extraction: synthesize learned patterns into behavioral skills.
 
-Single-pass LLM: extract one skill per view from the top-N most
-important patterns matching that view. Cross-view synthesis and
-quality control are deferred to skill-stocktake (external).
+Global embedding cluster per run. Each cluster → one LLM skill
+extraction call. Cross-cluster synthesis and quality control are
+deferred to skill-stocktake (external).
 
-ADR-0009: views replace the legacy ``subcategory`` field. Patterns are
-embedded; views materialise grouping at query time via cosine
-similarity to the view's seed text.
-
-ADR-0026 (Phase 1): the insight path no longer gates on the legacy
-``category`` field. All live patterns participate; the only excluded
-views are ``self_reflection`` (routed to distill_identity) and
-``noise`` (gate decision). The ``constitutional`` view is now
-reachable from skill extraction.
+The view concept (ADR-0009) is not used here. Views still drive
+distill's noise gate and stocktake's merge; insight works directly on
+``gated != True`` live patterns so that any clustering structure comes
+from the embeddings themselves, not from predefined seed texts.
 """
 
 from __future__ import annotations
@@ -26,22 +21,21 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 from ._io import now_iso
+from .clustering import cluster_patterns
 from .knowledge_store import effective_importance
 from .llm import generate, validate_identity_content
 from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
 from .prompts import INSIGHT_EXTRACTION_PROMPT
 from .skill_frontmatter import parse as parse_skill_frontmatter, render as render_skill_frontmatter
-from .views import ViewRegistry
 
 logger = logging.getLogger(__name__)
 
 MIN_PATTERNS_REQUIRED = 3
 MAX_SLUG_LENGTH = 50
-BATCH_SIZE = 10  # top-N per view → 1 skill per view
-_FALLBACK_TOPIC = "other"
-SELF_REFLECTION_VIEW = "self_reflection"  # routed to distill_identity, excluded from insight
-_INSIGHT_EXCLUDED_VIEWS = frozenset({"self_reflection", "noise"})
+BATCH_SIZE = 10          # max patterns per cluster passed to the LLM
+CLUSTER_THRESHOLD = 0.70  # calibration: .reports/threshold-calibration-20260417.md
+MAX_CLUSTERS = 10         # top-N clusters kept per run
 
 
 @dataclass(frozen=True)
@@ -84,8 +78,9 @@ def _extract_skill(
 
     Returns valid Markdown skill text, or None on failure.
     """
-    # The prompt template still uses {subcategory} as variable name for
-    # backward compatibility with the .md file; we pass the view name there.
+    # The prompt template variable is still ``{subcategory}`` for backward
+    # compatibility with the .md file; here we pass a topic label which
+    # is a neutral cluster identifier, not a predefined view name.
     prompt = INSIGHT_EXTRACTION_PROMPT.format(
         subcategory=topic,
         patterns="\n".join(f"- {p}" for p in patterns),
@@ -106,52 +101,62 @@ def _extract_skill(
     return text
 
 
-def _build_view_batches(
+def _cluster_score(cluster: List[dict]) -> float:
+    """Ordering key: cluster size × mean effective_importance.
+
+    Favors frequently-recurring topics that also score as important.
+    Size-only biases toward chatter; importance-only is unstable on
+    small clusters with one extreme outlier.
+    """
+    if not cluster:
+        return 0.0
+    mean_imp = sum(effective_importance(p) for p in cluster) / len(cluster)
+    return len(cluster) * mean_imp
+
+
+def _build_cluster_batches(
     raw_patterns: List[dict],
-    view_registry: ViewRegistry,
-    batch_size: int = BATCH_SIZE,
-    min_batch_size: int = MIN_PATTERNS_REQUIRED,
+    threshold: float = CLUSTER_THRESHOLD,
+    min_size: int = MIN_PATTERNS_REQUIRED,
+    max_size: int = BATCH_SIZE,
+    max_clusters: int = MAX_CLUSTERS,
 ) -> List[Tuple[str, List[str]]]:
-    """Build one batch per view (excluding self_reflection / noise / constitutional).
+    """Cluster patterns globally; keep top ``max_clusters`` by score.
 
-    For each view, runs an embedding cosine query against ``raw_patterns``
-    and keeps the top-N by importance. Views with fewer than
-    ``min_batch_size`` matches are pooled into a "mixed" batch. A pattern
-    can match multiple views (multi-membership is intentional under
-    ADR-0009); skill-stocktake handles cross-view consolidation.
+    ``gated`` patterns (noise per ADR-0026) are skipped before
+    clustering so noise centroids cannot pull meaningful clusters
+    toward themselves. Self-reflection patterns are NOT excluded — the
+    same observation can seed both a skill and an identity block; LLM
+    extraction drops the cluster if no skill can be distilled.
 
-    Patterns lacking embeddings are silently skipped — run
-    ``embed-backfill`` first to migrate them.
+    Patterns without an ``embedding`` field bypass clustering (handled
+    inside ``cluster_patterns``).
 
     Returns:
-        List of (view_name, pattern_texts) tuples.
+        List of (topic, pattern_texts) tuples. Topic names are neutral
+        ``cluster-N`` identifiers; the LLM is expected to title each
+        skill from the content itself.
     """
+    candidates = [p for p in raw_patterns if not p.get("gated")]
+    if len(candidates) < min_size:
+        return []
+
+    clusters, _singletons = cluster_patterns(
+        candidates,
+        threshold=threshold,
+        min_size=min_size,
+        max_size=max_size,
+    )
+    if not clusters:
+        return []
+
+    clusters.sort(key=_cluster_score, reverse=True)
+    clusters = clusters[:max_clusters]
+
     batches: List[Tuple[str, List[str]]] = []
-    small: List[str] = []
-
-    for view_name in view_registry.names():
-        if view_name in _INSIGHT_EXCLUDED_VIEWS:
-            continue
-        matched = view_registry.find_by_view(view_name, raw_patterns)
-        # effective_importance = importance × time_decay × trust_score × strength
-        # (ADR-0021). Without trust weighting, self_reflection (0.9) and
-        # external_reply (0.55) patterns rank equally when their base
-        # importances match — insight then over-emits from shaky sources.
-        matched.sort(key=effective_importance, reverse=True)
-        texts = [p["pattern"] for p in matched[:batch_size]]
-        if len(texts) < min_batch_size:
-            small.extend(texts)
-        else:
-            batches.append((view_name, texts))
-
-    # Merge small views into one mixed batch.
-    if small:
-        if len(small) >= min_batch_size:
-            batches.append((_FALLBACK_TOPIC, small[:batch_size]))
-        elif batches:
-            name, texts = batches[-1]
-            batches[-1] = (name, texts + small)
-
+    for idx, cluster in enumerate(clusters, start=1):
+        topic = f"cluster-{idx}"
+        batches.append((topic, [p["pattern"] for p in cluster]))
     return batches
 
 
@@ -177,11 +182,10 @@ def extract_insight(
     skills_dir: Optional[Path] = None,
     episode_log: Optional[EpisodeLog] = None,
     full: bool = False,
-    view_registry: Optional[ViewRegistry] = None,
 ) -> Union[str, InsightResult]:
     """Extract behavioral skills from accumulated knowledge.
 
-    Single-pass per batch: extract skill, validate, return.
+    Single-pass per cluster: extract skill, validate, return.
     File writing is the caller's responsibility (ADR-0012 approval gate).
     Quality control is deferred to skill-stocktake.
 
@@ -193,27 +197,19 @@ def extract_insight(
         skills_dir: Directory for skill files (used for incremental tracking).
         episode_log: EpisodeLog for reading recent insights.
         full: If True, process all patterns instead of only new ones.
-        view_registry: ViewRegistry used to (a) filter out self-reflection
-            patterns (routed to distill_identity) and (b) build per-view
-            batches via embedding cosine. Required since ADR-0009.
 
     Returns:
         InsightResult on success, or error message string.
     """
     if knowledge_store is None:
         return "No knowledge store provided."
-    if view_registry is None:
-        return (
-            "extract_insight requires a ViewRegistry since ADR-0009. "
-            "Run embed-backfill once and pass a ViewRegistry instance."
-        )
 
     knowledge_store.load()
 
     # ADR-0021: pull live-only patterns so bitemporally superseded /
     # trust-floor / strength-floor entries never enter batching.
-    # ADR-0026: dropped category="uncategorized" gate; views now own
-    # routing, so constitutional-tagged patterns are reachable too.
+    # ADR-0026: dropped category="uncategorized" gate; gated=True is the
+    # only hard exclusion (handled by _build_cluster_batches).
     if full:
         raw_patterns = knowledge_store.get_live_patterns()
     else:
@@ -224,12 +220,6 @@ def extract_insight(
         else:
             raw_patterns = knowledge_store.get_live_patterns()
             logger.info("No previous insight run found, processing all %d patterns", len(raw_patterns))
-
-    # self-reflection patterns are routed to distill_identity, not skill extraction.
-    # Routing is now done via the self_reflection view's embedding cosine.
-    self_reflection_matched = view_registry.find_by_view(SELF_REFLECTION_VIEW, raw_patterns)
-    self_reflection_ids = {id(p) for p in self_reflection_matched}
-    raw_patterns = [p for p in raw_patterns if id(p) not in self_reflection_ids]
 
     insights: List[str] = []
     if episode_log is not None:
@@ -246,10 +236,16 @@ def extract_insight(
             f"Run more sessions and distill first."
         )
 
-    batches = _build_view_batches(raw_patterns, view_registry)
+    batches = _build_cluster_batches(raw_patterns)
+
+    if not batches:
+        return (
+            f"No clusters met the size floor ({MIN_PATTERNS_REQUIRED}). "
+            f"Accumulate more diverse patterns or lower CLUSTER_THRESHOLD."
+        )
 
     logger.info(
-        "Processing %d patterns in %d batches (per-view)",
+        "Processing %d patterns in %d cluster batches",
         len(raw_patterns), len(batches),
     )
 
