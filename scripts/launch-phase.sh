@@ -35,8 +35,11 @@ case "$PHASE" in
     4) FOCUS="Phase 4 — IV-6 (Identity block separation, Letta-style editable blocks). Target ADR-0024." ;;
 esac
 
-# Compose the initial prompt.
-PROMPT=$(cat <<EOF
+# Write the initial prompt to a temp file. Passing a large multi-line
+# string as a positional arg through `tmux new-session "claude \"…\""`
+# breaks on quoting / locale; a file round-trip is stable.
+PROMPT_FILE="$(mktemp -t "cm-phase${PHASE}-prompt-XXXXXX")"
+cat > "$PROMPT_FILE" <<EOF
 Phase ${PHASE} を開始します。
 
 ## 参照ドキュメント（必ず最初に読むこと）
@@ -74,19 +77,20 @@ ${FOCUS}
 
 準備ができたら最初の Explore agent を launch してください。
 EOF
-)
 
 # Sanity check: tmux session not already running
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     echo "tmux session '$SESSION' already exists. Attach with: tmux attach -t $SESSION" >&2
     echo "Or kill first with: tmux kill-session -t $SESSION" >&2
+    rm -f "$PROMPT_FILE"
     exit 1
 fi
 
 # Launch in detached tmux session. --permission-mode plan forces Plan Mode
-# at startup so the new Claude writes a plan file before touching code.
+# at startup. The prompt is read from the temp file so shell quoting cannot
+# corrupt it.
 tmux new-session -d -s "$SESSION" -c "$REPO" \
-    "claude --permission-mode plan \"$PROMPT\""
+    "claude --model opus --permission-mode plan \"\$(cat '$PROMPT_FILE')\"; rm -f '$PROMPT_FILE'; exec \$SHELL"
 
 echo "✓ Launched Phase ${PHASE} session in tmux (name: ${SESSION})"
 echo ""
