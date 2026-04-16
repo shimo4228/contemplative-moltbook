@@ -1,4 +1,10 @@
-"""Constitution amendment: feed constitutional experience back into ethical principles."""
+"""Constitution amendment: feed constitutional experience back into ethical principles.
+
+ADR-0026 (Phase 2): constitutional pattern selection moved from the
+pattern-level ``category`` field to query-time view routing. The caller
+supplies a ``ViewRegistry`` and we retrieve patterns via
+``find_by_view("constitutional", ...)``.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +16,7 @@ from typing import Optional, Union
 from .llm import generate, get_distill_system_prompt, validate_identity_content
 from .memory import KnowledgeStore
 from .prompts import CONSTITUTION_AMEND_PROMPT
+from .views import ViewRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +35,7 @@ class AmendmentResult:
 def amend_constitution(
     knowledge_store: Optional[KnowledgeStore] = None,
     constitution_dir: Optional[Path] = None,
+    view_registry: Optional[ViewRegistry] = None,
 ) -> Union[str, AmendmentResult]:
     """Generate a constitution amendment from accumulated constitutional patterns.
 
@@ -40,6 +48,10 @@ def amend_constitution(
     Args:
         knowledge_store: KnowledgeStore with learned patterns.
         constitution_dir: Directory containing constitution .md files.
+        view_registry: ViewRegistry used to retrieve constitutional
+            patterns via embedding cosine (ADR-0026). Required since
+            Phase 2 — the legacy ``category="constitutional"`` row
+            filter has been retired.
 
     Returns:
         AmendmentResult on success, or error message string.
@@ -47,16 +59,29 @@ def amend_constitution(
     knowledge = knowledge_store or KnowledgeStore()
     knowledge.load()
 
-    constitutional_patterns = knowledge.get_learned_patterns(category="constitutional")
-    if len(constitutional_patterns) < MIN_PATTERNS_REQUIRED:
+    if view_registry is None:
         msg = (
-            f"Insufficient constitutional patterns ({len(constitutional_patterns)}/{MIN_PATTERNS_REQUIRED}). "
+            "amend_constitution requires a ViewRegistry since ADR-0026. "
+            "Pass a ViewRegistry instance so constitutional patterns can be "
+            "retrieved via view cosine."
+        )
+        logger.warning(msg)
+        return msg
+
+    # ADR-0026 Phase 2: constitutional patterns are retrieved via the
+    # "constitutional" view's embedding cosine rather than a persisted
+    # category label. Patterns lacking embeddings are silently skipped
+    # (run embed-backfill first to migrate).
+    matched = view_registry.find_by_view("constitutional", knowledge.get_live_patterns())
+    if len(matched) < MIN_PATTERNS_REQUIRED:
+        msg = (
+            f"Insufficient constitutional patterns ({len(matched)}/{MIN_PATTERNS_REQUIRED}). "
             f"More ethical experience needed before amendment."
         )
         logger.info(msg)
         return msg
 
-    constitutional_text = knowledge.get_context_string(category="constitutional")
+    constitutional_text = "\n".join(f"- {p['pattern']}" for p in matched)
 
     if not CONSTITUTION_AMEND_PROMPT:
         msg = "constitution_amend.md prompt template not found."

@@ -1,10 +1,31 @@
 """Tests for constitution amendment."""
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from contemplative_agent.core.constitution import AmendmentResult, amend_constitution, MIN_PATTERNS_REQUIRED
 from contemplative_agent.core.memory import KnowledgeStore
+
+
+def _matching_view_registry():
+    """Return a mock ViewRegistry whose 'constitutional' view matches all candidates.
+
+    ADR-0026 Phase 2: amend_constitution retrieves patterns via
+    ``view_registry.find_by_view('constitutional', ...)`` instead of a
+    row-level category filter.
+    """
+    registry = MagicMock()
+    registry.find_by_view.side_effect = (
+        lambda name, candidates: list(candidates) if name == "constitutional" else []
+    )
+    return registry
+
+
+def _empty_view_registry():
+    """Return a mock ViewRegistry whose views match nothing (no constitutional pool)."""
+    registry = MagicMock()
+    registry.find_by_view.return_value = []
+    return registry
 
 
 SAMPLE_CONSTITUTION = """# Test Constitutional Clauses
@@ -58,9 +79,21 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, str)
         assert "Insufficient" in result
+
+    def test_requires_view_registry(self, tmp_path):
+        """ADR-0026 Phase 2: missing view_registry is a clear error."""
+        ks = _make_constitutional_knowledge(tmp_path)
+        const_dir = _setup_constitution(tmp_path)
+
+        result = amend_constitution(
+            knowledge_store=ks, constitution_dir=const_dir,
+        )
+        assert isinstance(result, str)
+        assert "ViewRegistry" in result
 
     def test_insufficient_patterns_returns_early(self, tmp_path):
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
@@ -72,6 +105,7 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks2, constitution_dir=const_dir,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, str)
         assert "Insufficient" in result
@@ -86,6 +120,7 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=empty_dir,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, str)
         assert "No constitution file" in result
@@ -97,6 +132,7 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=None,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, str)
         assert "No constitution directory" in result
@@ -112,6 +148,7 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, AmendmentResult)
         assert "refined with experience" in result.text
@@ -131,6 +168,7 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, str)
         assert "LLM failed" in result
@@ -147,6 +185,7 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
+            view_registry=_matching_view_registry(),
         )
         # Validation failure returns str, not AmendmentResult
         assert isinstance(result, str)
@@ -160,6 +199,19 @@ class TestAmendConstitution:
 
         result = amend_constitution(
             knowledge_store=ks, constitution_dir=const_dir,
+            view_registry=_matching_view_registry(),
         )
         assert isinstance(result, str)
         assert "prompt template not found" in result
+
+    def test_empty_view_returns_early(self, tmp_path):
+        """ADR-0026 Phase 2: patterns exist but no view match → Insufficient."""
+        ks = _make_constitutional_knowledge(tmp_path)
+        const_dir = _setup_constitution(tmp_path)
+
+        result = amend_constitution(
+            knowledge_store=ks, constitution_dir=const_dir,
+            view_registry=_empty_view_registry(),
+        )
+        assert isinstance(result, str)
+        assert "Insufficient" in result

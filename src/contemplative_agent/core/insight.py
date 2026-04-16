@@ -6,9 +6,13 @@ quality control are deferred to skill-stocktake (external).
 
 ADR-0009: views replace the legacy ``subcategory`` field. Patterns are
 embedded; views materialise grouping at query time via cosine
-similarity to the view's seed text. The ``self_reflection`` view is
-excluded here (it is routed to distill_identity); ``noise`` and
-``constitutional`` views are also excluded from skill extraction.
+similarity to the view's seed text.
+
+ADR-0026 (Phase 1): the insight path no longer gates on the legacy
+``category`` field. All live patterns participate; the only excluded
+views are ``self_reflection`` (routed to distill_identity) and
+``noise`` (gate decision). The ``constitutional`` view is now
+reachable from skill extraction.
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ MAX_SLUG_LENGTH = 50
 BATCH_SIZE = 10  # top-N per view → 1 skill per view
 _FALLBACK_TOPIC = "other"
 SELF_REFLECTION_VIEW = "self_reflection"  # routed to distill_identity, excluded from insight
-_INSIGHT_EXCLUDED_VIEWS = frozenset({"self_reflection", "noise", "constitutional"})
+_INSIGHT_EXCLUDED_VIEWS = frozenset({"self_reflection", "noise"})
 
 
 @dataclass(frozen=True)
@@ -209,15 +213,17 @@ def extract_insight(
     # ADR-0021: pull live-only patterns so bitemporally superseded /
     # trust-floor / strength-floor entries never enter batching. This
     # parallels get_context_string, which reads live-only by design.
+    # ADR-0026: dropped category="uncategorized" gate; views now own
+    # routing, so constitutional-tagged patterns are reachable too.
     if full:
-        raw_patterns = knowledge_store.get_live_patterns(category="uncategorized")
+        raw_patterns = knowledge_store.get_live_patterns()
     else:
         last_run = _read_last_insight(skills_dir)
         if last_run:
-            raw_patterns = knowledge_store.get_live_patterns_since(last_run, category="uncategorized")
+            raw_patterns = knowledge_store.get_live_patterns_since(last_run)
             logger.info("Incremental mode: %d new patterns since %s", len(raw_patterns), last_run)
         else:
-            raw_patterns = knowledge_store.get_live_patterns(category="uncategorized")
+            raw_patterns = knowledge_store.get_live_patterns()
             logger.info("No previous insight run found, processing all %d patterns", len(raw_patterns))
 
     # self-reflection patterns are routed to distill_identity, not skill extraction.

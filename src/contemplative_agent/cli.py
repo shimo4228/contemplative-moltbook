@@ -1352,10 +1352,12 @@ def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.Argum
     _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     constitution_dir = args.constitution_dir or CONSTITUTION_DIR
+    view_registry = _load_view_registry(args)
     snapshot_path = _take_snapshot(args, "amend-constitution")
     result = amend_constitution(
         knowledge_store=knowledge_store,
         constitution_dir=constitution_dir,
+        view_registry=view_registry,
     )
     if isinstance(result, str):
         print(result)

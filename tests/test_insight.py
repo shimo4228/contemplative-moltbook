@@ -258,8 +258,9 @@ class TestBuildViewBatches:
         assert names == {"communication", "reasoning"}
 
     def test_excluded_views_skipped(self) -> None:
+        """ADR-0026 Phase 1: only self_reflection and noise are excluded."""
         registry = MagicMock()
-        registry.names.return_value = ["self_reflection", "noise", "constitutional", "communication"]
+        registry.names.return_value = ["self_reflection", "noise", "communication"]
         comm_pats = [self._pat(f"c-{i}") for i in range(5)]
         registry.find_by_view.return_value = comm_pats
 
@@ -268,7 +269,29 @@ class TestBuildViewBatches:
         names = {n for n, _ in batches}
         assert "self_reflection" not in names
         assert "noise" not in names
-        assert "constitutional" not in names
+
+    def test_constitutional_view_reachable(self) -> None:
+        """ADR-0026 Phase 1: constitutional view participates in skill extraction."""
+        registry = MagicMock()
+        registry.names.return_value = ["constitutional", "communication"]
+        const_pats = [self._pat(f"const-{i}") for i in range(5)]
+        comm_pats = [self._pat(f"comm-{i}") for i in range(5)]
+
+        def _find(name, candidates):
+            if name == "constitutional":
+                return const_pats
+            if name == "communication":
+                return comm_pats
+            return []
+        registry.find_by_view.side_effect = _find
+
+        batches = _build_view_batches(
+            const_pats + comm_pats, registry, batch_size=10, min_batch_size=3,
+        )
+        names = {n for n, _ in batches}
+        # ADR-0026: constitutional is no longer excluded
+        assert "constitutional" in names
+        assert "communication" in names
 
     def test_small_views_merged_into_mixed(self) -> None:
         registry = MagicMock()

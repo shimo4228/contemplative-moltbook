@@ -2,9 +2,13 @@
 
 ADR-0009: dedup is embedding-cosine based; subcategorisation has been
 removed (replaced by views, which materialise grouping at query time).
-The Step 0 LLM classifier is still used here for ``constitutional`` /
-``noise`` / ``uncategorized`` namespacing — replacement with an
-embedding centroid gate is commit 5's scope.
+
+ADR-0026 (Phase 2): Step 0 classification is binary — ``gated`` (noise
+centroid match → excluded from distillation) vs ``kept`` (everything
+else, funneled through a single distill pipeline). The legacy
+constitutional/uncategorized split has been collapsed; constitutional
+routing now happens at query time via ``ViewRegistry.find_by_view``
+(see ``core/constitution.py``).
 """
 
 from __future__ import annotations
@@ -97,13 +101,14 @@ def distill(
         logger.info(msg)
         return msg
 
-    # Step 0: Classify episodes via embedding centroid distance
+    # Step 0: Classify episodes via embedding centroid distance (ADR-0026:
+    # binary gated — noise centroid match is excluded, everything else is
+    # kept). Per-category routing moved to query time (views).
     classified = _classify_episodes(records, view_registry=view_registry)
-    if classified.noise:
-        logger.info("Step 0: %d noise episodes excluded from distillation", len(classified.noise))
+    if classified.gated:
+        logger.info("Step 0: %d noise episodes gated out of distillation", len(classified.gated))
     logger.info(
-        "Step 0: %d constitutional, %d uncategorized, %d noise",
-        len(classified.constitutional), len(classified.uncategorized), len(classified.noise),
+        "Step 0: %d kept, %d gated", len(classified.kept), len(classified.gated),
     )
 
     # Determine source date range from records
@@ -116,16 +121,12 @@ def distill(
     total_added = 0
     total_updated = 0
 
-    # Process each category through the 3-step pipeline
-    for category, cat_records in [
-        ("uncategorized", list(classified.uncategorized)),
-        ("constitutional", list(classified.constitutional)),
-    ]:
-        if not cat_records:
-            continue
-
+    # ADR-0026 Phase 2: single distill pass over all kept records. The
+    # ``category`` argument is a transitional placeholder until Phase 3
+    # drops it entirely.
+    if classified.kept:
         cat_results = _distill_category(
-            cat_records, knowledge, category, source_date, dry_run,
+            list(classified.kept), knowledge, "uncategorized", source_date, dry_run,
         )
         all_results.extend(cat_results.results)
         total_added += cat_results.added
@@ -338,40 +339,45 @@ def _parse_importance_scores(raw: str, expected_count: int) -> List[float]:
 
 @dataclass(frozen=True)
 class _ClassifiedRecords:
-    """Records grouped by classification category."""
-    constitutional: Tuple[Dict, ...]
-    noise: Tuple[Dict, ...]
-    uncategorized: Tuple[Dict, ...]
+    """Records grouped by the ADR-0026 binary gate.
+
+    ``gated`` episodes are noise-centroid matches excluded from
+    distillation; ``kept`` episodes proceed through the single distill
+    pipeline. Per-topic routing (constitutional / self_reflection /
+    communication / ...) happens at query time via
+    ``ViewRegistry.find_by_view``, not via a persisted category.
+    """
+    kept: Tuple[Dict, ...]
+    gated: Tuple[Dict, ...]
 
 
 def _classify_episodes(
     records: List[Dict],
     view_registry: Optional[ViewRegistry] = None,
 ) -> _ClassifiedRecords:
-    """Step 0: Classify episodes via embedding centroid distance (ADR-0009).
+    """Step 0: Binary gate via noise-centroid distance (ADR-0026).
 
     Each episode summary is bulk-embedded once and compared against the
-    ``noise`` and ``constitutional`` view centroids:
+    ``noise`` view centroid:
 
-      - noise_sim >= NOISE_THRESHOLD                 → noise (skipped)
-      - else if const_sim >= CONSTITUTIONAL_THRESHOLD → constitutional
-      - else                                          → uncategorized
+      - noise_sim >= NOISE_THRESHOLD → gated (excluded from distillation)
+      - else                          → kept
 
-    A missing view_registry or unavailable centroids degrades safely to
-    "all uncategorized" (no LLM fallback). The legacy LLM-per-episode
-    classify path has been removed.
+    A missing view_registry or unavailable centroid degrades safely to
+    "all kept" (no LLM fallback, no gating). The legacy three-way
+    classify path (constitutional / uncategorized / noise) has been
+    collapsed — constitutional routing moved to the insight read path
+    and to ``amend_constitution`` via views.
     """
     if not records:
-        return _ClassifiedRecords(constitutional=(), noise=(), uncategorized=())
+        return _ClassifiedRecords(kept=(), gated=())
 
     if view_registry is None:
         logger.warning(
             "_classify_episodes called without view_registry — "
-            "all episodes will be uncategorized (ADR-0009 requires views)"
+            "all episodes will be kept (ADR-0009 requires views for gating)"
         )
-        return _ClassifiedRecords(
-            constitutional=(), noise=(), uncategorized=tuple(records),
-        )
+        return _ClassifiedRecords(kept=tuple(records), gated=())
 
     summaries: List[str] = []
     for r in records:
@@ -389,19 +395,15 @@ def _classify_episodes(
     embeddings_arr = embed_texts(summaries)
     if embeddings_arr is None or embeddings_arr.shape[0] != len(records):
         logger.warning(
-            "Failed to embed %d episodes for classification — defaulting to uncategorized",
+            "Failed to embed %d episodes for classification — defaulting to kept",
             len(records),
         )
-        return _ClassifiedRecords(
-            constitutional=(), noise=(), uncategorized=tuple(records),
-        )
+        return _ClassifiedRecords(kept=tuple(records), gated=())
 
     noise_centroid = view_registry.get_centroid("noise")
-    const_centroid = view_registry.get_centroid("constitutional")
 
-    constitutional: List[Dict] = []
-    noise: List[Dict] = []
-    uncategorized: List[Dict] = []
+    kept: List[Dict] = []
+    gated: List[Dict] = []
 
     for idx, r in enumerate(records):
         emb = embeddings_arr[idx]
@@ -409,26 +411,16 @@ def _classify_episodes(
             noise_sim = cosine(emb, noise_centroid)
         else:
             noise_sim = 0.0
-        if const_centroid is not None:
-            const_sim = cosine(emb, const_centroid)
-        else:
-            const_sim = 0.0
 
         if noise_sim >= NOISE_THRESHOLD:
-            noise.append(r)
-        elif const_sim >= CONSTITUTIONAL_THRESHOLD:
-            constitutional.append(r)
+            gated.append(r)
         else:
-            uncategorized.append(r)
+            kept.append(r)
 
         if (idx + 1) % 50 == 0:
             logger.info("Classified %d/%d episodes", idx + 1, len(records))
 
-    return _ClassifiedRecords(
-        constitutional=tuple(constitutional),
-        noise=tuple(noise),
-        uncategorized=tuple(uncategorized),
-    )
+    return _ClassifiedRecords(kept=tuple(kept), gated=tuple(gated))
 
 
 def _episode_source_kind(record: Dict) -> str:

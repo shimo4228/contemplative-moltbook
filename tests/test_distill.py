@@ -521,42 +521,48 @@ class TestDistillIdentity:
 
 
 class TestClassifyEpisodes:
+    """ADR-0026 Phase 2: binary gate — noise centroid match → gated, else kept."""
+
     @patch("contemplative_agent.core.distill.embed_texts")
-    def test_classifies_via_centroid(self, mock_embed):
+    def test_non_noise_episode_is_kept(self, mock_embed):
         mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
         registry = MagicMock()
-        # noise centroid different (sim < threshold), constitutional centroid matching
+        # noise centroid different (sim < threshold) → episode is kept
         registry.get_centroid.side_effect = lambda name: (
             np.array([0.0, 1.0], dtype=np.float32) if name == "noise"
-            else np.array([1.0, 0.0], dtype=np.float32)  # constitutional matches
+            else None
         )
         records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
                     "data": {"observation": "Notice empty"}}]
         result = _classify_episodes(records, view_registry=registry)
         assert isinstance(result, _ClassifiedRecords)
-        assert len(result.constitutional) == 1
-        assert len(result.noise) == 0
+        assert len(result.kept) == 1
+        assert len(result.gated) == 0
 
     @patch("contemplative_agent.core.distill.embed_texts")
-    def test_noise_gate_takes_precedence(self, mock_embed):
+    def test_noise_episode_is_gated(self, mock_embed):
         mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
         registry = MagicMock()
-        # both noise and constitutional centroids match; noise wins
+        # noise centroid matches → episode is gated out
         registry.get_centroid.return_value = np.array([1.0, 0.0], dtype=np.float32)
         records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
                     "data": {"observation": "x"}}]
         result = _classify_episodes(records, view_registry=registry)
-        assert len(result.noise) == 1
+        assert len(result.gated) == 1
+        assert len(result.kept) == 0
 
-    def test_no_view_registry_defaults_to_uncategorized(self):
+    def test_no_view_registry_defaults_to_kept(self):
+        """Without a registry, no gating happens — everything is kept."""
         records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
                     "data": {"observation": "x"}}]
         result = _classify_episodes(records, view_registry=None)
-        assert len(result.uncategorized) == 1
-        assert len(result.noise) == 0
+        assert len(result.kept) == 1
+        assert len(result.gated) == 0
 
     def test_empty_records(self):
-        assert _classify_episodes([], view_registry=None).uncategorized == ()
+        result = _classify_episodes([], view_registry=None)
+        assert result.kept == ()
+        assert result.gated == ()
 
 
 class TestKnowledgeStore:
