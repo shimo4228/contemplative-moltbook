@@ -13,6 +13,15 @@
 
 - **D2** — `skill-reflect` CLI 追加（承認ゲート付き、`--stage` / `--days` 対応）。`core/skill_reflect.py` に `reflect_skills()` を実装。usage window で eligible skill を選び、failure contexts を prompt に埋めて revise、`last_reflected_at` を frontmatter に反映。NO_CHANGE 出力はスキップ。
 
+## Session C (2026-04-16) で解消した項目
+
+- **N7** — `_dedup_patterns` の `return_indices` フラグ削除、6-tuple 固定 + `Tuple[...]` 型注釈を明示。
+- **N8** — `distill._process_category` が `KnowledgeStore._learned_patterns` を直接 extend していた private field 操作を、新規 `add_revised_patterns()` 公開 API 経由に置換。
+- **N9** — `_trust_for_source("mixed")` の `min(...)` 特殊ケースを撤去し、`TRUST_BASE_BY_SOURCE.get(...)` 定数参照のみに統一。
+- **N10** — `distill.py` で `try/except Exception` に包まれていた同パッケージ import (`memory_evolution`, `MEMORY_EVOLUTION_PROMPT`) を top-level 移動。空判定で skip に変更。
+- **N12** — `_io.now_iso(timespec="minutes")` を追加し、`_now_iso()` の 2 定義 (feedback / identity_blocks) と 7 箇所のインライン呼び出し (distill / knowledge_store / migration / insight / rules_distill / skill_reflect / memory_evolution / cli / meditation.report) を統合。
+- **N13** — `_io.append_jsonl_restricted(path, record)` を追加し、`umask(0o177) + open("a") + json.dumps` の JSONL 追記パターンを 3 箇所 (cli 監査ログ / episode_log / skill_router) から吸収。
+
 ## 1. ADR-0023..0025 からの明示的な deferred（next ADR 候補）
 
 | # | 項目 | ADR | Severity | ポインタ / メモ |
@@ -44,13 +53,13 @@
 |---|---|---|---|---|
 | **N5** | `CLAUDE.md` が CODEMAPS と内容重複（structure / CLI 一覧 / dependencies） | `CLAUDE.md:5–92` vs `docs/CODEMAPS/` | low | context-sync のロール分離に反する。今回は **あえて修正せず**、単独のドキュメント掃除セッションで対応。 |
 | **N6** | `_build_system_prompt` が LLM generate 呼び出しのたびに skills/ と rules/ の .md を glob + read | `src/contemplative_agent/core/llm.py:235, 242` | low | identity 側は `/simplify` で mtime キャッシュ追加済み。skills/ rules/ も同形式で吸収可。セッションあたり 50 generate × N ファイル単位の I/O。 |
-| **N7** | `_dedup_patterns` の戻り値型注釈が `Tuple` に削られている（5-tuple/6-tuple 可変） | `src/contemplative_agent/core/distill.py:717` | medium | `return_indices` パラメータで shape が変わる。実際の呼び出しは 1 箇所で常に `True`。フラグ削除 + 6-tuple 固定化が妥当。 |
-| **N8** | `apply_revision` が neighbor dict を in-place で mutate し、KnowledgeStore API をバイパス | `src/contemplative_agent/core/memory_evolution.py:161`、`distill.py:697` | medium | coding-style.md の immutability 規約に反する。`_learned_patterns` private field に直接手を入れている。モック/ロールバック不可能。`KnowledgeStore.add_revised_patterns()` 相当を追加するのが筋。 |
-| **N9** | `_trust_for_source("mixed")` が `min(0.9, 0.55) = 0.55` を返すが、`TRUST_BASE_BY_SOURCE["mixed"] = 0.5` | `src/contemplative_agent/core/distill.py:463–470` | low | 片方を変えるとサイレントにズレる。特殊ケースを撤去して定数参照に統一するだけ。 |
-| **N10** | 同パッケージ import を `try/except Exception` で覆う | `src/contemplative_agent/core/distill.py:673–678` | low | 本当の import 失敗を握りつぶす。fallback パスは本番で一度も走っていない。import を top に移動して、スキップは `MEMORY_EVOLUTION_PROMPT` 文字列の空判定で行う。 |
+| ~~**N7**~~ | ~~`_dedup_patterns` の戻り値型注釈が `Tuple` に削られている~~ | `src/contemplative_agent/core/distill.py:717` | ~~medium~~ | **完了** (Session C)。`return_indices` 削除 + 6-tuple 固定 + 明示型注釈。 |
+| ~~**N8**~~ | ~~`apply_revision` が KnowledgeStore API をバイパス~~ | `src/contemplative_agent/core/distill.py:699` | ~~medium~~ | **完了** (Session C)。`_learned_patterns.extend(...)` を `add_revised_patterns()` 公開 API 経由に置換。 |
+| ~~**N9**~~ | ~~`_trust_for_source("mixed")` が定数と不整合~~ | `src/contemplative_agent/core/distill.py:463–470` | ~~low~~ | **完了** (Session C)。特殊ケース撤去、`TRUST_BASE_BY_SOURCE.get(...)` のみに。 |
+| ~~**N10**~~ | ~~同パッケージ import を `try/except Exception` で覆う~~ | `src/contemplative_agent/core/distill.py:673–678` | ~~low~~ | **完了** (Session C)。top-level import に移動、`MEMORY_EVOLUTION_PROMPT` 空判定で skip。 |
 | **N11** | `identity_history.jsonl` / `skill-usage-*.jsonl` の成長上限なし | `identity_blocks.py`、`skill_router.py` | low | ADR-0021 / ADR-0025 で明示的に「rotation なし」を選んでいる（append-only 規約）。将来 `inspect-identity-history` / `prune-usage-log` CLI を足す余地。 |
-| **N12** | `_now_iso()` が 2 定義（`timespec` 不一致） + 8 箇所以上のインライン呼び出し | `feedback.py:23`（minutes）、`identity_blocks.py:493`（seconds）、`distill.py:640, 739`、`knowledge_store.py:111`、`memory_evolution.py:158`、`migration.py:368`、`forgetting.py:89`、`insight.py:163`、`rules_distill.py:185` | low | ログ同士のタイムスタンプ粒度がサイレントにズレる。`_io.py` に統合するのが自然。 |
-| **N13** | `umask(0o177) + open("a")` JSONL 追記パターンが 5 箇所で重複 | `skill_router.py:288`、`cli.py:280`（`_log_approval`）、`episode_log.py:48`、`episode_embeddings.py:70`、`scheduler.py:73` | low | `_io.append_restricted(path, line)` 相当を作るだけで全部吸収できる。 |
+| ~~**N12**~~ | ~~`_now_iso()` の 2 定義 + 8+ インライン呼び出し~~ | — | ~~low~~ | **完了** (Session C)。`_io.now_iso(timespec=...)` に統合。 |
+| ~~**N13**~~ | ~~`umask(0o177) + open("a")` JSONL 追記パターンの重複~~ | — | ~~low~~ | **完了** (Session C)。`_io.append_jsonl_restricted(path, record)` で 3 箇所を吸収。 |
 
 ## 3. 運用で気にしておくべきポイント（バグになりうる箇所）
 

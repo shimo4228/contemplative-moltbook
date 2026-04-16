@@ -9,8 +9,10 @@ router log introduced in ADR-0023 and is wired up there.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Iterable, Optional
+
+from ._io import now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +20,6 @@ logger = logging.getLogger(__name__)
 # attribution is noisy — one action rarely proves a pattern's worth.
 TRUST_DELTA_SUCCESS = 0.02
 TRUST_DELTA_FAILURE = 0.05  # asymmetric: failures hurt more than successes help
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="minutes")
 
 
 def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -48,7 +46,7 @@ def record_outcome(
     current = float(pattern.get("trust_score", 0.6))
     pattern["trust_score"] = _clamp(current + delta)
     pattern["trust_updated_at"] = (
-        now.isoformat(timespec="minutes") if now else _now_iso()
+        now.isoformat(timespec="minutes") if now else now_iso()
     )
 
 

@@ -6,11 +6,10 @@ import json
 import logging
 import os
 from dataclasses import asdict
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from ...core._io import write_restricted
+from ...core._io import now_iso, write_restricted
 from ...core.llm import generate
 from .config import ACTION_STATES, CONTEXT_STATES
 from .meditate import MeditationResult
@@ -64,7 +63,7 @@ def _save_result(result: MeditationResult, results_path: Path) -> None:
             existing = []
 
     entry = {
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ts": now_iso(timespec="seconds"),
         **asdict(result),
     }
     existing.append(entry)

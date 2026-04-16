@@ -12,7 +12,6 @@ import os
 import stat
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
@@ -38,6 +37,7 @@ from .adapters.moltbook.config import (
     VIEWS_DIR,
 )
 from .core import identity_blocks
+from .core._io import append_jsonl_restricted, now_iso
 from .core.domain import (
     DEFAULT_CONFIG_DIR,
     DomainConfig,
@@ -268,7 +268,7 @@ def _log_approval(
     else:
         decision = "rejected"
     record = {
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ts": now_iso(timespec="seconds"),
         "command": command,
         "path": str(path),
         "decision": decision,
@@ -277,13 +277,7 @@ def _log_approval(
         "snapshot_path": str(snapshot_path) if snapshot_path is not None else None,
     }
     try:
-        AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        old_umask = os.umask(0o177)
-        try:
-            with open(AUDIT_LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json_mod.dumps(record, ensure_ascii=False) + "\n")
-        finally:
-            os.umask(old_umask)
+        append_jsonl_restricted(AUDIT_LOG_PATH, record)
     except OSError:
         logger.warning("Failed to write audit log: %s", AUDIT_LOG_PATH)
 
@@ -1386,10 +1380,7 @@ def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.Argum
     from .core._io import write_restricted as _wr
     _wr(result.target_path, result.text + "\n")
     marker = result.marker_dir / ".last_constitution_amend"
-    marker.write_text(
-        datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
-        encoding="utf-8",
-    )
+    marker.write_text(now_iso() + "\n", encoding="utf-8")
 
 
 def _handle_report(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:

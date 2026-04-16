@@ -12,18 +12,18 @@ from __future__ import annotations
 import json as json_mod
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from . import identity_blocks
-from ._io import strip_code_fence
+from ._io import now_iso, strip_code_fence
 from .embeddings import cosine, embed_texts
 from .knowledge_store import TRUST_BASE_BY_SOURCE, effective_importance
 from .llm import generate, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
+from .memory_evolution import evolve_patterns
 from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
@@ -31,6 +31,7 @@ from .prompts import (
     DISTILL_CONSTITUTIONAL_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
+    MEMORY_EVOLUTION_PROMPT,
 )
 from .views import ViewRegistry
 
@@ -461,12 +462,12 @@ def _derive_source_type(records: List[Dict]) -> str:
 
 
 def _trust_for_source(source_type: str) -> float:
-    """Base trust score for a given provenance source_type."""
-    if source_type == "mixed":
-        return min(
-            TRUST_BASE_BY_SOURCE["self_reflection"],
-            TRUST_BASE_BY_SOURCE["external_reply"],
-        )
+    """Base trust score for a given provenance source_type (ADR-0021).
+
+    ``mixed`` has its own entry in ``TRUST_BASE_BY_SOURCE``; falling back
+    to ``unknown`` (0.6) would rank mixed patterns above external_reply
+    (0.55), which contradicts the ordering intent.
+    """
     return TRUST_BASE_BY_SOURCE.get(source_type, TRUST_BASE_BY_SOURCE["unknown"])
 
 
@@ -621,7 +622,6 @@ def _distill_category(
     ) = _dedup_patterns(
         all_patterns, all_importances, new_embeddings, existing_same_cat,
         mutate_existing=not dry_run,
-        return_indices=True,
     )
 
     if dry_run:
@@ -637,7 +637,7 @@ def _distill_category(
             category, updated,
         )
 
-    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    ts = now_iso()
     for pattern, importance, emb, src_idx in zip(
         add_patterns, add_importances, add_embeddings, add_indices
     ):
@@ -660,7 +660,7 @@ def _distill_category(
             embedding=emb_list,
             provenance=provenance,
             trust_score=_trust_for_source(source_type),
-            valid_from=now_iso,
+            valid_from=ts,
         )
         logger.info("[%s] Added pattern (importance=%.1f, source=%s): %s",
                      category, importance, source_type, pattern[:80])
@@ -669,15 +669,9 @@ def _distill_category(
     # topically-related *older* patterns' distilled text. The revision runs
     # against the same-category live pool (excludes just-added patterns'
     # own representations by construction — they aren't neighbors of
-    # themselves in the [EVOLUTION_MIN, SIM_UPDATE) band).
-    try:
-        from .memory_evolution import evolve_patterns
-        from .prompts import MEMORY_EVOLUTION_PROMPT
-    except Exception:  # pragma: no cover — defensive, should not happen
-        MEMORY_EVOLUTION_PROMPT = ""
-        evolve_patterns = None  # type: ignore[assignment]
-
-    if evolve_patterns is not None and MEMORY_EVOLUTION_PROMPT:
+    # themselves in the [EVOLUTION_MIN, SIM_UPDATE) band). The prompt may
+    # be empty if config/prompts/memory_evolution.md is absent — skip then.
+    if MEMORY_EVOLUTION_PROMPT:
         live_same_cat = [
             p for p in knowledge.get_raw_patterns()
             if p.get("category", "uncategorized") == category
@@ -696,7 +690,7 @@ def _distill_category(
         for old_ref, invalidated in batch.invalidations:
             knowledge.replace_pattern(old_ref, invalidated)
         if batch.revised_rows:
-            knowledge._learned_patterns.extend(batch.revised_rows)
+            knowledge.add_revised_patterns(batch.revised_rows)
             logger.info(
                 "[%s] Memory evolution: revised %d neighbor patterns",
                 category, len(batch.revised_rows),
@@ -715,11 +709,18 @@ def _dedup_patterns(
     existing_patterns: List[dict],
     *,
     mutate_existing: bool = True,
-    return_indices: bool = False,
-) -> Tuple:
+) -> Tuple[
+    List[str],
+    List[float],
+    List[Optional[np.ndarray]],
+    List[int],
+    int,
+    int,
+]:
     """Remove duplicates by comparing new patterns against existing ones.
 
-    Returns (patterns_to_add, importances_to_add, embeddings_to_add, skip_count, update_count).
+    Returns ``(add_patterns, add_importances, add_embeddings,
+    add_indices, skip_count, update_count)``.
     - SKIP: cosine >= SIM_DUPLICATE (near-exact duplicate)
     - UPDATE: cosine >= SIM_UPDATE against existing → soft-invalidate the old
       pattern (``valid_until = now``) and ADD a boosted new pattern. The old
@@ -738,7 +739,7 @@ def _dedup_patterns(
     skip_count = 0
     update_count = 0
 
-    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    ts = now_iso()
 
     # Pre-compute existing embeddings (only patterns with embeddings + live count for dedup)
     existing_with_emb: List[Tuple[Dict, np.ndarray]] = []
@@ -790,7 +791,7 @@ def _dedup_patterns(
             old_imp = best_existing_pat.get("importance", 0.5)
             boosted_imp = max(old_imp, new_imp)
             if mutate_existing:
-                best_existing_pat["valid_until"] = now_iso
+                best_existing_pat["valid_until"] = ts
             add_patterns.append(new_text)
             add_importances.append(boosted_imp)
             add_embeddings.append(new_emb)
@@ -809,12 +810,10 @@ def _dedup_patterns(
             add_embeddings.append(new_emb)
             add_indices.append(input_idx)
 
-    if return_indices:
-        return (
-            add_patterns, add_importances, add_embeddings,
-            add_indices, skip_count, update_count,
-        )
-    return add_patterns, add_importances, add_embeddings, skip_count, update_count
+    return (
+        add_patterns, add_importances, add_embeddings,
+        add_indices, skip_count, update_count,
+    )
 
 
 def _is_valid_pattern(pattern: str) -> bool:

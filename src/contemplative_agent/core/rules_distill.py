@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from ._io import now_iso
 from .insight import _extract_title, _slugify
 from .llm import generate, get_distill_system_prompt, validate_identity_content
 from .prompts import RULES_DISTILL_PROMPT, RULES_DISTILL_REFINE_PROMPT
@@ -181,10 +182,7 @@ def _write_last_run(rules_dir: Path) -> None:
     """Record the current timestamp as the last rules-distill run."""
     rules_dir.mkdir(parents=True, exist_ok=True)
     marker = rules_dir / ".last_rules_distill"
-    marker.write_text(
-        datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
-        encoding="utf-8",
-    )
+    marker.write_text(now_iso() + "\n", encoding="utf-8")
 
 
 def distill_rules(

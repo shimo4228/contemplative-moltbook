@@ -155,10 +155,10 @@ def apply_revision(
     if result.revised_distilled is None:
         return None
     neighbor = result.neighbor
-    now_iso = (now or datetime.now(timezone.utc)).isoformat(timespec="minutes")
+    ts = (now or datetime.now(timezone.utc)).isoformat(timespec="minutes")
 
     # Soft-invalidated copy (original left untouched)
-    invalidated: Dict = {**neighbor, "valid_until": now_iso}
+    invalidated: Dict = {**neighbor, "valid_until": ts}
 
     # Build the revised row. Preserve the semantic coordinate (embedding),
     # content identity (pattern), and operational metadata (importance,
@@ -182,10 +182,10 @@ def apply_revision(
         "gated": bool(neighbor.get("gated", False)),
         "provenance": new_prov,
         "trust_score": float(neighbor.get("trust_score", 0.6)),
-        "trust_updated_at": now_iso,
-        "valid_from": now_iso,
+        "trust_updated_at": ts,
+        "valid_from": ts,
         "valid_until": None,
-        "last_accessed_at": now_iso,
+        "last_accessed_at": ts,
         "access_count": 0,
         "success_count": 0,
         "failure_count": 0,

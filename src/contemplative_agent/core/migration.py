@@ -23,6 +23,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from ._io import now_iso
 from .distill import NOISE_THRESHOLD as DEFAULT_NOISE_THRESHOLD
 from .embeddings import cosine, embed_texts
 from .episode_embeddings import EpisodeEmbeddingStore, episode_id_for
@@ -421,7 +422,7 @@ def _ensure_adr0021_defaults(pattern: Dict) -> bool:
     """Add missing ADR-0021 fields with defaults. Returns True if mutated."""
     from .knowledge_store import DEFAULT_TRUST
 
-    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    ts = now_iso()
     changed = False
 
     if "provenance" not in pattern:
@@ -431,14 +432,14 @@ def _ensure_adr0021_defaults(pattern: Dict) -> bool:
         pattern["trust_score"] = DEFAULT_TRUST
         changed = True
     if "trust_updated_at" not in pattern:
-        pattern["trust_updated_at"] = now_iso
+        pattern["trust_updated_at"] = ts
         changed = True
     if "valid_from" not in pattern:
         # Use distilled timestamp if it's a real ISO, else now
         distilled = pattern.get("distilled", "")
         pattern["valid_from"] = distilled if (
             isinstance(distilled, str) and distilled != "unknown" and distilled
-        ) else now_iso
+        ) else ts
         changed = True
     if "valid_until" not in pattern:
         pattern["valid_until"] = None
@@ -447,7 +448,7 @@ def _ensure_adr0021_defaults(pattern: Dict) -> bool:
         # Legacy files sometimes have `last_accessed` without `_at`
         legacy = pattern.get("last_accessed")
         pattern["last_accessed_at"] = (
-            legacy if isinstance(legacy, str) else now_iso
+            legacy if isinstance(legacy, str) else ts
         )
         changed = True
     if "access_count" not in pattern:

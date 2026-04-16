@@ -17,10 +17,11 @@ import logging
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from ._io import now_iso
 from .knowledge_store import effective_importance
 from .llm import generate, validate_identity_content
 from .episode_log import EpisodeLog
@@ -164,10 +165,7 @@ def _write_last_insight(skills_dir: Path) -> None:
     """Record the current timestamp as the last insight run."""
     skills_dir.mkdir(parents=True, exist_ok=True)
     marker = skills_dir / ".last_insight"
-    marker.write_text(
-        datetime.now(timezone.utc).isoformat(timespec="minutes") + "\n",
-        encoding="utf-8",
-    )
+    marker.write_text(now_iso() + "\n", encoding="utf-8")
 
 
 def extract_insight(

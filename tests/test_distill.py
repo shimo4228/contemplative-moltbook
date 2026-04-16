@@ -180,7 +180,7 @@ class TestDedupPatternsEmbedding:
         new_imps = [0.7, 0.5]
         new_embs = [_embedding(1, 0, 0), _embedding(0, 1, 0)]
         existing = []
-        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+        add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             new_patterns, new_imps, new_embs, existing,
         )
         assert len(add) == 2
@@ -193,7 +193,7 @@ class TestDedupPatternsEmbedding:
         new_imps = [0.5]
         # Same direction, slight scale → cosine ≈ 1.0
         new_embs = [_embedding(0.99, 0.01, 0.0)]
-        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+        add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             new_patterns, new_imps, new_embs, existing,
         )
         assert len(add) == 0
@@ -206,7 +206,7 @@ class TestDedupPatternsEmbedding:
         existing = [{"pattern": "Existing", "importance": 0.5, "embedding": [1.0, 0.0]}]
         # cosine ≈ 0.85 (between SIM_UPDATE=0.80 and SIM_DUPLICATE=0.92)
         new_embs = [_embedding(0.85, 0.527)]
-        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+        add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             ["new"], [0.7], new_embs, existing,
         )
         assert upd == 1
@@ -218,7 +218,7 @@ class TestDedupPatternsEmbedding:
     def test_existing_without_embedding_ignored(self):
         existing = [{"pattern": "Old", "importance": 0.5}]  # no embedding
         new_embs = [_embedding(1.0, 0.0)]
-        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+        add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             ["new"], [0.5], new_embs, existing,
         )
         # Should ADD since existing has no embedding to compare against
@@ -226,7 +226,7 @@ class TestDedupPatternsEmbedding:
 
     def test_new_without_embedding_always_added(self):
         existing = [{"pattern": "Old", "importance": 0.5, "embedding": [1.0, 0.0]}]
-        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+        add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             ["new"], [0.5], [None], existing,
         )
         assert len(add) == 1
@@ -302,19 +302,18 @@ class TestDedupSoftInvalidationADR0021:
             }
         ]
         new_embs = [_embedding(0.85, 0.527)]  # would match if ghost were live
-        add, add_imp, add_emb, skip, upd = _dedup_patterns(
+        add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             ["new"], [0.7], new_embs, existing,
         )
         # ghost is invalidated → ignored → new pattern is ADD'd, not UPDATE
         assert upd == 0
         assert len(add) == 1
 
-    def test_return_indices_aligns_with_input(self):
+    def test_add_indices_align_with_input(self):
         existing: list = []
         new_embs = [_embedding(1.0, 0.0), _embedding(0.0, 1.0)]
         out = _dedup_patterns(
             ["a", "b"], [0.5, 0.5], new_embs, existing,
-            return_indices=True,
         )
         add, _imp, _emb, idxs, _skip, _upd = out
         assert add == ["a", "b"]

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from ._io import append_jsonl_restricted
 
 logger = logging.getLogger(__name__)
 
@@ -33,24 +34,16 @@ class EpisodeLog:
 
     def append(self, record_type: str, data: Dict[str, Any]) -> None:
         """Append a record immediately to today's log file."""
-        if self._log_dir is None:
+        path = self._today_path()
+        if path is None:
             return
-        self._log_dir.mkdir(parents=True, exist_ok=True)
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "type": record_type,
             "data": data,
         }
-        path = self._today_path()
-        if path is None:
-            return
         try:
-            old_umask = os.umask(0o177)
-            try:
-                with path.open("a", encoding="utf-8") as f:
-                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
-            finally:
-                os.umask(old_umask)
+            append_jsonl_restricted(path, record)
         except OSError as exc:
             logger.warning("Failed to write episode log: %s", exc)
 

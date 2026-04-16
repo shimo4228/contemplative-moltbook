@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
+from ._io import now_iso
 from .insight import SkillResult
 from .llm import generate, validate_identity_content
 from .prompts import SKILL_REFLECT_PROMPT
@@ -75,7 +75,7 @@ def reflect_skills(
             f"(examined {len(stats_by_name)} skills)."
         )
 
-    now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    ts = now_iso()
     revised: List[SkillResult] = []
     no_change_count = 0
 
@@ -114,7 +114,7 @@ def reflect_skills(
             logger.warning("Revised skill %s rejected by validator.", stats.name)
             continue
 
-        new_meta = update_meta(meta, last_reflected_at=now_iso)
+        new_meta = update_meta(meta, last_reflected_at=ts)
         rendered = render_skill_frontmatter(new_meta, trimmed)
         revised.append(SkillResult(
             text=rendered,

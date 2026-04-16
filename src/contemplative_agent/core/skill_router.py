@@ -18,7 +18,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -28,6 +27,7 @@ from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Tuple
 import numpy as np
 
 from . import skill_frontmatter
+from ._io import append_jsonl_restricted
 from .embeddings import cosine, embed_texts
 
 logger = logging.getLogger(__name__)
@@ -283,13 +283,7 @@ class SkillRouter:
         if path is None:
             return
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            old_umask = os.umask(0o177)
-            try:
-                with open(path, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
-            finally:
-                os.umask(old_umask)
+            append_jsonl_restricted(path, record)
         except OSError as exc:
             logger.warning("Failed to write skill-usage log %s: %s", path, exc)
 

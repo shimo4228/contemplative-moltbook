@@ -7,9 +7,9 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
-from ._io import write_restricted
+from ._io import now_iso, write_restricted
 from .config import FORBIDDEN_SUBSTRING_PATTERNS
 from .forgetting import compute_strength
 
@@ -108,8 +108,8 @@ class KnowledgeStore:
         ``access_count`` / ``success_count`` / ``failure_count`` start at
         neutral values; strength is computed on read.
         """
-        now_iso = datetime.now(timezone.utc).isoformat(timespec="minutes")
-        distilled_value = distilled or now_iso
+        ts = now_iso()
+        distilled_value = distilled or ts
         entry: dict = {
             "pattern": pattern,
             "distilled": distilled_value,
@@ -130,14 +130,14 @@ class KnowledgeStore:
         entry["trust_score"] = (
             float(trust_score) if trust_score is not None else DEFAULT_TRUST
         )
-        entry["trust_updated_at"] = now_iso
+        entry["trust_updated_at"] = ts
 
         # ADR-0021: bitemporal
         entry["valid_from"] = valid_from or distilled_value
         entry["valid_until"] = valid_until  # None = current truth
 
         # ADR-0021: forgetting + feedback (initial neutral state)
-        entry["last_accessed_at"] = now_iso
+        entry["last_accessed_at"] = ts
         entry["access_count"] = 0
         entry["success_count"] = 0
         entry["failure_count"] = 0
@@ -201,6 +201,19 @@ class KnowledgeStore:
     def get_raw_patterns_since(self, since: str, category: Optional[str] = None) -> List[dict]:
         """Return raw pattern dicts distilled after the given ISO timestamp."""
         return self._filter_since(since, self._filtered_pool(category))
+
+    def add_revised_patterns(self, rows: Iterable[dict]) -> None:
+        """Append pre-built pattern dicts produced by memory evolution.
+
+        Each ``row`` is expected to already carry the full post-ADR-0021
+        shape (provenance, trust_score, valid_from/valid_until,
+        last_accessed_at, success/failure counts). Callers — currently
+        only ``distill._process_category`` — use this to ingest the
+        ``EvolutionBatch.revised_rows`` output of ``apply_revision``
+        without reaching into ``_learned_patterns``.
+        """
+        for row in rows:
+            self._learned_patterns.append(dict(row))
 
     def get_live_patterns(self, category: Optional[str] = None) -> List[dict]:
         """Return patterns that pass ``is_live`` (bitemporal + trust + strength)."""

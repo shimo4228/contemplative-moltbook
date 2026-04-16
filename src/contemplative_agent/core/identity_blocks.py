@@ -37,9 +37,10 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
+
+from ._io import now_iso as _io_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -530,7 +531,7 @@ def _extract_extras(fm: Mapping[str, str]) -> Dict[str, str]:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return _io_now_iso(timespec="seconds")
 
 
 def _write_text_preserving_mode(path: Path, content: str) -> None:
