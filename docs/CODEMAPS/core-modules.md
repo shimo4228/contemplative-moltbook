@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 27 core modules | Token estimate: ~1300 -->
+<!-- Generated: 2026-04-16 | Files scanned: 28 core modules | Token estimate: ~1350 -->
 # Core Modules Codemap
 
 Platform-independent foundation (no Moltbook dependencies). All imports flow: adapters → core.
@@ -15,7 +15,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `embeddings.py` | 144 | Ollama `/api/embed` wrapper (nomic-embed-text), `cosine`, `embed_one`, `embed_texts` |
 | `episode_embeddings.py` | 174 | `EpisodeEmbeddingStore` — SQLite sidecar for episode vectors (ADR-0019) |
 | `episode_log.py` | 98 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
-| `knowledge_store.py` | 393 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal/forgetting/feedback fields (ADR-0021) + view telemetry (ADR-0020) |
+| `knowledge_store.py` | 423 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal/forgetting/feedback fields (ADR-0021) + view telemetry (ADR-0020); `get_live_patterns()` / `get_live_patterns_since()` apply `is_live` filter at the API boundary so readers (insight, retrieval) do not import `forgetting` directly |
 | `memory.py` | 490 | `MemoryStore` facade, `Interaction`/`PostRecord`/`Insight` dataclasses, query helpers |
 | `views.py` | 396 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, hybrid cosine + BM25 scoring (ADR-0022) |
 | `migration.py` | 346 | `run_embed_backfill()` (ADR-0019) + `migrate_patterns_to_adr0021()` pattern-schema backfill |
@@ -26,16 +26,17 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `identity_blocks.py` | 549 | Identity block parser/renderer (ADR-0024): `parse`, `render`, `update_block`, `load_for_prompt` (mtime-cached), `migrate_to_blocks`, `append_history`, `body_hash`, `PERSONA_CORE_BLOCK` |
 | `skill_frontmatter.py` | 205 | YAML-subset parser/renderer for skill-file metadata (`last_reflected_at`, `success_count`, `failure_count`, ADR-0023) |
 | `skill_router.py` | 432 | Context-conditioned skill router (ADR-0023): cosine top-K over `(title+body)` embedding, no-inject fallback, usage log, `record_outcome`, `aggregate_usage`, `needs_reflection` |
+| `skill_reflect.py` | 133 | `reflect_skills() → ReflectResult` (ADR-0023): usage window → eligible skills → LLM revises body → `last_reflected_at` frontmatter update; `NO_CHANGE` output is counted separately |
 | `scheduler.py` | 165 | Rate limit state, `has_read_budget`/`has_write_budget`, persistence |
 | `constitution.py` | 106 | `amend_constitution()` → `AmendmentResult` |
 | `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021) + memory evolution pass (ADR-0022); `distill_identity()` block-aware via `identity_blocks` (ADR-0024) + history fields on `IdentityResult` (ADR-0025) |
-| `insight.py` | 307 | `extract_insight()` → `InsightResult`; view-driven batch building. **Note**: does not yet emit ADR-0023 frontmatter; does not filter by `valid_until` / `trust_score` — see `docs/progress/remaining-issues-2026-04-16.md` N1–N3 |
+| `insight.py` | 319 | `extract_insight()` → `InsightResult`; view-driven batch building. Emits ADR-0023 frontmatter on generated skills, pulls live-only patterns via `KnowledgeStore.get_live_patterns`, and ranks batches by `effective_importance` (trust × strength × time decay) |
 | `rules_distill.py` | 322 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format |
 | `stocktake.py` | 363 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject |
 | `report.py` | 256 | `generate_report()` JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
 
-**Total: ~7300 LOC (27 modules)**
+**Total: ~7720 LOC (28 modules)**
 
 ## Key Dataclasses
 
@@ -55,8 +56,9 @@ IdentityResult(text, target_path,                        # distill.py (+ADR-0025
                old_body="", new_body="",
                block_name="persona_core",
                source="distill-identity")
-SkillResult(text, filename, target_path)                 # insight.py
+SkillResult(text, filename, target_path)                 # insight.py (reused by skill_reflect.py)
 InsightResult(skills, dropped_count, skills_dir)
+ReflectResult(skills, eligible, no_change_count, skills_dir)  # skill_reflect.py (ADR-0023)
 RuleResult(text, filename, target_path)                  # rules_distill.py
 RulesDistillResult(rules, dropped_count, rules_dir)
 MigrationResult(migrated, already_migrated=False,        # identity_blocks.py (ADR-0024/0025)
@@ -200,6 +202,27 @@ View-driven batching (ADR-0019):
 6. Writes gated by cli.py per-file approval.
 
 Cross-view merge / dedup is delegated to `skill-stocktake` (insight = narrow generator, stocktake = broad consolidator; ADR-0016).
+
+## Skill Reflect Pipeline (core/skill_reflect.py, ADR-0023)
+
+`reflect_skills(skills_dir, skill_router, *, days=14, generate_fn=generate) → ReflectResult`
+
+Closes the skill-as-memory loop started by `skill_router`:
+
+```
+SkillRouter.load_usage(days)
+  → aggregate_usage(records)                 # pure, joins selection ↔ outcome by action_id
+  → filter(needs_reflection)                 # failures ≥ 2 AND failure_rate ≥ 0.3
+  → for each eligible skill:
+       read body + current frontmatter
+       LLM(SKILL_REFLECT_PROMPT) with failure_contexts
+       NO_CHANGE → count separately
+       revised  → validate_identity_content → update_meta(last_reflected_at=now)
+                → render + SkillResult
+  → ReflectResult(skills, eligible, no_change_count, skills_dir)
+```
+
+Writes are gated by `cli.py` (`--stage` for non-interactive / coding-agent use). `last_reflected_at` feeds `SkillRouter.select`'s tie-breaker ordering so recently-revised skills are preferred on cosine ties.
 
 ## Rules Distill Pipeline (core/rules_distill.py)
 
