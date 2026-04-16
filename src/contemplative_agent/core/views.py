@@ -39,8 +39,8 @@ import numpy as np
 from .embeddings import cosine, embed_one
 from .forgetting import compute_strength, is_live, mark_accessed
 
-# ADR-0022 (IV-5) Hybrid Retrieval defaults
-HYBRID_ALPHA_DEFAULT = 0.7   # cosine weight
+# ADR-0022 (IV-5) Hybrid Retrieval defaults. Cosine weight is implicit
+# as (1 - bm25_weight); only the BM25 side needs a configurable default.
 HYBRID_BETA_DEFAULT = 0.3    # BM25 weight (normalized)
 _TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 

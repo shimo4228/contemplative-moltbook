@@ -13,16 +13,15 @@ routing now happens at query time via ``ViewRegistry.find_by_view``
 
 from __future__ import annotations
 
+import hashlib
 import json as json_mod
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-
-import hashlib
-from datetime import datetime, timezone
 
 from . import identity_blocks
 from ._io import append_jsonl_restricted, now_iso, strip_code_fence

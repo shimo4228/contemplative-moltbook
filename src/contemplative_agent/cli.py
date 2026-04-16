@@ -808,7 +808,7 @@ def _handle_prune_skill_usage(
     without deleting so the cutoff can be sanity-checked first.
     """
     import re as _re
-    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from datetime import date, datetime as _dt, timedelta as _td, timezone as _tz
 
     older_than = args.older_than
     if older_than <= 0:
@@ -824,8 +824,8 @@ def _handle_prune_skill_usage(
     cutoff = today - _td(days=older_than)
     name_re = _re.compile(r"^skill-usage-(\d{4}-\d{2}-\d{2})\.jsonl$")
 
-    candidates: list = []
-    skipped: list = []
+    candidates: list[tuple[Path, date]] = []
+    skipped: list[str] = []
     for p in sorted(log_dir.glob("skill-usage-*.jsonl")):
         m = name_re.match(p.name)
         if not m:

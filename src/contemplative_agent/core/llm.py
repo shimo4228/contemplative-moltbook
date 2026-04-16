@@ -193,16 +193,18 @@ def validate_identity_content(content: str) -> bool:
     return True
 
 
-def _mtime_key(directory: Path, md_paths: list) -> float:
+def _mtime_key(directory: Path, md_paths: list) -> Optional[float]:
     """Composite mtime covering dir add/delete and per-file edits.
 
     Max of directory mtime (bumped on entry add/remove) and each
-    file's mtime (bumped on content edit). Returns 0.0 if stat fails.
+    file's mtime (bumped on content edit). Returns ``None`` if the
+    directory stat fails so callers treat it as a cache miss rather
+    than caching a stale sentinel.
     """
     try:
         stamps = [directory.stat().st_mtime]
     except OSError:
-        return 0.0
+        return None
     for p in md_paths:
         try:
             stamps.append(p.stat().st_mtime)
@@ -230,7 +232,7 @@ def _load_md_files(directory: Optional[Path], label: str) -> str:
     mtime = _mtime_key(directory, md_paths)
 
     cached = _MD_CACHE.get(directory)
-    if cached is not None and cached[0] == mtime:
+    if mtime is not None and cached is not None and cached[0] == mtime:
         return cached[1]
 
     items = []
@@ -245,7 +247,8 @@ def _load_md_files(directory: Optional[Path], label: str) -> str:
             logger.warning("Failed to read %s file %s: %s", label, path.name, exc)
 
     result = "\n\n".join(items)
-    _MD_CACHE[directory] = (mtime, result)
+    if mtime is not None:
+        _MD_CACHE[directory] = (mtime, result)
     return result
 
 
