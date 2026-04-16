@@ -1,4 +1,4 @@
-"""Tests for core.snapshot — pivot snapshot + pattern telemetry (ADR-0020)."""
+"""Tests for core.snapshot — pivot snapshot (ADR-0020)."""
 
 from __future__ import annotations
 
@@ -11,10 +11,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from contemplative_agent.core.knowledge_store import KnowledgeStore
 from contemplative_agent.core.snapshot import (
     _copy_markdown_tree,
-    _score_patterns,
     collect_thresholds,
     write_snapshot,
 )
@@ -113,26 +111,6 @@ class TestCopyMarkdownTree:
         dst = tmp_path / "dst"
         _copy_markdown_tree(tmp_path / "nonexistent", dst)
         assert not dst.exists()
-
-
-class TestScorePatterns:
-    def test_patterns_without_embedding_score_none(self):
-        patterns = [{"pattern": "x"}, {"pattern": "y", "embedding": [1.0, 0.0]}]
-        centroids = {"v": np.array([1.0, 0.0], dtype=np.float32)}
-        result = _score_patterns(patterns, centroids)
-        assert result[0] is None
-        assert result[1] is not None
-        assert pytest.approx(result[1]["v"], abs=1e-6) == 1.0
-
-    def test_multi_view_scoring(self):
-        patterns = [{"embedding": [1.0, 0.0]}]
-        centroids = {
-            "a": np.array([1.0, 0.0], dtype=np.float32),
-            "b": np.array([0.0, 1.0], dtype=np.float32),
-        }
-        result = _score_patterns(patterns, centroids)
-        assert pytest.approx(result[0]["a"], abs=1e-6) == 1.0
-        assert pytest.approx(result[0]["b"], abs=1e-6) == 0.0
 
 
 class TestWriteSnapshot:
@@ -240,137 +218,3 @@ class TestWriteSnapshot:
             view_registry=view_registry,
         )
         assert result is None
-
-
-class TestApplyPatternTelemetryErrorHandling:
-    """ADR-0020 / snapshot.py:176-178 — _apply_pattern_telemetry swallows
-    OSError from KnowledgeStore.update_view_telemetry and returns 0, so a
-    broken knowledge.json does not abort the snapshot pipeline."""
-
-    def test_returns_zero_when_store_save_raises(
-        self, layout, view_registry, tmp_path, monkeypatch,
-    ):
-        import json as _json
-        from contemplative_agent.core.knowledge_store import KnowledgeStore
-
-        patterns = [{"pattern": "p1", "importance": 0.8, "embedding": [1.0] * 8}]
-        store_path = tmp_path / "kd" / "knowledge.json"
-        store_path.parent.mkdir()
-        store_path.write_text(_json.dumps(patterns), encoding="utf-8")
-        store = KnowledgeStore(path=store_path)
-        store.load()
-
-        def fail(*args, **kwargs):
-            raise OSError("simulated telemetry write failure")
-
-        monkeypatch.setattr(store, "update_view_telemetry", fail)
-
-        # snapshot itself succeeds; telemetry failure is logged + silent
-        path = write_snapshot(
-            command="distill",
-            views_dir=layout["views"],
-            constitution_dir=layout["constitution"],
-            snapshots_dir=layout["snapshots"],
-            view_registry=view_registry,
-            knowledge_store=store,
-        )
-        assert path is not None
-        assert (path / "manifest.json").exists()
-
-
-class TestPatternTelemetry:
-    def _make_store(self, tmp_path: Path, patterns: list[dict]) -> KnowledgeStore:
-        tmp_path.mkdir(parents=True, exist_ok=True)
-        path = tmp_path / "knowledge.json"
-        path.write_text(json.dumps(patterns), encoding="utf-8")
-        store = KnowledgeStore(path=path)
-        store.load()
-        return store
-
-    def _reload_json(self, store: KnowledgeStore) -> list[dict]:
-        assert store._path is not None
-        return json.loads(store._path.read_text(encoding="utf-8"))
-
-    def test_writes_last_view_matches_per_pattern(self, layout, view_registry, tmp_path):
-        patterns = [
-            {"pattern": "p1", "importance": 0.8, "embedding": [1.0] * 8},
-            {"pattern": "p2", "importance": 0.5, "embedding": [0.5] * 8},
-        ]
-        store = self._make_store(tmp_path / "kd", patterns)
-        path = write_snapshot(
-            command="distill",
-            views_dir=layout["views"],
-            constitution_dir=layout["constitution"],
-            snapshots_dir=layout["snapshots"],
-            view_registry=view_registry,
-            knowledge_store=store,
-        )
-        assert path is not None
-        reloaded = self._reload_json(store)
-        for p in reloaded:
-            assert "last_view_matches" in p
-            assert "last_classified_at" in p
-            assert set(p["last_view_matches"].keys()) == {"constitutional", "noise", "self_reflection"}
-            # existing fields preserved
-            assert "pattern" in p
-            assert "importance" in p
-            assert "embedding" in p
-
-    def test_patterns_without_embedding_skipped(self, layout, view_registry, tmp_path):
-        patterns = [
-            {"pattern": "has_emb", "importance": 0.5, "embedding": [1.0] * 8},
-            {"pattern": "no_emb", "importance": 0.5},  # no embedding
-        ]
-        store = self._make_store(tmp_path / "kd", patterns)
-        write_snapshot(
-            command="distill",
-            views_dir=layout["views"],
-            constitution_dir=layout["constitution"],
-            snapshots_dir=layout["snapshots"],
-            view_registry=view_registry,
-            knowledge_store=store,
-        )
-        reloaded = self._reload_json(store)
-        assert "last_view_matches" in reloaded[0]
-        assert "last_view_matches" not in reloaded[1]
-        assert "last_classified_at" not in reloaded[1]
-
-    def test_second_snapshot_overwrites_previous_scores(self, layout, view_registry, tmp_path):
-        patterns = [{"pattern": "p", "importance": 0.5, "embedding": [1.0] * 8}]
-        store = self._make_store(tmp_path / "kd", patterns)
-        write_snapshot(
-            command="distill",
-            views_dir=layout["views"],
-            constitution_dir=layout["constitution"],
-            snapshots_dir=layout["snapshots"],
-            view_registry=view_registry,
-            knowledge_store=store,
-        )
-        first = self._reload_json(store)[0]
-
-        # change centroids: build a new registry with different seed
-        (layout["views"] / "noise.md").write_text(
-            "---\nthreshold: 0.55\n---\n\nCompletely different seed text now.\n",
-            encoding="utf-8",
-        )
-        reg2 = ViewRegistry(
-            views_dir=layout["views"],
-            path_vars={"CONSTITUTION_DIR": layout["constitution"]},
-        )
-        reg2.load_views()
-        with patch("contemplative_agent.core.views.embed_one", side_effect=_fake_embed):
-            for name in reg2.names():
-                reg2.get_centroid(name)
-
-        write_snapshot(
-            command="distill",
-            views_dir=layout["views"],
-            constitution_dir=layout["constitution"],
-            snapshots_dir=layout["snapshots"],
-            view_registry=reg2,
-            knowledge_store=store,
-        )
-        second = self._reload_json(store)[0]
-        assert second["last_view_matches"]["noise"] != first["last_view_matches"]["noise"]
-        # single-value field, not list
-        assert isinstance(second["last_view_matches"], dict)

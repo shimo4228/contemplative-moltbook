@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 if TYPE_CHECKING:
-    from .core.memory import KnowledgeStore
     from .core.views import ViewRegistry
 from xml.sax.saxutils import escape as xml_escape
 
@@ -1046,7 +1045,7 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
     knowledge_store.load()
-    _take_snapshot(args, "distill", view_registry, knowledge_store)
+    _take_snapshot(args, "distill", view_registry)
     result = distill(
         days=args.days,
         dry_run=args.dry_run,
@@ -1095,7 +1094,6 @@ def _take_snapshot(
     args: argparse.Namespace,
     command: str,
     view_registry: Optional["ViewRegistry"] = None,
-    knowledge_store: Optional["KnowledgeStore"] = None,
 ) -> Optional[Path]:
     """Write a pivot snapshot at the start of a behavior-producing command.
 
@@ -1113,7 +1111,6 @@ def _take_snapshot(
         constitution_dir=getattr(args, "constitution_dir", None) or CONSTITUTION_DIR,
         snapshots_dir=SNAPSHOTS_DIR,
         view_registry=view_registry,
-        knowledge_store=knowledge_store,
     )
 
 
@@ -1313,7 +1310,7 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
     knowledge_store.load()
-    snapshot_path = _take_snapshot(args, "distill-identity", view_registry, knowledge_store)
+    snapshot_path = _take_snapshot(args, "distill-identity", view_registry)
     result = distill_identity(
         knowledge_store=knowledge_store,
         identity_path=IDENTITY_PATH,
@@ -1365,7 +1362,7 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
     knowledge_store.load()
-    snapshot_path = _take_snapshot(args, "insight", view_registry, knowledge_store)
+    snapshot_path = _take_snapshot(args, "insight", view_registry)
     result = extract_insight(
         knowledge_store=knowledge_store,
         skills_dir=SKILLS_DIR,

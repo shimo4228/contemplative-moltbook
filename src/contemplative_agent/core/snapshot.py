@@ -5,10 +5,7 @@ ADR-0020: the lens that produced a given ``identity.md`` / ``skills/*.md`` /
 thresholds + embedding model + centroids. Without snapshots, any of those
 changing retroactively makes the resulting artifact's provenance opaque.
 
-This module writes a snapshot directory for each run and (optionally)
-updates per-pattern telemetry (`last_classified_at`, `last_view_matches`)
-on the knowledge store. Telemetry is read-only observational data — no
-behavioural logic reads these fields.
+This module writes a snapshot directory for each run.
 """
 
 from __future__ import annotations
@@ -22,8 +19,7 @@ from typing import Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 
-from .embeddings import EMBEDDING_DIM, _get_embedding_model, cosine
-from .knowledge_store import KnowledgeStore
+from .embeddings import EMBEDDING_DIM, _get_embedding_model
 from .views import ViewRegistry
 
 logger = logging.getLogger(__name__)
@@ -81,27 +77,6 @@ def _copy_markdown_tree(src: Path, dst: Path) -> None:
         shutil.copy2(md, dst / md.name)
 
 
-def _score_patterns(
-    patterns: List[dict],
-    centroids: Dict[str, np.ndarray],
-) -> List[Optional[Dict[str, float]]]:
-    """Cosine-score each pattern's embedding against every view centroid.
-
-    Returns a list aligned with ``patterns`` — entries are ``None`` for
-    patterns lacking an ``embedding`` field.
-    """
-    results: List[Optional[Dict[str, float]]] = []
-    for p in patterns:
-        emb = p.get("embedding")
-        if not emb:
-            results.append(None)
-            continue
-        vec = np.asarray(emb, dtype=np.float32)
-        scores = {name: float(cosine(vec, centroid)) for name, centroid in centroids.items()}
-        results.append(scores)
-    return results
-
-
 def write_snapshot(
     *,
     command: SnapshotCommand,
@@ -109,7 +84,6 @@ def write_snapshot(
     constitution_dir: Path,
     snapshots_dir: Path,
     view_registry: Optional[ViewRegistry] = None,
-    knowledge_store: Optional[KnowledgeStore] = None,
 ) -> Optional[Path]:
     """Write a pivot snapshot for the given command.
 
@@ -155,24 +129,7 @@ def write_snapshot(
             encoding="utf-8",
         )
 
-        if knowledge_store is not None and centroids:
-            _apply_pattern_telemetry(knowledge_store, centroids, ts_iso)
-
         return snap_dir
     except OSError as exc:
         logger.warning("Snapshot write failed under %s: %s", snap_dir, exc)
         return None
-
-
-def _apply_pattern_telemetry(
-    knowledge_store: KnowledgeStore,
-    centroids: Dict[str, np.ndarray],
-    timestamp: str,
-) -> int:
-    """Score all patterns against centroids and persist via KnowledgeStore."""
-    scores_per_pattern = _score_patterns(knowledge_store.get_raw_patterns(), centroids)
-    try:
-        return knowledge_store.update_view_telemetry(scores_per_pattern, timestamp)
-    except OSError as exc:
-        logger.warning("Pattern telemetry save failed: %s", exc)
-        return 0

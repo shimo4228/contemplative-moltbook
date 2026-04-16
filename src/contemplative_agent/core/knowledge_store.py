@@ -267,36 +267,6 @@ class KnowledgeStore:
         else:
             self._parse_legacy_markdown(text)
 
-    def update_view_telemetry(
-        self,
-        scores_per_pattern: List[Optional[Dict[str, float]]],
-        timestamp: str,
-        save: bool = True,
-    ) -> int:
-        """Write ADR-0020 observational telemetry onto pattern records.
-
-        ``scores_per_pattern`` aligns with the internal pattern order; an
-        entry of ``None`` skips that pattern (typically because it has no
-        embedding). Returns the number of patterns updated.
-
-        These fields are read-only observation — never branch on them
-        (see ADR-0020 Consequences).
-        """
-        if len(scores_per_pattern) != len(self._learned_patterns):
-            raise ValueError(
-                f"scores length {len(scores_per_pattern)} != patterns {len(self._learned_patterns)}"
-            )
-        updated = 0
-        for p, scores in zip(self._learned_patterns, scores_per_pattern):
-            if scores is None:
-                continue
-            p["last_view_matches"] = scores
-            p["last_classified_at"] = timestamp
-            updated += 1
-        if save and updated > 0:
-            self.save()
-        return updated
-
     def save(self) -> None:
         """Persist learned patterns to JSON file using atomic write."""
         if self._path is None:
@@ -342,10 +312,6 @@ class KnowledgeStore:
                     entry["embedding"] = list(item["embedding"])
                 if isinstance(item.get("gated"), bool):
                     entry["gated"] = item["gated"]
-                if isinstance(item.get("last_classified_at"), str):
-                    entry["last_classified_at"] = item["last_classified_at"]
-                if isinstance(item.get("last_view_matches"), dict):
-                    entry["last_view_matches"] = dict(item["last_view_matches"])
 
                 # ADR-0021 optional fields. Preserve only if present; the
                 # load path does not auto-fill, so legacy files remain
