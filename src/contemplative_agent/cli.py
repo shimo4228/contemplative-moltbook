@@ -225,6 +225,7 @@ def _do_uninstall_schedule() -> None:
 
 _APPROVAL_GATE_COMMANDS = frozenset({
     "insight", "rules-distill", "distill-identity", "amend-constitution",
+    "skill-reflect",
 })
 
 
@@ -1260,6 +1261,53 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
     print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
 
 
+def _handle_skill_reflect(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    from .core._io import write_restricted
+    from .core.embeddings import embed_texts
+    from .core.skill_reflect import reflect_skills
+    from .core.skill_router import DEFAULT_USAGE_WINDOW_DAYS, SkillRouter
+
+    log_dir = MOLTBOOK_DATA_DIR / "logs"
+    router = SkillRouter(
+        skills_dir=SKILLS_DIR,
+        embed_fn=embed_texts,
+        log_dir=log_dir,
+    )
+    days = getattr(args, "days", DEFAULT_USAGE_WINDOW_DAYS)
+    result = reflect_skills(
+        skills_dir=SKILLS_DIR,
+        skill_router=router,
+        days=days,
+    )
+    if isinstance(result, str):
+        print(result)
+        return
+    if getattr(args, "stage", False):
+        _stage_results(
+            [StageItem(s.filename, s.text, s.target_path) for s in result.skills],
+            command="skill-reflect",
+        )
+        return
+    written = 0
+    for i, skill in enumerate(result.skills, 1):
+        print(f"\n{'='*60}")
+        print(f"[{i}/{len(result.skills)}] {skill.filename}")
+        print(skill.text)
+        approved = _approve_write(skill.target_path)
+        _log_approval("skill-reflect", skill.target_path, approved, skill.text)
+        if approved:
+            SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+            write_restricted(skill.target_path, skill.text)
+            written += 1
+        else:
+            print("Skipped.")
+    dropped = result.eligible - written - result.no_change_count - (len(result.skills) - written)
+    print(
+        f"\n--- Summary: {written} revised, {result.no_change_count} NO_CHANGE, "
+        f"{max(0, dropped)} dropped (eligible={result.eligible}) ---"
+    )
+
+
 def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     from .core._io import write_restricted
     from .core.rules_distill import _write_last_run, distill_rules
@@ -1644,6 +1692,20 @@ def main() -> None:
         help="Show results without writing to knowledge store",
     )
 
+    # skill-reflect
+    skill_reflect_parser = subparsers.add_parser(
+        "skill-reflect",
+        help="Revise skills using recent skill-usage outcomes (ADR-0023)",
+    )
+    skill_reflect_parser.add_argument(
+        "--days", type=int, default=14,
+        help="Aggregation window in days (default: 14)",
+    )
+    skill_reflect_parser.add_argument(
+        "--stage", action="store_true",
+        help="Write revisions to staging dir instead of interactive approval",
+    )
+
     # skill-stocktake
     skill_stocktake_parser = subparsers.add_parser("skill-stocktake", help="Audit skills for duplicates and quality issues")
     skill_stocktake_parser.add_argument(
@@ -1759,6 +1821,7 @@ def main() -> None:
         "enrich": _handle_enrich,
         "distill-identity": _handle_distill_identity,
         "insight": _handle_insight,
+        "skill-reflect": _handle_skill_reflect,
         "rules-distill": _handle_rules_distill,
         "amend-constitution": _handle_amend_constitution,
         "report": _handle_report,

@@ -9,12 +9,16 @@
 - **N3** — insight の top-N を `effective_importance` (trust×strength 込み) で並び替え（Session A）
 - **N2** — insight が `is_live(p)` を尊重、superseded pattern を skill 抽出から除外（Session A）
 
+## Session B (2026-04-16) で解消した項目
+
+- **D2** — `skill-reflect` CLI 追加（承認ゲート付き、`--stage` / `--days` 対応）。`core/skill_reflect.py` に `reflect_skills()` を実装。usage window で eligible skill を選び、failure contexts を prompt に埋めて revise、`last_reflected_at` を frontmatter に反映。NO_CHANGE 出力はスキップ。
+
 ## 1. ADR-0023..0025 からの明示的な deferred（next ADR 候補）
 
 | # | 項目 | ADR | Severity | ポインタ / メモ |
 |---|---|---|---|---|
 | ~~**D1**~~ | ~~`skill_router` を `agent.run_session` / `agent.do_solve` に配線する~~ | ~~ADR-0023~~ | ~~medium~~ | **完了** (commit `5cae245`) |
-| **D2** | `skill-reflect` CLI を追加（承認ゲート付き、`insight --stage` と同じ形） | ADR-0023 | medium | `config/prompts/skill_reflect.md` と `SkillRouter.needs_reflection()` / `aggregate_usage()` は既に存在。消費側がない。 |
+| ~~**D2**~~ | ~~`skill-reflect` CLI を追加（承認ゲート付き、`insight --stage` と同じ形）~~ | ~~ADR-0023~~ | ~~medium~~ | **完了**（Session B）。`core/skill_reflect.py` + CLI handler。`--stage`/`--days` 対応。テスト: `tests/test_skill_reflect.py` |
 | **D3** | 識別子ブロックごとの distill routing（`current_goals` を自分のビュー + 自分のプロンプトで refresh 等） | ADR-0024 | high-effort | ブロックごとの prompt を **qwen3.5:9b 自身に書かせる** 必要あり（prompt-model-match memory）。config の形状追加 + 複数ファイルに影響。 |
 | **D4** | runtime `agent-edit` tool（セッション中に個別ブロックを更新できる） | ADR-0024 | deep | ADR-0013 authorship-problem + ADR-0017 manas フレームと接続。実装前に独立 ADR で設計議論が必要。 |
 
