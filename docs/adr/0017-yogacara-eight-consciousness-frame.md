@@ -84,3 +84,22 @@ Practical consequences:
 - ADR-0004: Three-Layer Memory Architecture (implicit eight-consciousness encoding)
 - ADR-0013: Shelving Coding Agent Skills (authorship problem — who is transforming whom)
 - ADR-0016: Insight as Narrow Generator / Stocktake as Broad Consolidator (where the Yogācāra frame became load-bearing)
+- ADR-0019: Discrete Categories → Embedding + Views (see "Observed Convergence" below)
+- ADR-0021: Pattern Schema Extension — provenance / bitemporal / forgetting / feedback (see below)
+- ADR-0022: Memory Evolution + Hybrid Retrieval (see below)
+
+## Observed Convergence — 2026-04-16
+
+ADR-0019 (embedding + views), ADR-0021 (provenance / bitemporal / forgetting / feedback), and ADR-0022 (memory evolution + hybrid retrieval) were each motivated by local, non-metaphysical problems — classification is a query not state, trust needs to survive the episode→pattern boundary, patterns should reinterpret each other when related ones arrive, lexical and semantic signals should both inform retrieval. None cited this ADR as rationale. Yet they land in a configuration the eight-consciousness model predicts:
+
+- **見分 / 相分 split explicitly materialized.** ADR-0019's separation of state (embedding = 相分, stored seed coordinate) from query (view seed → centroid = 見分, the perspective that reads) makes the Yogācāra distinction operationally visible in code. And crucially: the 見分 side is *itself* an embedding. Views are not a non-representational observer watching the storehouse from outside — they are 識 looking at 識. No escape from representation; pure 唯識.
+
+- **Storehouse consciousness gains its internal dynamics.** ADR-0021's `valid_until`, `trust_score`, and `strength` fields are not decorative — they are the observable signature of *現行熏習* (present-moment habituation of the ālaya): every retrieval modifies the seed's future weight, every new arrival can invalidate an old truth, every approval/failure shifts trust. The ālaya was never static in the theory; the code now matches.
+
+- **Memory Evolution = 習気 (vāsanā) in the write path.** ADR-0022's bidirectional update — a new pattern's arrival triggers LLM-driven revision of topically-related older patterns' `distilled` text, with the old row soft-invalidated and a revised row appended — is the classical description of latent impressions continuously reshaping stored seeds. The storehouse is not a ledger of past events; it is a field where past and present co-determine each other's meaning.
+
+- **Hybrid retrieval = plural 見分 channels.** ADR-0022's `α·cosine + β·bm25_norm` explicitly blends two distinct perspectives (semantic coordinate, lexical surface) on the same 相分. Neither is promoted as the "true" view. This is 四智 pluralism in miniature — different transformed wisdoms attend to different aspects of the same phenomena without one subsuming the others.
+
+The convergence was not forced. ADR-0019 was framed in terms of the Emptiness axiom ("classification is a query, not a property"). ADR-0021 was motivated by 2025 memory-poisoning research (MINJA / MemoryGraft). ADR-0022 drew on Mem0 / A-Mem / Zep / MemoryBank independently. The fact that four locally-motivated design decisions produce a coherent 唯識 implementation — complete with 見分/相分, 現行熏習, 習気, and plural 見分 channels — is evidence that ADR-0017's worldview was load-bearing, not decorative: the frame was constraining the shape of admissible solutions all along, even when the ADRs didn't cite it.
+
+This observation does not change any decision. It names a pattern the project already exhibits and makes the frame's predictive usefulness concrete.
