@@ -13,7 +13,9 @@ from contemplative_agent.cli import (
     _approve_delete,
     _handle_adopt_staged,
     _handle_distill_identity,
+    _handle_inspect_identity_history,
     _handle_migrate_identity,
+    _handle_prune_skill_usage,
     _handle_rules_stocktake,
     _handle_skill_stocktake,
     _setup_logging,
@@ -1994,3 +1996,132 @@ class TestMigrateIdentityADR0025:
             "failed to append identity history" in r.getMessage().lower()
             for r in caplog.records
         )
+
+
+class TestInspectIdentityHistory:
+    """Tests for `inspect-identity-history` CLI (N11, read-only viewer)."""
+
+    def _args(self, *, tail: int = 20):
+        args = MagicMock()
+        args.tail = tail
+        return args
+
+    def test_missing_file_prints_notice(self, tmp_path, capsys):
+        history = tmp_path / "identity_history.jsonl"
+        with patch("contemplative_agent.cli.IDENTITY_HISTORY_PATH", history):
+            _handle_inspect_identity_history(self._args(), MagicMock())
+        out = capsys.readouterr().out
+        assert "No history file" in out
+
+    def test_empty_file_prints_notice(self, tmp_path, capsys):
+        history = tmp_path / "identity_history.jsonl"
+        history.write_text("")
+        with patch("contemplative_agent.cli.IDENTITY_HISTORY_PATH", history):
+            _handle_inspect_identity_history(self._args(), MagicMock())
+        out = capsys.readouterr().out
+        assert "empty" in out.lower()
+
+    def test_tail_shows_last_n_entries(self, tmp_path, capsys):
+        history = tmp_path / "identity_history.jsonl"
+        entries = []
+        for i in range(5):
+            entries.append(
+                json.dumps(
+                    {
+                        "ts": f"2026-04-{10 + i:02d}T12:00",
+                        "block": f"block_{i}",
+                        "source": "distill-identity",
+                        "old_hash": f"{i:016x}",
+                        "new_hash": f"{i + 1:016x}",
+                    }
+                )
+            )
+        history.write_text("\n".join(entries) + "\n")
+        with patch("contemplative_agent.cli.IDENTITY_HISTORY_PATH", history):
+            _handle_inspect_identity_history(self._args(tail=3), MagicMock())
+        out = capsys.readouterr().out
+        assert "last 3 of 5" in out
+        assert "block_2" in out and "block_3" in out and "block_4" in out
+        assert "block_0" not in out and "block_1" not in out
+
+    def test_unparseable_line_degrades_gracefully(self, tmp_path, capsys):
+        history = tmp_path / "identity_history.jsonl"
+        history.write_text("not-json\n")
+        with patch("contemplative_agent.cli.IDENTITY_HISTORY_PATH", history):
+            _handle_inspect_identity_history(self._args(tail=1), MagicMock())
+        out = capsys.readouterr().out
+        assert "<unparseable>" in out
+
+
+class TestPruneSkillUsage:
+    """Tests for `prune-skill-usage` CLI (N11, manual log cleanup)."""
+
+    def _args(self, *, older_than: int, dry_run: bool = False):
+        args = MagicMock()
+        args.older_than = older_than
+        args.dry_run = dry_run
+        return args
+
+    def test_missing_log_dir_noop(self, tmp_path, capsys):
+        log_dir = tmp_path / "logs"
+        with patch("contemplative_agent.cli.EPISODE_LOG_DIR", log_dir):
+            _handle_prune_skill_usage(self._args(older_than=7), MagicMock())
+        out = capsys.readouterr().out
+        assert "No log directory" in out
+
+    def test_dry_run_lists_without_deleting(self, tmp_path, capsys):
+        from datetime import date, timedelta
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        old_date = (date.today() - timedelta(days=180)).isoformat()
+        old_file = log_dir / f"skill-usage-{old_date}.jsonl"
+        old_file.write_text('{"ts": "x"}\n')
+
+        with patch("contemplative_agent.cli.EPISODE_LOG_DIR", log_dir):
+            _handle_prune_skill_usage(
+                self._args(older_than=30, dry_run=True), MagicMock()
+            )
+        out = capsys.readouterr().out
+        assert "Would delete" in out
+        assert old_file.exists()
+        assert "(dry-run)" in out
+
+    def test_deletes_files_older_than_cutoff(self, tmp_path, capsys):
+        from datetime import date, timedelta
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        today = date.today()
+        old = log_dir / f"skill-usage-{(today - timedelta(days=60)).isoformat()}.jsonl"
+        new = log_dir / f"skill-usage-{(today - timedelta(days=5)).isoformat()}.jsonl"
+        old.write_text('{"ts": "x"}\n')
+        new.write_text('{"ts": "y"}\n')
+
+        with patch("contemplative_agent.cli.EPISODE_LOG_DIR", log_dir):
+            _handle_prune_skill_usage(self._args(older_than=30), MagicMock())
+
+        out = capsys.readouterr().out
+        assert "Deleted" in out
+        assert not old.exists()
+        assert new.exists()
+
+    def test_skips_files_with_unparseable_name(self, tmp_path, capsys):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        weird = log_dir / "skill-usage-not-a-date.jsonl"
+        weird.write_text('{"ts": "x"}\n')
+
+        with patch("contemplative_agent.cli.EPISODE_LOG_DIR", log_dir):
+            _handle_prune_skill_usage(self._args(older_than=30), MagicMock())
+
+        out = capsys.readouterr().out
+        assert weird.exists()
+        assert "Skipped" in out
+
+    def test_rejects_non_positive_older_than(self, tmp_path, capsys):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        with patch("contemplative_agent.cli.EPISODE_LOG_DIR", log_dir):
+            with pytest.raises(SystemExit) as exc:
+                _handle_prune_skill_usage(self._args(older_than=0), MagicMock())
+        assert exc.value.code == 1
+        assert "positive" in capsys.readouterr().err

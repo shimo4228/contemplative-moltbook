@@ -24,6 +24,7 @@ from .adapters.moltbook.agent import Agent, AutonomyLevel
 from .adapters.moltbook.config import (
     CONSTITUTION_DIR,
     EPISODE_EMBEDDINGS_PATH,
+    EPISODE_LOG_DIR,
     IDENTITY_HISTORY_PATH,
     IDENTITY_PATH,
     KNOWLEDGE_PATH,
@@ -754,6 +755,118 @@ def _handle_rules_stocktake(args: argparse.Namespace, _parser: argparse.Argument
 
 def _handle_sync_data(_args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     _run_sync()
+
+
+def _handle_inspect_identity_history(
+    args: argparse.Namespace, _parser: argparse.ArgumentParser
+) -> None:
+    """Pretty-print the tail of ADR-0025 identity_history.jsonl.
+
+    The log is append-only and stores 16-hex SHA prefixes, not block
+    bodies. Full-text recovery is the snapshot subsystem's job.
+    """
+    tail = max(1, args.tail)
+
+    path = IDENTITY_HISTORY_PATH
+    if not path.exists():
+        print(f"No history file at {path}")
+        return
+
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        print(f"Failed to read {path}: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not lines:
+        print(f"History file is empty: {path}")
+        return
+
+    shown = lines[-tail:]
+    print(f"=== identity-history (last {len(shown)} of {len(lines)}) ===")
+    for line in shown:
+        try:
+            entry = json_mod.loads(line)
+        except json_mod.JSONDecodeError:
+            print(f"  <unparseable>  {line}")
+            continue
+        ts = entry.get("ts", "?")
+        block = entry.get("block", "?")
+        source = entry.get("source", "?")
+        old_h = (entry.get("old_hash") or "")[:8]
+        new_h = (entry.get("new_hash") or "")[:8]
+        print(f"  {ts}  [{source:<18}]  {block:<16}  {old_h} → {new_h}")
+
+
+def _handle_prune_skill_usage(
+    args: argparse.Namespace, _parser: argparse.ArgumentParser
+) -> None:
+    """Delete skill-usage-YYYY-MM-DD.jsonl files older than N days.
+
+    Rotation is not automatic (ADR-0023: append-only). This CLI lets
+    operators trim old daily logs manually. --dry-run lists targets
+    without deleting so the cutoff can be sanity-checked first.
+    """
+    import re as _re
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+    older_than = args.older_than
+    if older_than <= 0:
+        print("--older-than must be a positive integer", file=sys.stderr)
+        sys.exit(1)
+
+    log_dir = EPISODE_LOG_DIR
+    if not log_dir.is_dir():
+        print(f"No log directory at {log_dir}")
+        return
+
+    today = _dt.now(_tz.utc).date()
+    cutoff = today - _td(days=older_than)
+    name_re = _re.compile(r"^skill-usage-(\d{4}-\d{2}-\d{2})\.jsonl$")
+
+    candidates: list = []
+    skipped: list = []
+    for p in sorted(log_dir.glob("skill-usage-*.jsonl")):
+        m = name_re.match(p.name)
+        if not m:
+            skipped.append(p.name)
+            continue
+        try:
+            file_date = _dt.strptime(m.group(1), "%Y-%m-%d").date()
+        except ValueError:
+            skipped.append(p.name)
+            continue
+        if file_date < cutoff:
+            candidates.append((p, file_date))
+
+    print()
+    print(
+        f"=== prune-skill-usage (older than {older_than} days, "
+        f"cutoff {cutoff.isoformat()}) ==="
+    )
+    if not candidates:
+        print("  No files to delete.")
+        if skipped:
+            print(f"  Skipped {len(skipped)} file(s) with unparseable name")
+        return
+
+    dry_run = _is_dry_run(args)
+    verb = "Would delete" if dry_run else "Deleted"
+    deleted = 0
+    for p, file_date in candidates:
+        if not dry_run:
+            try:
+                p.unlink()
+            except OSError as exc:
+                print(f"  Failed to delete {p.name}: {exc}", file=sys.stderr)
+                continue
+        deleted += 1
+        print(f"  {verb}: {p.name} ({file_date.isoformat()})")
+
+    suffix = " (dry-run)" if dry_run else ""
+    print(f"  Total: {deleted} file(s){suffix}")
+    if skipped:
+        print(f"  Skipped {len(skipped)} file(s) with unparseable name")
 
 
 def _handle_adopt_staged(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
@@ -1811,6 +1924,35 @@ def main() -> None:
     # sync-data
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
 
+    # inspect-identity-history (N11)
+    inspect_hist_parser = subparsers.add_parser(
+        "inspect-identity-history",
+        help="Pretty-print the tail of ADR-0025 identity_history.jsonl",
+    )
+    inspect_hist_parser.add_argument(
+        "--tail",
+        type=int,
+        default=20,
+        help="Show last N entries (default: 20)",
+    )
+
+    # prune-skill-usage (N11)
+    prune_usage_parser = subparsers.add_parser(
+        "prune-skill-usage",
+        help="Delete skill-usage-YYYY-MM-DD.jsonl files older than N days",
+    )
+    prune_usage_parser.add_argument(
+        "--older-than",
+        type=int,
+        required=True,
+        help="Delete files whose date is older than N days ago",
+    )
+    prune_usage_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List target files without deleting",
+    )
+
     # adopt-staged
     adopt_p = subparsers.add_parser(
         "adopt-staged",
@@ -1843,6 +1985,8 @@ def main() -> None:
         "skill-stocktake": _handle_skill_stocktake,
         "rules-stocktake": _handle_rules_stocktake,
         "sync-data": _handle_sync_data,
+        "inspect-identity-history": _handle_inspect_identity_history,
+        "prune-skill-usage": _handle_prune_skill_usage,
         "adopt-staged": _handle_adopt_staged,
         "migrate-patterns": _handle_migrate_patterns,
         "migrate-categories": _handle_migrate_categories,
