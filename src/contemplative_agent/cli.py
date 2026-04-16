@@ -941,6 +941,7 @@ def _handle_distill(args: argparse.Namespace, parser: argparse.ArgumentParser) -
         knowledge_store=knowledge_store,
         log_files=log_files,
         view_registry=view_registry,
+        log_dir=log_dir,
     )
     print(result)
 

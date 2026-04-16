@@ -21,8 +21,11 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+import hashlib
+from datetime import datetime, timezone
+
 from . import identity_blocks
-from ._io import now_iso, strip_code_fence
+from ._io import append_jsonl_restricted, now_iso, strip_code_fence
 from .embeddings import cosine, embed_texts
 from .knowledge_store import TRUST_BASE_BY_SOURCE, effective_importance
 from .llm import generate, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
@@ -67,6 +70,7 @@ def distill(
     knowledge_store: Optional[KnowledgeStore] = None,
     log_files: Optional[List[Path]] = None,
     view_registry: Optional[ViewRegistry] = None,
+    log_dir: Optional[Path] = None,
 ) -> str:
     """Distill recent episodes into learned patterns.
 
@@ -81,6 +85,9 @@ def distill(
         episode_log: EpisodeLog instance (uses default if None).
         knowledge_store: KnowledgeStore instance (uses default if None).
         log_files: Explicit JSONL file paths to process (overrides days).
+        view_registry: ViewRegistry for Step 0 noise gating.
+        log_dir: Base directory for noise JSONL output (ADR-0027 Phase 1).
+            None disables the writer (dry-run / tests).
 
     Returns:
         The distilled patterns as a string.
@@ -102,8 +109,14 @@ def distill(
 
     # Step 0: Classify episodes via embedding centroid distance (ADR-0026:
     # binary gated — noise centroid match is excluded, everything else is
-    # kept). Per-category routing moved to query time (views).
-    classified = _classify_episodes(records, view_registry=view_registry)
+    # kept). Per-category routing moved to query time (views). ADR-0027
+    # Phase 1: gated episodes are appended to noise-*.jsonl as seeds
+    # unless log_dir is None (dry-run / tests).
+    classified = _classify_episodes(
+        records,
+        view_registry=view_registry,
+        log_dir=None if dry_run else log_dir,
+    )
     if classified.gated:
         logger.info("Step 0: %d noise episodes gated out of distillation", len(classified.gated))
     logger.info(
@@ -347,6 +360,7 @@ class _ClassifiedRecords:
 def _classify_episodes(
     records: List[Dict],
     view_registry: Optional[ViewRegistry] = None,
+    log_dir: Optional[Path] = None,
 ) -> _ClassifiedRecords:
     """Step 0: Binary gate via noise-centroid distance (ADR-0026).
 
@@ -361,6 +375,11 @@ def _classify_episodes(
     classify path (constitutional / uncategorized / noise) has been
     collapsed — constitutional routing moved to the insight read path
     and to ``amend_constitution`` via views.
+
+    ADR-0027 Phase 1: when ``log_dir`` is provided, gated episodes are
+    appended to ``noise-YYYY-MM-DD.jsonl`` as seeds for later
+    re-classification. ``log_dir=None`` keeps the writer disabled (used
+    by dry-run and tests).
     """
     if not records:
         return _ClassifiedRecords(kept=(), gated=())
@@ -397,6 +416,7 @@ def _classify_episodes(
 
     kept: List[Dict] = []
     gated: List[Dict] = []
+    gated_log_entries: List[Tuple[Dict, float, str]] = []
 
     for idx, r in enumerate(records):
         emb = embeddings_arr[idx]
@@ -407,13 +427,63 @@ def _classify_episodes(
 
         if noise_sim >= NOISE_THRESHOLD:
             gated.append(r)
+            gated_log_entries.append((r, float(noise_sim), summaries[idx]))
         else:
             kept.append(r)
 
         if (idx + 1) % 50 == 0:
             logger.info("Classified %d/%d episodes", idx + 1, len(records))
 
+    if log_dir is not None and gated_log_entries:
+        _write_noise_log(log_dir, view_registry, gated_log_entries)
+
     return _ClassifiedRecords(kept=tuple(kept), gated=tuple(gated))
+
+
+def _view_centroids_hash(view_registry: Optional[ViewRegistry]) -> str:
+    """8-char SHA-256 prefix of all view centroids (ADR-0027 Phase 1).
+
+    Lets Phase 2 re-classify identify which noise records were written
+    under which centroid configuration. Views with unavailable centroids
+    are skipped — their absence is part of the fingerprint.
+    """
+    if view_registry is None:
+        return "none"
+    digest = hashlib.sha256()
+    for name in sorted(view_registry.names()):
+        centroid = view_registry.get_centroid(name)
+        if centroid is None:
+            continue
+        digest.update(name.encode("utf-8"))
+        digest.update(centroid.tobytes())
+    return digest.hexdigest()[:8]
+
+
+def _write_noise_log(
+    log_dir: Path,
+    view_registry: Optional[ViewRegistry],
+    entries: List[Tuple[Dict, float, str]],
+) -> None:
+    """Append noise-gated episodes to ``noise-YYYY-MM-DD.jsonl`` (ADR-0027 Phase 1).
+
+    Records are append-only seeds: Phase 2 re-classifies them against
+    updated centroids, Phase 3 promotes high-salience ones. Gated
+    episodes are still excluded from distillation — the writer only
+    removes the silent-discard behaviour.
+    """
+    today = datetime.now(timezone.utc).date().isoformat()
+    path = log_dir / f"noise-{today}.jsonl"
+    hash_prefix = _view_centroids_hash(view_registry)
+    for record, noise_sim, summary in entries:
+        payload = {
+            "ts": now_iso(timespec="minutes"),
+            "episode_ts": record.get("ts", ""),
+            "episode_summary": summary,
+            "noise_sim": round(noise_sim, 4),
+            "view_centroids_hash": hash_prefix,
+            "record_type": record.get("type", "unknown"),
+        }
+        append_jsonl_restricted(path, payload)
 
 
 def _episode_source_kind(record: Dict) -> str:

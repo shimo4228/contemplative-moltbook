@@ -565,6 +565,130 @@ class TestClassifyEpisodes:
         assert result.gated == ()
 
 
+class TestClassifyEpisodesNoiseLog:
+    """ADR-0027 Phase 1: gated episodes are preserved as seeds in noise-*.jsonl."""
+
+    @staticmethod
+    def _today_iso():
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).date().isoformat()
+
+    @patch("contemplative_agent.core.distill.embed_texts")
+    def test_gated_episodes_written_to_noise_log(self, mock_embed, tmp_path):
+        """With log_dir set, gated episodes append to noise-YYYY-MM-DD.jsonl."""
+        mock_embed.return_value = np.array(
+            [[1.0, 0.0], [1.0, 0.0]], dtype=np.float32,
+        )
+        registry = MagicMock()
+        registry.get_centroid.return_value = np.array([1.0, 0.0], dtype=np.float32)
+        registry.names.return_value = ["noise"]
+        records = [
+            {"ts": "2026-04-15T07:00:00Z", "type": "insight",
+             "data": {"observation": "noise sample one"}},
+            {"ts": "2026-04-15T08:00:00Z", "type": "post",
+             "data": {"text": "noise sample two"}},
+        ]
+        result = _classify_episodes(
+            records, view_registry=registry, log_dir=tmp_path,
+        )
+
+        assert len(result.gated) == 2
+        log_path = tmp_path / f"noise-{self._today_iso()}.jsonl"
+        assert log_path.exists()
+        lines = log_path.read_text(encoding="utf-8").strip().split("\n")
+        assert len(lines) == 2
+        record = json.loads(lines[0])
+        assert set(record.keys()) == {
+            "ts", "episode_ts", "episode_summary",
+            "noise_sim", "view_centroids_hash", "record_type",
+        }
+        assert record["noise_sim"] >= 0.5
+        assert len(record["view_centroids_hash"]) == 8
+        assert record["record_type"] == "insight"
+
+    @patch("contemplative_agent.core.distill.embed_texts")
+    def test_no_gated_episodes_creates_no_log(self, mock_embed, tmp_path):
+        """If nothing is gated, no file is created (avoids empty sentinel)."""
+        mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
+        registry = MagicMock()
+        registry.get_centroid.side_effect = lambda name: (
+            np.array([0.0, 1.0], dtype=np.float32) if name == "noise" else None
+        )
+        registry.names.return_value = ["noise"]
+        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
+                    "data": {"observation": "kept sample"}}]
+        result = _classify_episodes(
+            records, view_registry=registry, log_dir=tmp_path,
+        )
+        assert len(result.kept) == 1
+        assert not any(tmp_path.glob("noise-*.jsonl"))
+
+    @patch("contemplative_agent.core.distill.embed_texts")
+    def test_log_dir_none_disables_writer(self, mock_embed, tmp_path):
+        """log_dir=None keeps the writer off even with gated episodes."""
+        mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
+        registry = MagicMock()
+        registry.get_centroid.return_value = np.array([1.0, 0.0], dtype=np.float32)
+        registry.names.return_value = ["noise"]
+        records = [{"ts": "2026-04-15T07:00:00Z", "type": "insight",
+                    "data": {"observation": "noise"}}]
+        result = _classify_episodes(
+            records, view_registry=registry, log_dir=None,
+        )
+        assert len(result.gated) == 1
+        assert not any(tmp_path.glob("noise-*.jsonl"))
+
+    def test_view_centroids_hash_is_deterministic(self):
+        """Same registry state → same 8-char hash; different centroids → different hash."""
+        from contemplative_agent.core.distill import _view_centroids_hash
+
+        def _registry(names, centroids):
+            reg = MagicMock()
+            reg.names.return_value = names
+            reg.get_centroid.side_effect = lambda n: centroids.get(n)
+            return reg
+
+        centroids_a = {
+            "noise": np.array([1.0, 0.0], dtype=np.float32),
+            "constitutional": np.array([0.0, 1.0], dtype=np.float32),
+        }
+        reg_a = _registry(["noise", "constitutional"], centroids_a)
+        reg_b = _registry(["noise", "constitutional"], centroids_a)
+        hash_1 = _view_centroids_hash(reg_a)
+        hash_2 = _view_centroids_hash(reg_b)
+        assert hash_1 == hash_2
+        assert len(hash_1) == 8
+
+        centroids_c = {"noise": np.array([0.5, 0.5], dtype=np.float32)}
+        reg_c = _registry(["noise"], centroids_c)
+        assert _view_centroids_hash(reg_c) != hash_1
+        assert _view_centroids_hash(None) == "none"
+
+    @patch("contemplative_agent.core.distill.generate")
+    @patch("contemplative_agent.core.distill.embed_texts")
+    def test_distill_dry_run_does_not_write_noise_log(
+        self, mock_embed, mock_generate, tmp_path,
+    ):
+        """dry_run path sets log_dir=None, so no noise-*.jsonl written."""
+        mock_embed.return_value = np.array([[1.0, 0.0]], dtype=np.float32)
+        mock_generate.return_value = "1. something"
+        registry = MagicMock()
+        registry.get_centroid.return_value = np.array([1.0, 0.0], dtype=np.float32)
+        registry.names.return_value = ["noise"]
+        log = EpisodeLog(log_dir=tmp_path / "logs")
+        log.append("insight", {"observation": "noise sample"})
+        knowledge = KnowledgeStore(path=tmp_path / "k.json")
+        distill(
+            days=1,
+            dry_run=True,
+            episode_log=log,
+            knowledge_store=knowledge,
+            view_registry=registry,
+            log_dir=tmp_path / "logs",
+        )
+        assert not any((tmp_path / "logs").glob("noise-*.jsonl"))
+
+
 class TestKnowledgeStore:
     def test_get_context_string_no_subcategory_param(self):
         """ADR-0009: subcategory parameter has been removed."""
