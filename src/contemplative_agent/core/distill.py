@@ -157,10 +157,20 @@ def enrich(
 
 @dataclass(frozen=True)
 class IdentityResult:
-    """Result of a successful identity distillation."""
+    """Result of a successful identity distillation.
+
+    ADR-0025: ``old_body`` / ``new_body`` / ``block_name`` / ``source``
+    thread information into the CLI's ``identity_history.jsonl`` hook.
+    All four have defaults so call sites that only care about ``text``
+    and ``target_path`` remain unchanged.
+    """
 
     text: str
     target_path: Path
+    old_body: str = ""
+    new_body: str = ""
+    block_name: str = "persona_core"
+    source: str = "distill-identity"
 
 
 def distill_identity(
@@ -278,7 +288,14 @@ def distill_identity(
     )
     file_text = identity_blocks.render(new_doc).rstrip("\n")
 
-    return IdentityResult(text=file_text, target_path=identity_path)
+    return IdentityResult(
+        text=file_text,
+        target_path=identity_path,
+        old_body=current_identity,
+        new_body=new_persona_body,
+        block_name="persona_core",
+        source="distill-identity",
+    )
 
 
 

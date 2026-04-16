@@ -30,6 +30,7 @@ Records of key design decisions for this project.
 | [0022](0022-memory-evolution-and-hybrid-retrieval.md) | Memory Evolution + Hybrid Retrieval (BM25) | proposed | 2026-04-16 |
 | [0023](0023-skill-as-memory-loop.md) | Skill-as-Memory Loop — Router, Usage Log, Reflective Write | proposed | 2026-04-16 |
 | [0024](0024-identity-block-separation.md) | Identity Block Separation — Frontmatter-Addressed Persona Blocks | proposed | 2026-04-16 |
+| [0025](0025-identity-history-and-migrate-cli.md) | Identity History Log Wiring + migrate-identity CLI | proposed | 2026-04-16 |
 
 ## ADR Types
 
