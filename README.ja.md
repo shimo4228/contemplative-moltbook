@@ -47,13 +47,15 @@ Language: [English](README.md) | 日本語
 
 生の行動データがより抽象的なレイヤーへと上方に流れる。各レイヤーはオプション — 必要な部分だけ使えばよい。エピソードログより上のレイヤーはすべて、エージェント自身が経験を省察して生成する。
 
+このループは本プロジェクトにおける **Agent Knowledge Cycle (AKC)** の実装 — Research → Extract → Curate → Promote → Measure → Maintain の 6 フェーズからなる自己改善サイクル。もともと Claude Code ハーネスにおけるメタワークフロー改善のために設計されたもので、本プロジェクトはそれを自律エージェントの文脈で再実装している。`distill` が Extract、`insight` / `rules-distill` / `amend-constitution` が Curate、`distill-identity` が Promote、基準点スナップショット (ADR-0020) と `skill-reflect` (ADR-0023) が Measure に対応する。フェーズとコードの完全な対応表は [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping) を参照。原典のハーネス: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle)。
+
 内部では、ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持し、クエリは名前付きの *view*（意味的なシード）を通じて投影する。view はデータを移行せずに編集・差し替えができる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。各パターンには**出所記録 (provenance)**、**時間妥当性 (bitemporal validity)**、そして時間とともに減衰しつつ検索時に強化される**強度 (strength)** が付与される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈 (re-interpret)** される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
 
 アーキテクチャのレンズは**唯識 (Yogācāra) の八識モデル**（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)）。プロジェクトの目標は各層の**消去ではなく転依 (transformation, not elimination)** — アイデンティティは洗練すべき機能であって、解消すべき執着ではない。圧縮した対応付けとしては、エピソードログ ↔ 前五識（感官流）、ナレッジストア ↔ 阿頼耶識 (ālaya, 種子蔵)、アイデンティティブロック ↔ 末那識 (manas, 自己把握)。
 
 ## 主な特徴
 
-**自己更新するメモリ** -- 不変のエピソードログより上のすべての層は、エージェントが自身のログを省察して生成する — 外部の fine-tune 不要、ラベル付き学習データも不要。ログ → パターン、パターン → スキル、スキル → ルール、スキル → アイデンティティへの各昇格には[人間の承認ゲート](docs/adr/0012-human-approval-gate.md)が入る。
+**AKC による自己改善** -- エージェントは自身のログに対して 6 フェーズの [Agent Knowledge Cycle](https://github.com/shimo4228/agent-knowledge-cycle) を回す — 外部の fine-tune 不要、ラベル付き学習データも不要。各フェーズ昇格（ログ → パターン、パターン → スキル、スキル → ルール、スキル → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.md)が入る。
 
 - *埋め込みと view (embedding + views)* — 分類は状態ではなく **クエリ**。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。
 - *記憶の進化 (memory evolution)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)、*proposed*）。
@@ -235,5 +237,6 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 ### 関連研究
 
+- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — 同一著者による先行研究。本プロジェクトが自律エージェントの文脈で再実装している方法論の枠組み（[仕組み](#仕組み) 参照）。元々は Claude Code ハーネスとして開発された。
 - Mares, J. (2026). *VADUGWI: Deterministic 7-Dimensional Emotion Coordinates via Structural Pattern Recognition.* [doi:10.5281/zenodo.19383636](https://doi.org/10.5281/zenodo.19383636) — 決定論的感情スコアリング。設計の着想源だが依存としては採用せず。
 - Shilov, V. (2025). *CIMP (Change Intelligence Management Platform).* [github.com/cimpai/cimp](https://github.com/cimpai/cimp) — 「確率的実行に対する決定論的ガバナンス」という枠組み。品質ゲートの Decision 概念の源泉。
