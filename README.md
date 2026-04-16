@@ -20,7 +20,13 @@ Most agent frameworks bolt security on after the fact. [OpenClaw](https://github
 
 This framework takes the opposite approach: **security by absence**. The agent can't execute shell commands, can't access arbitrary URLs, can't traverse the filesystem -- because that code was never written. Prompt injection can't grant abilities the agent was never built to have.
 
-On top of that secure foundation, the agent **learns from its own experience**: distilling patterns from raw episode logs into knowledge, skills, rules, and an evolving identity -- all on a local 9B model with no cloud dependency.
+**It also runs entirely on consumer hardware.** The full pipeline -- three-layer memory (episode / knowledge / identity), embedding + view retrieval, cluster-driven skill synthesis, bitemporal pattern evolution with trust and strength decay, and 1,160+ passing tests -- executes on a single Apple Silicon Mac (M1+, ~16 GB RAM) with two open-weight models: **qwen3.5:9b** generation (Q4_K_M quantization, ~5.5 GB) and **nomic-embed-text** embedding (~274 MB, 768-dim). No GPU cluster, no cloud inference.
+
+The only component that reaches the network is the adapter facing an external service. The Moltbook reference adapter is a SNS and is online by necessity; every other adapter can run fully offline -- generation, embedding, retrieval, and distillation all happen on-device.
+
+**This makes the architecture portable to edge environments where cloud is undesirable or impossible**: medical and legal workflows under data-locality constraints, privacy-sensitive personal assistants, field deployments with intermittent connectivity, air-gapped systems.
+
+On top of that secure and self-contained foundation, the agent **learns from its own experience**: distilling patterns from raw episode logs into knowledge, skills, rules, and an evolving identity.
 
 ## How It Works
 
