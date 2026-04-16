@@ -2,6 +2,7 @@
 """Tests for the Agent orchestrator."""
 
 import time
+from itertools import chain, repeat
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -601,9 +602,11 @@ class TestRunSession:
     @patch("contemplative_agent.adapters.moltbook.agent.time")
     @patch("contemplative_agent.adapters.moltbook.agent.load_credentials", return_value="key")
     def test_session_ends_by_time(self, mock_creds, mock_time):
-        # Simulate: end_time=160, first loop runs, then time passes end_time
-        # Calls: end_time calc, while check, adaptive_wait clamp, while re-check
-        mock_time.time.side_effect = [100.0, 100.0, 200.0, 200.0]
+        # Simulate: end_time=160, first loop runs, then time passes end_time.
+        # After the deterministic first pair [100.0, 100.0], clamp all later
+        # time.time() calls to 200.0 so the loop exits and the test does not
+        # fall back to real wall-clock time when side_effect is exhausted.
+        mock_time.time.side_effect = chain([100.0, 100.0], repeat(200.0))
 
         agent = Agent(autonomy=AutonomyLevel.AUTO)
 
@@ -1326,7 +1329,6 @@ class TestGracefulShutdown:
     def test_shutdown_flag_saves_memory(self, tmp_path):
         """Shutdown should trigger memory.save()."""
         agent = Agent(autonomy=AutonomyLevel.AUTO, memory=_make_clean_memory(tmp_path))
-        agent._shutdown_requested = True
         agent._client = MagicMock()
         agent._client.subscribe_submolt.return_value = True
         agent._client.get_home.return_value = {"your_account": {"id": "me", "name": "bot"}}
@@ -1339,7 +1341,22 @@ class TestGracefulShutdown:
         agent._scheduler.seconds_until_comment.return_value = 0
         agent._scheduler.seconds_until_post.return_value = 0
 
-        with patch.object(agent._memory, "save") as mock_save:
+        # run_session() resets _shutdown_requested=False at entry, so we need
+        # to raise the flag after the loop starts. Mock time.time() to also
+        # trip the flag on the 3rd call (post-setup, in the while condition).
+        # Mock time.sleep to avoid real-time waiting if a cycle slips through.
+        call_count = [0]
+
+        def fake_time():
+            call_count[0] += 1
+            if call_count[0] > 2:
+                agent._shutdown_requested = True
+            return 1000.0 + call_count[0]
+
+        with patch.object(agent._memory, "save") as mock_save, \
+             patch("contemplative_agent.adapters.moltbook.agent.time") as mock_time:
+            mock_time.time = fake_time
+            mock_time.sleep = MagicMock()
             agent.run_session(duration_minutes=1)
             mock_save.assert_called_once()
 

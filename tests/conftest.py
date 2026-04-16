@@ -20,5 +20,32 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 _MOLTBOOK_TEST_HOME = Path(tempfile.mkdtemp(prefix="moltbook-pytest-"))
 os.environ["MOLTBOOK_HOME"] = str(_MOLTBOOK_TEST_HOME)
+
+# Force Ollama to an unreachable port so any un-mocked LLM call fails fast
+# (ConnectionRefusedError, ~ms) instead of hitting the developer's local
+# Ollama instance (qwen3.5:9b responses take 1–30s per call and used to
+# dominate slow-test wall time). core/llm.py::generate() swallows exceptions
+# and returns None; every caller treats None as a fail-open signal, so test
+# semantics are preserved. OLLAMA_TRUSTED_HOSTS must include 127.0.0.1 to
+# pass the trust-escalation check in core/llm.py::_resolve_base_url().
+os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:1"
+os.environ.setdefault("OLLAMA_TRUSTED_HOSTS", "127.0.0.1")
+
+
+@pytest.fixture(autouse=True)
+def _reset_llm_circuit_breaker():
+    """Reset the LLM circuit breaker between tests.
+
+    With OLLAMA_BASE_URL forced to an unreachable port, any un-mocked
+    generate() call records a failure; once CIRCUIT_FAILURE_THRESHOLD
+    is reached, subsequent tests that *do* mock requests.post see
+    "Circuit breaker open" and return early before hitting the mock.
+    """
+    from contemplative_agent.core.llm import _circuit
+    _circuit.reset()
+    yield
+    _circuit.reset()
