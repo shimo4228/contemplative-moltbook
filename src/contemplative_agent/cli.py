@@ -1036,6 +1036,80 @@ def _handle_adopt_staged(args: argparse.Namespace, _parser: argparse.ArgumentPar
     )
 
 
+def _handle_remove_skill(
+    args: argparse.Namespace, _parser: argparse.ArgumentParser
+) -> None:
+    """Delete a skill from ``skills_dir`` with an audit trail.
+
+    The single manual-CRUD entry point for the skills directory. Writes an
+    ``audit.jsonl`` record (command="remove-skill") capturing the reason,
+    decision, and content hash so the deletion is reviewable alongside the
+    automated approval-gate history (ADR-0012).
+
+    With ``--yes`` the interactive prompt is skipped (non-TTY workflows).
+    With ``--dry-run`` the target is resolved and printed but nothing is
+    written or removed.
+    """
+    reason = (args.reason or "").strip()
+    if not reason:
+        print(
+            "Error: --reason is required and must be non-empty.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    skills_dir = (MOLTBOOK_DATA_DIR / "skills").resolve()
+    name = args.name
+    if not name.endswith(".md"):
+        name = f"{name}.md"
+    target = (skills_dir / name).resolve()
+
+    try:
+        inside = target.is_relative_to(skills_dir)
+    except (OSError, ValueError):
+        inside = False
+    if not inside:
+        print(
+            f"Error: target escapes skills dir: {target}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    if not target.is_file():
+        print(f"Error: skill not found: {target}", file=sys.stderr)
+        sys.exit(1)
+
+    if getattr(args, "dry_run", False):
+        print(f"[dry-run] would remove: {target}")
+        print(f"[dry-run] reason: {reason}")
+        return
+
+    try:
+        text = target.read_text(encoding="utf-8")
+    except OSError as err:
+        print(f"Error: cannot read {target}: {err}", file=sys.stderr)
+        sys.exit(1)
+
+    yes = getattr(args, "yes", False)
+    source: AuditSource = "direct-remove-auto" if yes else "direct-remove"
+    approved = True if yes else _approve_delete(target)
+
+    _log_approval(
+        command="remove-skill",
+        path=target,
+        approved=approved,
+        content=text,
+        source=source,
+        reason=reason,
+    )
+
+    if approved:
+        target.unlink()
+        print(f"Removed {target.name}")
+    else:
+        print("Kept.")
+
+
 # --- Tier 2: LLM config needed ---
 
 
@@ -1976,6 +2050,33 @@ def main() -> None:
              "(for non-TTY / coding-agent workflows where stdin is not interactive)",
     )
 
+    # remove-skill
+    remove_skill_p = subparsers.add_parser(
+        "remove-skill",
+        help="Remove a skill from skills_dir with an audit trail",
+    )
+    remove_skill_p.add_argument(
+        "name",
+        help="Skill filename stem (with or without .md suffix)",
+    )
+    remove_skill_p.add_argument(
+        "--reason",
+        required=True,
+        help="Justification recorded in audit.jsonl (required, non-empty)",
+    )
+    remove_skill_p.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Skip the interactive prompt "
+             "(for non-TTY / coding-agent workflows where stdin is not interactive)",
+    )
+    remove_skill_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve and print the target without deleting or writing audit",
+    )
+
     # solve
     solve_parser = subparsers.add_parser(
         "solve", help="Test verification solver"
@@ -1998,6 +2099,7 @@ def main() -> None:
         "inspect-identity-history": _handle_inspect_identity_history,
         "prune-skill-usage": _handle_prune_skill_usage,
         "adopt-staged": _handle_adopt_staged,
+        "remove-skill": _handle_remove_skill,
         "migrate-patterns": _handle_migrate_patterns,
         "migrate-categories": _handle_migrate_categories,
         "migrate-identity": _handle_migrate_identity,

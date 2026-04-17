@@ -16,6 +16,7 @@ from contemplative_agent.cli import (
     _handle_inspect_identity_history,
     _handle_migrate_identity,
     _handle_prune_skill_usage,
+    _handle_remove_skill,
     _handle_rules_stocktake,
     _handle_skill_stocktake,
     _setup_logging,
@@ -556,6 +557,151 @@ class TestLogApproval:
         record = json.loads(audit_path.read_text().strip())
         assert record["decision"] == "staged"
         assert record["source"] == "stage"
+
+
+class TestHandleRemoveSkill:
+    """`remove-skill` CLI: audit-backed manual skill deletion."""
+
+    @staticmethod
+    def _args(
+        name: str,
+        *,
+        reason: str = "obsolete",
+        yes: bool = True,
+        dry_run: bool = False,
+    ):
+        """Build an argparse.Namespace matching the remove-skill subparser."""
+        import argparse
+        return argparse.Namespace(
+            name=name, reason=reason, yes=yes, dry_run=dry_run,
+        )
+
+    @staticmethod
+    def _make_skill(skills_dir: Path, name: str, body: str = "# Skill\ncontent\n") -> Path:
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        path = skills_dir / f"{name}.md"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_removes_skill_with_yes(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        target = self._make_skill(skills_dir, "foo-20260417")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _handle_remove_skill(
+                self._args("foo-20260417", reason="old pipeline"),
+                MagicMock(),
+            )
+        assert not target.exists()
+        record = json.loads(audit_path.read_text().strip())
+        assert record["command"] == "remove-skill"
+        assert record["decision"] == "approved"
+        assert record["source"] == "direct-remove-auto"
+        assert record["reason"] == "old pipeline"
+
+    def test_prompts_without_yes_approved(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        target = self._make_skill(skills_dir, "bar-20260417")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path), \
+             patch("contemplative_agent.cli._approve_delete", return_value=True):
+            _handle_remove_skill(
+                self._args("bar-20260417", yes=False),
+                MagicMock(),
+            )
+        assert not target.exists()
+        record = json.loads(audit_path.read_text().strip())
+        assert record["source"] == "direct-remove"
+        assert record["decision"] == "approved"
+
+    def test_rejects_without_yes(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        target = self._make_skill(skills_dir, "baz-20260417")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path), \
+             patch("contemplative_agent.cli._approve_delete", return_value=False):
+            _handle_remove_skill(
+                self._args("baz-20260417", yes=False),
+                MagicMock(),
+            )
+        assert target.exists()
+        record = json.loads(audit_path.read_text().strip())
+        assert record["source"] == "direct-remove"
+        assert record["decision"] == "rejected"
+
+    def test_nonexistent_skill_exits(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            with pytest.raises(SystemExit) as exc:
+                _handle_remove_skill(
+                    self._args("nonexistent-20260417"),
+                    MagicMock(),
+                )
+        assert exc.value.code == 1
+        assert not audit_path.exists()
+
+    def test_dry_run_skips_delete_and_audit(self, tmp_path, capsys):
+        skills_dir = tmp_path / "skills"
+        target = self._make_skill(skills_dir, "keep-me-20260417")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _handle_remove_skill(
+                self._args("keep-me-20260417", dry_run=True),
+                MagicMock(),
+            )
+        assert target.exists()
+        assert not audit_path.exists()
+        out = capsys.readouterr().out
+        assert "dry-run" in out
+        assert "keep-me-20260417" in out
+
+    def test_reason_required_non_empty(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        self._make_skill(skills_dir, "req-20260417")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            with pytest.raises(SystemExit) as exc:
+                _handle_remove_skill(
+                    self._args("req-20260417", reason="   "),
+                    MagicMock(),
+                )
+        assert exc.value.code == 2
+
+    def test_accepts_name_with_or_without_md(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        target = self._make_skill(skills_dir, "ext-20260417")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _handle_remove_skill(
+                self._args("ext-20260417.md"),
+                MagicMock(),
+            )
+        assert not target.exists()
+
+    def test_escape_attempt_rejected(self, tmp_path):
+        """Path traversal (../) must be blocked."""
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (tmp_path / "other.md").write_text("outside", encoding="utf-8")
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            with pytest.raises(SystemExit) as exc:
+                _handle_remove_skill(
+                    self._args("../other"),
+                    MagicMock(),
+                )
+        assert exc.value.code == 2
+        assert (tmp_path / "other.md").exists()
 
 
 class TestStageResults:
