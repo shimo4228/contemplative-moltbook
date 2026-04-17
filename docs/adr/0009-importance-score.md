@@ -72,3 +72,13 @@ effective_importance = importance * (0.95 ^ days_since_distilled)
 - Old low-quality patterns naturally rank down, improving prompt quality
 - Lays the foundation for future Phase 2 (distillation quality gate) and Phase 3 (keyword search)
 - `last_accessed` field provides the basis for a recency score (future triple scoring)
+
+## Calibration History
+
+### 2026-04-17 — SIM_DUPLICATE 0.92 → 0.90
+
+The embedding dedup threshold `SIM_DUPLICATE` was lowered from 0.92 to 0.90.
+
+Reason: the live 97-pattern corpus had max pairwise cosine = 0.8980 (see `.reports/threshold-calibration-20260417.md`). The 0.92 threshold never fired, leaving the SKIP branch vacuous. 0.90 keeps the branch ready to fire when duplicates emerge while preserving the SIM_UPDATE=0.80 zone intact (0.88 would have pulled the current max into SKIP and compressed the UPDATE band).
+
+The SKIP log level was also promoted from `debug` to `info` so SKIP events are visible in normal operation for monitoring.

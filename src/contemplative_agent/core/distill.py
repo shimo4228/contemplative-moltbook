@@ -46,7 +46,7 @@ BATCH_SIZE = 30
 
 # Embedding-based dedup thresholds (ADR-0009). Calibrated against
 # nomic-embed-text on knowledge.json patterns; tune via dry runs.
-SIM_DUPLICATE = 0.92  # near-exact same pattern → SKIP
+SIM_DUPLICATE = 0.90  # near-exact same pattern → SKIP (calibrated 2026-04-17; was 0.92, max cosine=0.8980 on 97 patterns)
 SIM_UPDATE = 0.80     # similar enough to boost importance → UPDATE
 
 # Episode classify thresholds (ADR-0009). The noise gate is intentionally
@@ -829,7 +829,7 @@ def _dedup_patterns(
         # Decide: SKIP / UPDATE existing / SKIP-NEW (boost in batch) / ADD
         if best_existing_sim >= SIM_DUPLICATE or best_new_sim >= SIM_DUPLICATE:
             skip_count += 1
-            logger.debug("SKIP (%.2f): %s", max(best_existing_sim, best_new_sim), new_text[:60])
+            logger.info("SKIP (%.2f): %s", max(best_existing_sim, best_new_sim), new_text[:60])
         elif best_existing_sim >= SIM_UPDATE and best_existing_pat is not None and best_existing_sim >= best_new_sim:
             # ADR-0021: soft-invalidate old, keep row for audit, and ADD a
             # new boosted pattern. The new row inherits max(old_imp, new_imp)

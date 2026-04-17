@@ -204,7 +204,7 @@ class TestDedupPatternsEmbedding:
         boosted one; the old pattern keeps its original importance but gains
         a ``valid_until`` timestamp for audit / replay."""
         existing = [{"pattern": "Existing", "importance": 0.5, "embedding": [1.0, 0.0]}]
-        # cosine ≈ 0.85 (between SIM_UPDATE=0.80 and SIM_DUPLICATE=0.92)
+        # cosine ≈ 0.85 (between SIM_UPDATE=0.80 and SIM_DUPLICATE=0.90)
         new_embs = [_embedding(0.85, 0.527)]
         add, add_imp, add_emb, _idx, skip, upd = _dedup_patterns(
             ["new"], [0.7], new_embs, existing,
