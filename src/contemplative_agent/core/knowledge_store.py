@@ -11,7 +11,6 @@ from typing import Dict, Iterable, List, Optional
 
 from ._io import now_iso, write_restricted
 from .config import FORBIDDEN_SUBSTRING_PATTERNS
-from .forgetting import compute_strength
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,8 @@ SOURCE_TYPES = (
 )
 
 # ADR-0021 base trust by source. Applied at distill time; later adjusted
-# by feedback.py and approval-gate hooks.
+# by approval-gate hooks. (Pattern-layer feedback nudges were retired by
+# ADR-0028.)
 TRUST_BASE_BY_SOURCE: Dict[str, float] = {
     "self_reflection": 0.9,
     "user_input": 0.7,
@@ -41,12 +41,12 @@ DEFAULT_TRUST = TRUST_BASE_BY_SOURCE["unknown"]
 
 
 def effective_importance(p: dict) -> float:
-    """Compute retrieval weight: importance × time decay × trust × strength.
+    """Compute retrieval weight: importance × time decay × trust.
 
-    The legacy term ``importance × 0.95^days_elapsed`` is retained as a
-    coarse aging signal; ADR-0021 augments it with trust (provenance
-    quality) and strength (Ebbinghaus access-aware decay). Patterns
-    missing the new fields degrade to legacy-only scoring.
+    ``importance × 0.95^days_elapsed`` is the coarse aging signal; ADR-0021
+    augments it with trust (provenance quality). The Ebbinghaus ``strength``
+    factor was retired by ADR-0028. Patterns missing trust degrade to
+    legacy-only scoring.
     """
     base = p.get("importance", 0.5)
     distilled = p.get("distilled", "")
@@ -64,8 +64,7 @@ def effective_importance(p: dict) -> float:
             legacy = base * 0.1
 
     trust = float(p.get("trust_score", 1.0))
-    strength = compute_strength(p) if "last_accessed_at" in p or "access_count" in p else 1.0
-    return max(0.0, min(1.0, legacy * trust * strength))
+    return max(0.0, min(1.0, legacy * trust))
 
 
 class KnowledgeStore:
@@ -102,13 +101,16 @@ class KnowledgeStore:
         are all optional. When omitted, sensible defaults are written so the
         pattern is immediately usable: ``provenance.source_type = "unknown"``,
         ``trust_score = DEFAULT_TRUST``, ``valid_from = distilled``,
-        ``valid_until = None`` (current truth). ``last_accessed_at`` /
-        ``access_count`` / ``success_count`` / ``failure_count`` start at
-        neutral values; strength is computed on read.
+        ``valid_until = None`` (current truth).
 
         ADR-0026: ``category`` / ``subcategory`` are no longer written.
         Routing is query-time via ``ViewRegistry``; the ``gated`` flag
         preserves the legacy noise gate.
+
+        ADR-0028: pattern-layer forgetting (``last_accessed_at`` /
+        ``access_count``) and feedback (``success_count`` /
+        ``failure_count``) fields have been retired. Memory-dynamics live
+        at the skill layer (ADR-0023).
         """
         ts = now_iso()
         distilled_value = distilled or ts
@@ -134,12 +136,6 @@ class KnowledgeStore:
         # ADR-0021: bitemporal
         entry["valid_from"] = valid_from or distilled_value
         entry["valid_until"] = valid_until  # None = current truth
-
-        # ADR-0021: forgetting + feedback (initial neutral state)
-        entry["last_accessed_at"] = ts
-        entry["access_count"] = 0
-        entry["success_count"] = 0
-        entry["failure_count"] = 0
 
         self._learned_patterns.append(entry)
 
@@ -197,11 +193,10 @@ class KnowledgeStore:
         """Append pre-built pattern dicts produced by memory evolution.
 
         Each ``row`` is expected to already carry the full post-ADR-0021
-        shape (provenance, trust_score, valid_from/valid_until,
-        last_accessed_at, success/failure counts). Callers — currently
-        only ``distill._process_category`` — use this to ingest the
-        ``EvolutionBatch.revised_rows`` output of ``apply_revision``
-        without reaching into ``_learned_patterns``.
+        shape (provenance, trust_score, valid_from/valid_until). Callers
+        — currently only ``distill._process_category`` — use this to
+        ingest the ``EvolutionBatch.revised_rows`` output of
+        ``apply_revision`` without reaching into ``_learned_patterns``.
         """
         for row in rows:
             self._learned_patterns.append(dict(row))
@@ -328,14 +323,10 @@ class KnowledgeStore:
                     vu = item["valid_until"]
                     if vu is None or isinstance(vu, str):
                         entry["valid_until"] = vu
-                if isinstance(item.get("last_accessed_at"), str):
-                    entry["last_accessed_at"] = item["last_accessed_at"]
-                if isinstance(item.get("access_count"), int):
-                    entry["access_count"] = item["access_count"]
-                if isinstance(item.get("success_count"), int):
-                    entry["success_count"] = item["success_count"]
-                if isinstance(item.get("failure_count"), int):
-                    entry["failure_count"] = item["failure_count"]
+                # ADR-0028: last_accessed_at / access_count /
+                # success_count / failure_count are no longer restored on
+                # read. Legacy files with these fields load cleanly and
+                # the fields are silently dropped on next save.
                 self._learned_patterns.append(entry)
             elif isinstance(item, str):
                 # Bare string — legacy format

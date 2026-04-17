@@ -40,7 +40,6 @@ def _make_pattern(text: str, emb: np.ndarray, **over: object) -> Dict:
         "trust_score": 0.8,
         "valid_until": None,
         "valid_from": "2026-04-10T00:00",
-        "access_count": 0,
         "provenance": {"source_type": "self_reflection", "sanitized": True},
     }
     base.update(over)
@@ -163,7 +162,9 @@ class TestApplyRevision:
         assert new_row["distilled"] == "Revised interpretation in light of new evidence."
         assert new_row["valid_until"] is None
         assert new_row["valid_from"] == "2026-04-16T12:00+00:00"
-        assert new_row["access_count"] == 0
+        # ADR-0028: access_count / last_accessed_at no longer written
+        assert "access_count" not in new_row
+        assert "last_accessed_at" not in new_row
         # Provenance bumped to mixed, preserves history
         assert new_row["provenance"]["source_type"] == "mixed"
         assert new_row["provenance"]["evolution_similarity"] == 0.75
@@ -297,27 +298,27 @@ class TestHybridRankBM25:
                 "pattern": "pattern about the axiom of emptiness in practice",
                 "distilled": "axiom observation",
                 "embedding": [1.0, 0.0, 0.0, 0.0],
-                "trust_score": 1.0, "access_count": 0, "importance": 0.5,
+                "trust_score": 1.0, "importance": 0.5,
                 "valid_until": None,
             },
             {
                 "pattern": "pattern about a quite different topic entirely",
                 "distilled": "topic observation",
                 "embedding": [1.0, 0.0, 0.0, 0.0],
-                "trust_score": 1.0, "access_count": 0, "importance": 0.5,
+                "trust_score": 1.0, "importance": 0.5,
                 "valid_until": None,
             },
             # Extra rows so BM25 has enough corpus to produce non-zero IDF
             {
                 "pattern": "third unrelated pattern for corpus size", "distilled": "z",
                 "embedding": [0.0, 1.0, 0.0, 0.0],
-                "trust_score": 1.0, "access_count": 0, "importance": 0.5,
+                "trust_score": 1.0, "importance": 0.5,
                 "valid_until": None,
             },
             {
                 "pattern": "fourth unrelated pattern for corpus size", "distilled": "w",
                 "embedding": [0.0, 0.0, 1.0, 0.0],
-                "trust_score": 1.0, "access_count": 0, "importance": 0.5,
+                "trust_score": 1.0, "importance": 0.5,
                 "valid_until": None,
             },
         ]
@@ -326,7 +327,7 @@ class TestHybridRankBM25:
         scores = _compute_bm25_scores(seed_text, candidates)
         result = ViewRegistry._rank(
             seed_emb, candidates, threshold=0.0, top_k=None,
-            bm25_scores=scores, alpha=0.5, beta=0.5, mark_access=False,
+            bm25_scores=scores, alpha=0.5, beta=0.5,
         )
         # The "axiom"-bearing pattern should lead
         assert result[0]["distilled"] == "axiom observation"
@@ -349,7 +350,7 @@ class TestHybridRankBM25:
         seed = np.array([1.0, 0.0], dtype=np.float32)
         result = ViewRegistry._rank(
             seed, candidates, threshold=0.0, top_k=None,
-            bm25_scores=None, alpha=1.0, beta=0.0, mark_access=False,
+            bm25_scores=None, alpha=1.0, beta=0.0,
         )
         assert result[0]["pattern"] == "b"  # higher cosine
 
@@ -372,7 +373,7 @@ class TestHybridRankBM25:
         scores = {id(cand_a): 1.0, id(cand_b): 0.0}
         result = ViewRegistry._rank(
             seed, candidates, threshold=0.0, top_k=None,
-            bm25_scores=scores, alpha=1.0, beta=0.0, mark_access=False,
+            bm25_scores=scores, alpha=1.0, beta=0.0,
         )
         assert result[0]["pattern"] == "different topic"
 

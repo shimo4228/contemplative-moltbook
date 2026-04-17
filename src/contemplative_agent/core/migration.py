@@ -444,22 +444,20 @@ def _ensure_adr0021_defaults(pattern: Dict) -> bool:
     if "valid_until" not in pattern:
         pattern["valid_until"] = None
         changed = True
-    if "last_accessed_at" not in pattern:
-        # Legacy files sometimes have `last_accessed` without `_at`
-        legacy = pattern.get("last_accessed")
-        pattern["last_accessed_at"] = (
-            legacy if isinstance(legacy, str) else ts
-        )
-        changed = True
-    if "access_count" not in pattern:
-        pattern["access_count"] = 0
-        changed = True
-    if "success_count" not in pattern:
-        pattern["success_count"] = 0
-        changed = True
-    if "failure_count" not in pattern:
-        pattern["failure_count"] = 0
-        changed = True
+
+    # ADR-0028: last_accessed_at / access_count / success_count /
+    # failure_count retired. Strip them from legacy patterns if present
+    # so the migration is net-reductive rather than just additive.
+    for retired_field in (
+        "last_accessed_at",
+        "access_count",
+        "success_count",
+        "failure_count",
+        "last_accessed",  # pre-ADR-0021 legacy spelling
+    ):
+        if retired_field in pattern:
+            pattern.pop(retired_field)
+            changed = True
 
     return changed
 
@@ -584,11 +582,13 @@ def migrate_patterns_to_adr0021(
     *,
     dry_run: bool = False,
 ) -> Adr0021MigrationStats:
-    """Additively fill ADR-0021 fields on every pattern.
+    """Fill ADR-0021 fields on every pattern; strip ADR-0028-retired fields.
 
     Idempotent: running twice is a no-op. Backup is created before any
-    mutation. Legacy ``last_accessed`` (without ``_at``) is copied into
-    ``last_accessed_at`` for continuity.
+    mutation. ADR-0028 retired ``last_accessed_at`` / ``access_count`` /
+    ``success_count`` / ``failure_count``; this migration now also
+    removes those fields (and the pre-ADR-0021 ``last_accessed`` spelling)
+    from legacy patterns.
     """
     from .knowledge_store import KnowledgeStore
 
@@ -602,6 +602,28 @@ def migrate_patterns_to_adr0021(
         if builder.backup_path is not None:
             logger.info("Backed up knowledge.json → %s", builder.backup_path.name)
 
+    # Detect ADR-0028 strip-drift before KnowledgeStore.load drops the
+    # retired fields from the in-memory representation. Counting at this
+    # layer lets the migration report how many patterns actually change
+    # on disk (additive fill + reductive strip), even though the strip
+    # happens silently at load time.
+    retired_fields = (
+        "last_accessed_at",
+        "access_count",
+        "success_count",
+        "failure_count",
+        "last_accessed",
+    )
+    strip_drift = 0
+    try:
+        raw_text = knowledge_path.read_text(encoding="utf-8")
+        raw_data = json.loads(raw_text) if raw_text.strip().startswith("[") else []
+    except (OSError, json.JSONDecodeError):
+        raw_data = []
+    for raw_entry in raw_data:
+        if isinstance(raw_entry, dict) and any(f in raw_entry for f in retired_fields):
+            strip_drift += 1
+
     store = KnowledgeStore(path=knowledge_path)
     store.load()
     patterns = store.get_raw_patterns()
@@ -613,11 +635,16 @@ def migrate_patterns_to_adr0021(
         else:
             builder.patterns_already_migrated += 1
 
-    if not dry_run and builder.patterns_updated > 0:
+    # ADR-0028: if the on-disk file contained retired fields but every
+    # pattern was otherwise fully migrated, the load-path strip is the
+    # only change. Save unconditionally in that case so the file is
+    # rewritten without the retired fields.
+    needs_save = builder.patterns_updated > 0 or strip_drift > 0
+    if not dry_run and needs_save:
         store.save()
         logger.info(
-            "ADR-0021 migration: %d/%d patterns updated",
-            builder.patterns_updated, builder.patterns_total,
+            "ADR-0021/0028 migration: %d/%d patterns updated (%d stripped of retired fields)",
+            builder.patterns_updated, builder.patterns_total, strip_drift,
         )
 
     return builder.build()

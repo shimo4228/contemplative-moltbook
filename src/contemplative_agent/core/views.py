@@ -37,7 +37,7 @@ from typing import Dict, List, Mapping, Optional
 import numpy as np
 
 from .embeddings import cosine, embed_one
-from .forgetting import compute_strength, is_live, mark_accessed
+from .forgetting import is_live
 
 # ADR-0022 (IV-5) Hybrid Retrieval defaults. Cosine weight is implicit
 # as (1 - bm25_weight); only the BM25 side needs a configurable default.
@@ -311,18 +311,19 @@ class ViewRegistry:
         threshold: float,
         top_k: Optional[int],
         *,
-        mark_access: bool = True,
         bm25_scores: Optional[Mapping[int, float]] = None,
         alpha: float = 1.0,
         beta: float = 0.0,
     ) -> List[Dict]:
-        """Rank candidates by ``(α·cosine + β·bm25_norm) × trust × strength``.
+        """Rank candidates by ``(α·cosine + β·bm25_norm) × trust``.
 
-        ADR-0021 introduced the trust × strength multipliers on top of
-        cosine. ADR-0022 adds an optional BM25 lexical channel blended
-        linearly with cosine via (alpha, beta). Raw cosine is still used
-        for the ``threshold`` gate so tuning stays semantic, not
-        keyword-driven.
+        ADR-0021 introduced the trust multiplier on top of cosine.
+        ADR-0022 adds an optional BM25 lexical channel blended linearly
+        with cosine via (alpha, beta). Raw cosine is still used for the
+        ``threshold`` gate so tuning stays semantic, not keyword-driven.
+
+        ADR-0028 retired the Ebbinghaus ``strength`` factor and the
+        ``mark_access`` side-effect — ``_rank`` is now a pure read.
 
         ``bm25_scores`` maps ``id(pattern_dict) -> normalized BM25 score``
         (pre-computed by the caller via ``_compute_bm25_scores``). When
@@ -347,16 +348,11 @@ class ViewRegistry:
             else:
                 base = sim
             trust = float(pat.get("trust_score", 1.0))
-            strength = compute_strength(pat)
-            scored.append((base * trust * strength, sim, pat))
+            scored.append((base * trust, sim, pat))
         scored.sort(key=lambda t: t[0], reverse=True)
         if top_k is not None:
             scored = scored[:top_k]
-        result = [pat for _, _, pat in scored]
-        if mark_access:
-            for pat in result:
-                mark_accessed(pat)
-        return result
+        return [pat for _, _, pat in scored]
 
 
 def _compute_bm25_scores(

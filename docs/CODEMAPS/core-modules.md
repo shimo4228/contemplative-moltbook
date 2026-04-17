@@ -20,8 +20,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `views.py` | 396 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, hybrid cosine + BM25 scoring (ADR-0022) |
 | `migration.py` | 346 | `run_embed_backfill()` (ADR-0019) + `migrate_patterns_to_adr0021()` pattern-schema backfill |
 | `snapshot.py` | 178 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020 |
-| `forgetting.py` | 112 | Ebbinghaus strength decay (ADR-0021): `compute_strength`, `effective_importance`, `TRUST_FLOOR`, `STRENGTH_FLOOR`, `is_live` (bitemporal gate) |
-| `feedback.py` | 66 | Post-action success/failure aggregator (ADR-0021) feeding `pattern.success_count` / `failure_count` |
+| `forgetting.py` | 30 | Retrieval gate (ADR-0021 IV-2/IV-7 + ADR-0028 retirement): `TRUST_FLOOR`, `is_live(pattern)` — bitemporal + trust floor only. Ebbinghaus strength and mark_accessed were retired by ADR-0028. |
 | `memory_evolution.py` | 250 | A-Mem bidirectional update (ADR-0022): `find_neighbors` / `revise_neighbor` / `apply_revision` / `evolve_patterns` |
 | `identity_blocks.py` | 549 | Identity block parser/renderer (ADR-0024): `parse`, `render`, `update_block`, `load_for_prompt` (mtime-cached), `migrate_to_blocks`, `append_history`, `body_hash`, `PERSONA_CORE_BLOCK` |
 | `skill_frontmatter.py` | 205 | YAML-subset parser/renderer for skill-file metadata (`last_reflected_at`, `success_count`, `failure_count`, ADR-0023) |
@@ -100,24 +99,19 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
   "provenance": {"source_type": "self_reflection|external_reply|mixed|unknown",
                  "source_episode_ids": ["..."],
                  "sanitized": true,
-                 "pipeline_version": "adr-0021"},
+                 "pipeline_version": "distill@0.26"},
   "trust_score": 0.9,
   "trust_updated_at": "2026-04-16T…",
   "valid_from": "2026-04-16T…",
-  "valid_until": null,
-  "last_accessed_at": "2026-04-16T…",
-  "access_count": 0,
-  "strength": 1.0,
-  "success_count": 0,
-  "failure_count": 0
+  "valid_until": null
 }
 ```
 **Invariants**:
 - Patterns only; agents/topics/insights live in JSONL.
 - `gated` is behavioural (skipped in distill dedup); `last_view_matches` is read-only telemetry (ADR-0020 — never branch on it).
 - `valid_until=None` means live; superseded rows keep the timestamp (bitemporal soft-invalidate, ADR-0021). Retrieval must filter via `forgetting.is_live(p)`.
-- `effective_importance = importance × trust_score × strength × 0.95^days_since_accessed` — see `forgetting.effective_importance` (ADR-0021).
-- `success_count` / `failure_count` fed by `feedback.py` post-action updater (ADR-0021).
+- `effective_importance = importance × trust_score × 0.95^days_since_distilled` — see `knowledge_store.effective_importance` (ADR-0021 + ADR-0028 strength-factor retirement).
+- `last_accessed_at` / `access_count` / `success_count` / `failure_count` fields retired by ADR-0028. Memory dynamics at skill layer (ADR-0023).
 - `category` field removed by ADR-0026. Run `contemplative-agent migrate-categories` on legacy `knowledge.json` to drop the field (legacy `category == "noise"` is preserved as `gated = True`).
 
 ## LLM Functions (core/llm.py)

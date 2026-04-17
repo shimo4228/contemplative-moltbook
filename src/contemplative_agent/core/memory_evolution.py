@@ -186,10 +186,6 @@ def apply_revision(
         "trust_updated_at": ts,
         "valid_from": ts,
         "valid_until": None,
-        "last_accessed_at": ts,
-        "access_count": 0,
-        "success_count": 0,
-        "failure_count": 0,
     }
     return invalidated, revised
 

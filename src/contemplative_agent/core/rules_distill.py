@@ -195,17 +195,12 @@ def _build_skill_clusters(skill_texts: List[str]) -> List[List[str]]:
 
     # Adapter dicts for cluster_patterns; effective_importance stays neutral
     # because we don't want importance weighting on skill clusters.
-    ts = now_iso()
     dicts = [
         {
             "pattern": text,
             "embedding": matrix[i].tolist(),
             "importance": 0.5,
             "trust_score": 1.0,
-            "last_accessed_at": ts,
-            "access_count": 0,
-            "success_count": 0,
-            "failure_count": 0,
         }
         for i, text in enumerate(skill_texts)
     ]

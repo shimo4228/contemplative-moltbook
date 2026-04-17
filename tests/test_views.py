@@ -164,9 +164,7 @@ class TestRankADR0021:
                 "valid_until": "2026-01-01T00:00",
             },
         ]
-        result = ViewRegistry._rank(
-            seed, candidates, threshold=0.0, top_k=None, mark_access=False
-        )
+        result = ViewRegistry._rank(seed, candidates, threshold=0.0, top_k=None)
         assert [p["pattern"] for p in result] == ["alive"]
 
     def test_rank_skips_low_trust(self):
@@ -175,9 +173,7 @@ class TestRankADR0021:
             {"pattern": "trusted", "embedding": [1.0, 0.0], "trust_score": 0.8},
             {"pattern": "untrusted", "embedding": [1.0, 0.0], "trust_score": 0.1},
         ]
-        result = ViewRegistry._rank(
-            seed, candidates, threshold=0.0, top_k=None, mark_access=False
-        )
+        result = ViewRegistry._rank(seed, candidates, threshold=0.0, top_k=None)
         assert [p["pattern"] for p in result] == ["trusted"]
 
     def test_rank_orders_by_combined_score(self):
@@ -187,28 +183,13 @@ class TestRankADR0021:
             {"pattern": "low", "embedding": [1.0, 0.0], "trust_score": 0.4},
             {"pattern": "high", "embedding": [1.0, 0.0], "trust_score": 0.9},
         ]
-        result = ViewRegistry._rank(
-            seed, candidates, threshold=0.0, top_k=None, mark_access=False
-        )
+        result = ViewRegistry._rank(seed, candidates, threshold=0.0, top_k=None)
         assert [p["pattern"] for p in result] == ["high", "low"]
 
-    def test_rank_marks_access_on_retrieval(self):
-        seed = np.array([1.0, 0.0], dtype=np.float32)
-        pat = {"pattern": "a", "embedding": [1.0, 0.0], "access_count": 5}
-        candidates = [pat]
-        ViewRegistry._rank(
-            seed, candidates, threshold=0.0, top_k=None, mark_access=True
-        )
-        assert pat["access_count"] == 6
-        assert "last_accessed_at" in pat
-
-    def test_rank_mark_access_can_be_disabled(self):
-        seed = np.array([1.0, 0.0], dtype=np.float32)
-        pat = {"pattern": "a", "embedding": [1.0, 0.0], "access_count": 5}
-        ViewRegistry._rank(
-            seed, [pat], threshold=0.0, top_k=None, mark_access=False
-        )
-        assert pat["access_count"] == 5
+    # ADR-0028: mark_access / access_count tests removed. _rank is now a
+    # pure read; the Ebbinghaus strength factor and usage tracking were
+    # retired because the agent's hot path does not retrieve patterns
+    # per-turn. Live memory dynamics live at the skill layer (ADR-0023).
 
 
 class TestSeedFrom:

@@ -1,7 +1,7 @@
 # ADR-0021: Pattern スキーマ拡張 — Provenance / Bitemporal / Forgetting / Feedback
 
 ## Status
-proposed
+partially-superseded-by ADR-0028 (Forgetting IV-3 + Feedback IV-10 を 2026-04-18 に撤回)。Provenance (IV-7) と Bitemporal (IV-2) は有効のまま。
 
 ## Date
 2026-04-16

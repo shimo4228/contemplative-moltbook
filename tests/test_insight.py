@@ -225,10 +225,6 @@ class TestBuildClusterBatches:
             "importance": importance,
             "embedding": embedding,
             "trust_score": 1.0,
-            "last_accessed_at": "2026-04-17T00:00",
-            "access_count": 0,
-            "success_count": 0,
-            "failure_count": 0,
         }
 
     def test_two_clusters_produce_two_batches(self) -> None:

@@ -17,13 +17,12 @@ cli.py (1779L)  -- composition root, only file importing both core/ and adapters
  |    embeddings.py (144L)        -- /api/embed wrapper (nomic-embed-text) + cosine + embed_one/embed_texts
  |    episode_embeddings.py (174L)-- EpisodeEmbeddingStore (SQLite sidecar, ADR-0019)
  |    episode_log.py (98L)        -- Layer 1: append-only JSONL episode storage
- |    knowledge_store.py (393L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal/forgetting/feedback (ADR-0021) + view telemetry (ADR-0020)
+ |    knowledge_store.py (393L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal (ADR-0021; forgetting/feedback retired by ADR-0028) + view telemetry (ADR-0020)
  |    memory.py (490L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
  |    views.py (396L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, hybrid cosine+BM25 ADR-0022)
  |    migration.py (346L)         -- run_embed_backfill (ADR-0019) + migrate_patterns_to_adr0021
  |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
- |    forgetting.py (112L)        -- Ebbinghaus strength + effective_importance + is_live bitemporal gate (ADR-0021)
- |    feedback.py (66L)           -- post-action success/failure aggregator feeding pattern counters (ADR-0021)
+ |    forgetting.py (30L)         -- is_live: bitemporal + trust floor retrieval gate (ADR-0021 + ADR-0028 retirement)
  |    memory_evolution.py (250L)  -- A-Mem bidirectional update: find_neighbors/revise_neighbor/apply_revision (ADR-0022)
  |    identity_blocks.py (549L)   -- identity block parse/render/update_block/load_for_prompt/migrate_to_blocks/append_history (ADR-0024/0025)
  |    skill_frontmatter.py (205L) -- stdlib YAML subset parser for skill metadata (ADR-0023)

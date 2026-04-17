@@ -1,7 +1,7 @@
 # ADR-0021: Pattern Schema Extension — Provenance / Bitemporal / Forgetting / Feedback
 
 ## Status
-proposed
+partially-superseded-by ADR-0028 (Forgetting IV-3 + Feedback IV-10 retired 2026-04-18). Provenance (IV-7) and Bitemporal (IV-2) remain in effect.
 
 ## Date
 2026-04-16
