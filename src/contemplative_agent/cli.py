@@ -232,7 +232,14 @@ _APPROVAL_GATE_COMMANDS = frozenset({
 AUDIT_LOG_PATH = MOLTBOOK_DATA_DIR / "logs" / "audit.jsonl"
 
 
-AuditSource = Literal["direct", "stage", "stage-adopted", "stage-adopted-auto"]
+AuditSource = Literal[
+    "direct",
+    "stage",
+    "stage-adopted",
+    "stage-adopted-auto",
+    "direct-remove",
+    "direct-remove-auto",
+]
 
 
 def _log_approval(
@@ -243,6 +250,7 @@ def _log_approval(
     *,
     source: AuditSource = "direct",
     snapshot_path: Optional[Path] = None,
+    reason: Optional[str] = None,
 ) -> None:
     """Append approval decision to audit log.
 
@@ -257,9 +265,14 @@ def _log_approval(
             - "stage-adopted": adopted interactively from staging via `adopt-staged`.
             - "stage-adopted-auto": adopted from staging via `adopt-staged --yes`
               (no human prompt; used by non-TTY coding-agent workflows).
+            - "direct-remove": manual removal via `remove-skill` (interactive).
+            - "direct-remove-auto": manual removal via `remove-skill --yes`.
         snapshot_path: Pivot snapshot directory written at run start (ADR-0020).
             ``None`` when the command did not produce a snapshot (e.g. dry-run
             or embed-backfill).
+        reason: Human-provided justification for the action. Required for
+            ``remove-skill`` and other manual CRUD; the field is always
+            present in the record (null when omitted) for forward compat.
     """
     if approved is None:
         decision = "staged"
@@ -275,6 +288,7 @@ def _log_approval(
         "source": source,
         "content_hash": hashlib.sha256(content.encode()).hexdigest()[:16],
         "snapshot_path": str(snapshot_path) if snapshot_path is not None else None,
+        "reason": reason,
     }
     try:
         append_jsonl_restricted(AUDIT_LOG_PATH, record)

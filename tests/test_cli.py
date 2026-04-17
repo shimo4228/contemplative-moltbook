@@ -527,6 +527,25 @@ class TestLogApproval:
         assert "snapshot_path" in record  # field always present for forward compat
         assert record["snapshot_path"] is None
 
+    def test_reason_field_preserved_when_provided(self, tmp_path):
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _log_approval(
+                "remove-skill", Path("skills/foo.md"), True, "content",
+                source="direct-remove", reason="superseded by 2026-04-17 run",
+            )
+        record = json.loads(audit_path.read_text().strip())
+        assert record["reason"] == "superseded by 2026-04-17 run"
+        assert record["source"] == "direct-remove"
+
+    def test_reason_null_when_omitted(self, tmp_path):
+        audit_path = tmp_path / "logs" / "audit.jsonl"
+        with patch("contemplative_agent.cli.AUDIT_LOG_PATH", audit_path):
+            _log_approval("insight", Path("a.md"), True, "content")
+        record = json.loads(audit_path.read_text().strip())
+        assert "reason" in record  # field always present for forward compat
+        assert record["reason"] is None
+
     def test_staged_decision_for_none_approval(self, tmp_path):
         """approved=None should map to decision='staged'."""
         audit_path = tmp_path / "logs" / "audit.jsonl"
