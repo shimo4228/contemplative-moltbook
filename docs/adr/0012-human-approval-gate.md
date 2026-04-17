@@ -59,3 +59,18 @@ AKC (Agent Knowledge Cycle) is a self-improvement loop predicated on human overs
 **Requires attention**:
 - CLI interactive prompts cannot be used in CI/CD pipelines (behavior-modifying commands should not be auto-executed in CI anyway)
 - When Claude Code is the orchestrator, the approval flow implementation needs consideration (re-execute after reading stdout results, or a different interface)
+
+## Notes
+
+### 2026-04-17 — Manual CRUD audit coverage
+
+The original decision table covered generation paths (insight, rules-distill, etc.) but left manual CRUD on `skills_dir` outside the audit. A plain `rm ~/.config/moltbook/skills/foo.md` left no record, breaking the "every behavior-modifying action is auditable" invariant.
+
+Added the `remove-skill` CLI as the single entry point for manual skill deletion:
+
+- Requires `--reason` (non-empty), stored in `audit.jsonl` under the new `reason` field
+- Writes `command="remove-skill"` with `source="direct-remove"` (interactive) or `"direct-remove-auto"` (`--yes`, non-TTY)
+- Both approved and rejected decisions are logged
+- `--dry-run` short-circuits before any write (no file change, no audit entry)
+
+Policy: any future manual CRUD on behavior-modifying artifacts must go through a similar auditable CLI (`add-skill`, `rename-skill`, `remove-rule`, etc.) rather than direct filesystem operations.
