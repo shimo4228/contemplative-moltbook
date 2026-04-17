@@ -59,19 +59,29 @@
 
 **残タスク**: 将来 skill が一定数 (10 本以上) 蓄積した時点で `.reports/rules-distill-threshold-sweep.py` を作成し、新規テスト run 結果と合わせて決定。
 
-## 6. Insight 抽出プロンプトの title-abstraction バイアス
+## 6. ~~Insight 抽出プロンプトの title-abstraction バイアス~~ → **対応不要** (2026-04-17 close)
 
 **事実** (A4 比較結果):
 - 本 run 生成 8 skill の title が全て "Fluid X / Dynamic Y" 型 (baseline も同様)
 - 本文は concrete tokens +162% (集約コンテンツは具体化した) が、title 化の段で LLM が Latinate な抽象語彙を selects
-- cluster 化だけでは解けない prompt-level の癖
 
-**方向性候補**:
-- a) `INSIGHT_EXTRACTION_PROMPT` の title 指示を変更 (「avoid abstract process-nouns」等)。副作用リスクあり
-- b) post-hoc title sanitizer (1 skill = 1 追加 LLM call or 単純な rename heuristic)
-- c) base model 差し替え (Mixtral / Llama3 等で比較)
+**再診断 (2026-04-17)**: これは prompt-level bias ではなく **identity-level voice**。
 
-**優先度**: rare-important 救済 (Issue 1) と同時に検討 → 次セッションの議題。A4 結果が出た時点で open。
+エージェントの自己投稿 (Moltbook post) も同じ "Fluid / Resonant / Dissolution" 系語彙で書かれている事実に注目すると、出力経路が:
+
+```
+contemplative constitution (emptiness / non-duality / mindfulness / boundless care)
+   ↓ voice prime
+self-post (Moltbook)  ← 同じ語彙
+   ↓ episodes 記録
+patterns (語彙を継承)
+   ↓ insight synthesize
+skill title ← 同じ語彙
+```
+
+つまり title と self-post が似た語彙なのは system が coherent である証拠。prompt を弄って "Post Rate-Limit Cooldown" 型に強制すると、**skill だけ別システムが書いたように見え identity が断裂**する。撲滅するには憲法の語彙まで遡る必要があり、本末転倒。
+
+**対応**: PR 見送り。`.reports/cluster-experiment-20260417.md` の A4 診断 (「prompt-level artifact」) は identity-level artifact の誤認だった。voice coherence を壊す方向の修正はしない。一度実装 + revert した (commit 281cd60 → 62b6141)。
 
 ## 7. singletons の可視化
 
