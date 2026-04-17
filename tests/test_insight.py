@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+# Canary regex for the title-abstraction bias fight (Issue #6, 2026-04-17).
+# Baseline runs produced "Fluid X / Dynamic Y" titles across the board; the
+# INSIGHT_EXTRACTION_PROMPT now steers away from these Latinate process nouns.
+# See .reports/cluster-experiment-20260417.md.
+ABSTRACT_TITLE_PATTERN = re.compile(
+    r"\b(fluid|dynamic|resonant|resonance|dissolution|"
+    r"emancipation|anchoring|coupling|multiplexed)\b",
+    re.IGNORECASE,
+)
 
 from contemplative_agent.core.insight import (
     InsightResult,
@@ -345,3 +356,45 @@ class TestExtractInsightSupersededExclusion:
         assert seen_batches, "expected _build_cluster_batches to be called"
         # Only live patterns reach batching.
         assert set(seen_batches[0]) == {"live-0", "live-1", "live-2"}
+
+
+# ---------------------------------------------------------------------------
+# Title-abstraction bias canary (Issue #6)
+# ---------------------------------------------------------------------------
+
+
+class TestTitleAbstractionCanary:
+    """Guard against regression of the "Fluid X / Dynamic Y" title habit.
+
+    The ``INSIGHT_EXTRACTION_PROMPT`` was amended on 2026-04-17 to steer
+    the LLM toward concrete domain nouns. These tests assert the regex
+    itself behaves as expected — if the regex goes stale or a title
+    slips through, the downstream density measurement is meaningless.
+    """
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Fluid Resonant Regulation",
+            "Dynamic Semantic Dissolution",
+            "Fluid Administrative Clustering",
+            "Dynamic Multiplexed Resonance Regulation",
+        ],
+    )
+    def test_abstract_titles_detected(self, title: str) -> None:
+        """Canary: if these match, bias has re-emerged and needs attention."""
+        assert ABSTRACT_TITLE_PATTERN.search(title) is not None
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Post Rate-Limit Cooldown",
+            "Feed Noise Gate",
+            "Trust-Score Reset After Episode",
+            "Reply Loop De-duplication",
+            "Knowledge Store Merge on Conflict",
+        ],
+    )
+    def test_concrete_titles_pass(self, title: str) -> None:
+        """Titles with concrete domain nouns must not trigger the canary."""
+        assert ABSTRACT_TITLE_PATTERN.search(title) is None

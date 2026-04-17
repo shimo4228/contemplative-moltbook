@@ -15,6 +15,12 @@ origin: auto-extracted
 ---
 
 # [Descriptive Pattern Name]
+<!-- Title must use concrete domain nouns drawn from the patterns themselves
+     (e.g. "Post Rate-Limit Cooldown", "Feed Noise Gate", "Trust-Score Reset",
+     "Reply Loop De-duplication"). Avoid abstract Latinate process-nouns like
+     Fluid / Dynamic / Resonant / Resonance / Dissolution / Emancipation /
+     Anchoring / Coupling / Multiplexed. -->
+
 
 **Context:** [Brief description of when this applies]
 
