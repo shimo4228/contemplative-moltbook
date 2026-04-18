@@ -165,12 +165,12 @@ Step 2 — Refine:
 
 Step 3 — Score and persist:
   → LLM(DISTILL_IMPORTANCE_PROMPT) → {"scores": [...]}
-  → _dedup_patterns() uses embedding cosine (SIM_DUPLICATE=0.92, SIM_UPDATE=0.80)
+  → _dedup_patterns() uses embedding cosine (SIM_DUPLICATE=0.90, SIM_UPDATE=0.80)
   → KnowledgeStore.add_learned_pattern(..., embedding=..., gated=...)
 ```
 
 **Thresholds** (canonical list in `snapshot.collect_thresholds()`):
-`NOISE_THRESHOLD=0.55`, `CONSTITUTIONAL_THRESHOLD=0.55`, `SIM_DUPLICATE=0.92`, `SIM_UPDATE=0.80`, `DEDUP_IMPORTANCE_FLOOR=0.05`.
+`NOISE_THRESHOLD=0.55`, `SIM_DUPLICATE=0.90`, `SIM_UPDATE=0.80`, `DEDUP_IMPORTANCE_FLOOR=0.05`.
 
 ### Identity Distill (`distill_identity() → IdentityResult`)
 

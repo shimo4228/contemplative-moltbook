@@ -60,7 +60,6 @@ def collect_thresholds() -> Dict[str, float]:
 
     return {
         "NOISE_THRESHOLD": _d.NOISE_THRESHOLD,
-        "CONSTITUTIONAL_THRESHOLD": _d.CONSTITUTIONAL_THRESHOLD,
         "SIM_DUPLICATE": _d.SIM_DUPLICATE,
         "SIM_UPDATE": _d.SIM_UPDATE,
         "DEDUP_IMPORTANCE_FLOOR": _d.DEDUP_IMPORTANCE_FLOOR,

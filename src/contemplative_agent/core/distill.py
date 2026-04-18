@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -50,11 +50,10 @@ BATCH_SIZE = 30
 SIM_DUPLICATE = 0.90  # near-exact same pattern → SKIP (calibrated 2026-04-17; was 0.92, max cosine=0.8980 on 97 patterns)
 SIM_UPDATE = 0.80     # similar enough to boost importance → UPDATE
 
-# Episode classify thresholds (ADR-0009). The noise gate is intentionally
-# above the constitutional threshold so that ambiguous episodes default to
-# uncategorized rather than being incorrectly elevated.
+# Episode noise gate (ADR-0026). Embedding-based classify uses NOISE_THRESHOLD
+# alone; the former CONSTITUTIONAL_THRESHOLD was retired in ADR-0026 Phase 3
+# when classification collapsed from three-way to two-way (gated/kept).
 NOISE_THRESHOLD = 0.55
-CONSTITUTIONAL_THRESHOLD = 0.55
 
 # JSON Schemas for constrained decoding (Ollama v0.5+ format parameter)
 IMPORTANCE_SCHEMA: Dict = {
@@ -751,10 +750,10 @@ DEDUP_IMPORTANCE_FLOOR = 0.05  # Patterns below this effective importance are ex
 
 
 def _dedup_patterns(
-    new_patterns: List[str],
-    new_importances: List[float],
-    new_embeddings: List[Optional[np.ndarray]],
-    existing_patterns: List[dict],
+    new_patterns: Sequence[str],
+    new_importances: Sequence[float],
+    new_embeddings: Sequence[Optional[np.ndarray]],
+    existing_patterns: Sequence[dict],
     *,
     mutate_existing: bool = True,
 ) -> Tuple[

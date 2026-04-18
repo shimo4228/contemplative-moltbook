@@ -726,12 +726,8 @@ class TestThresholds:
     """Embedding thresholds are sane defaults."""
 
     def test_dedup_thresholds_in_range(self):
-        from contemplative_agent.core.distill import (
-            NOISE_THRESHOLD,
-            CONSTITUTIONAL_THRESHOLD,
-        )
+        from contemplative_agent.core.distill import NOISE_THRESHOLD
         assert 0.0 < NOISE_THRESHOLD < 1.0
-        assert 0.0 < CONSTITUTIONAL_THRESHOLD < 1.0
 
 
 class TestEffectiveImportance:

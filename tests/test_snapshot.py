@@ -85,8 +85,8 @@ def view_registry(layout):
 class TestCollectThresholds:
     def test_includes_distill_constants(self):
         t = collect_thresholds()
-        for k in ("NOISE_THRESHOLD", "CONSTITUTIONAL_THRESHOLD",
-                  "SIM_DUPLICATE", "SIM_UPDATE", "DEDUP_IMPORTANCE_FLOOR"):
+        for k in ("NOISE_THRESHOLD", "SIM_DUPLICATE", "SIM_UPDATE",
+                  "DEDUP_IMPORTANCE_FLOOR"):
             assert k in t
             assert isinstance(t[k], float)
 
