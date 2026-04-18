@@ -69,7 +69,6 @@ config/history/
 config/constitution/
 config/meditation/
 reports/
-scripts/
 
 # Generated
 results*.json
