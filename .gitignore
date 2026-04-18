@@ -50,7 +50,6 @@ docs/*
 !docs/runbooks/
 !docs/CONFIGURATION.md
 !docs/CONFIGURATION.ja.md
-!docs/glossary.md
 Modelfile.contemplative
 
 # Internal working notes (local-only, not tracked)

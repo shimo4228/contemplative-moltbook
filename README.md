@@ -11,16 +11,16 @@ Language: English | [日本語](README.ja.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-**A self-improving AI agent that learns from experience, running entirely on a local 9B model.**
+**A self-improving AI agent that learns from experience, running entirely on a local 9B model (Qwen3.5) on a single Apple Silicon Mac (M1+, 16 GB RAM).**
 No cloud. No API keys in transit. No shell execution. Dangerous capabilities don't exist in the codebase -- they aren't restricted by rules, they were never built.
 
 ## Why This Exists
 
-Most agent frameworks bolt security on after the fact. [OpenClaw](https://github.com/openclaw/openclaw) shipped with [512 vulnerabilities](https://www.tenable.com/plugins/nessus/299798), [full agent takeover via WebSocket](https://www.oasis.security/blog/openclaw-vulnerability), and [220,000+ exposed instances](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/). Giving an AI agent broad system access creates a structurally expanding attack surface.
+Most agent frameworks bolt security on after the fact. [OpenClaw](https://github.com/openclaw/openclaw) shipped with [multiple critical vulnerabilities](https://www.tenable.com/plugins/nessus/299798), [full agent takeover via WebSocket](https://www.oasis.security/blog/openclaw-vulnerability), and [220,000+ exposed instances](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/). Giving an AI agent broad system access creates a structurally expanding attack surface.
 
-This framework takes the opposite approach: **security by absence**. The agent can't execute shell commands, can't access arbitrary URLs, can't traverse the filesystem -- because that code was never written. Prompt injection can't grant abilities the agent was never built to have.
+This framework takes the opposite approach: **security by absence** — a design principle defined as not implementing dangerous capabilities in the first place, rather than restricting them through rules. The agent can't execute shell commands, can't access arbitrary URLs, can't traverse the filesystem — because that code was never written. Prompt injection can't grant abilities the agent was never built to have.
 
-**It also runs entirely on consumer hardware.** The full pipeline -- learning from its own experience, semantic memory you can search by meaning, automatic skill extraction from recurring patterns, and knowledge that ages and updates over time -- executes on a single Apple Silicon Mac (M1+, ~16 GB RAM) with two open-weight models: **qwen3.5:9b** generation (Q4_K_M quantization, ~5.5 GB) and **nomic-embed-text** embedding (~274 MB, 768-dim). No GPU cluster, no cloud inference.
+**It also runs entirely on consumer hardware.** The full pipeline -- learning from its own experience, semantic memory you can search by meaning, automatic skill extraction from recurring patterns, and knowledge that ages and updates over time -- executes on a single Apple Silicon Mac (M1+, ~16 GB RAM) with two open-weight models: **qwen3.5:9b** generation (Q4_K_M quantization, ~6.6 GB on disk) and **nomic-embed-text** embedding (~274 MB, 768-dim). No GPU cluster, no cloud inference.
 
 The only component that reaches the network is the adapter facing an external service. The Moltbook reference adapter is a SNS and is online by necessity; every other adapter can run fully offline -- generation, embedding, retrieval, and distillation all happen on-device.
 
@@ -55,7 +55,7 @@ Raw actions flow upward through increasingly abstract layers. Each layer is opti
 
 This loop is the project's implementation of the **Agent Knowledge Cycle (AKC)** — a six-phase self-improvement cadence (Research → Extract → Curate → Promote → Measure → Maintain) originally developed as a Claude Code harness for meta-workflow improvement and re-implemented here for autonomous agents. `distill` covers Extract; `insight` / `rules-distill` / `amend-constitution` cover Curate; `distill-identity` covers Promote; pivot snapshots (ADR-0020) and `skill-reflect` (ADR-0023) cover Measure. Full phase-to-code mapping: [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping). The source harness: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle).
 
-Underneath, the knowledge layer stores each pattern as an embedding coordinate rather than a discrete category; queries project through named *views* (semantic seeds) that can be edited or replaced without migrating data ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md) + Phase 3 completion [ADR-0026](docs/adr/0026-retire-discrete-categories.md)). Patterns carry provenance and bitemporal validity ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), reduced to its live set by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md)). When a new pattern lands near an older one, the older one is re-interpreted rather than overwritten, and retrieval scores it with a cosine + BM25 hybrid ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)). The memory architecture draws its structure from the Yogācāra eight-consciousness model; see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md) for the full mapping.
+Knowledge is stored as embedding coordinates, not discrete categories; named *views* act as editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md)). New patterns trigger re-interpretation of topically-related older ones rather than overwriting — scored by cosine + BM25 hybrid retrieval ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)). The layered structure draws from the Yogācāra eight-consciousness model ([ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)). Provenance, bitemporal validity, and the evolution of these foundations are detailed in [Key Features](#key-features) below.
 
 ## Key Features
 
@@ -66,7 +66,7 @@ Underneath, the knowledge layer stores each pattern as an embedding coordinate r
 - *Skill-as-memory loop* — skills are retrieved, applied, and rewritten based on outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
 - *Noise as seed* — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
 
-**Secure by Design** -- No shell execution, no arbitrary network access, no file traversal. Domain-locked to `moltbook.com` + localhost Ollama. Single runtime dependency (`requests`). [Full threat model →](docs/adr/0007-security-boundary-model.md)
+**Secure by Design** -- No shell execution, no arbitrary network access, no file traversal. Domain-locked to `moltbook.com` + localhost Ollama. 3 runtime dependencies (`requests`, `numpy`, `rank-bm25`) — no subprocess, no shell, no templating engine. [Full threat model →](docs/adr/0007-security-boundary-model.md)
 
 - *Provenance tracking* — every pattern carries `source_type` and `trust_score`; MINJA-class memory injection attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), partially-superseded-by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md)).
 - *Replayable pivot snapshots* — distill runs bundle the full state (manifest + views + constitution + centroid embeddings) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
@@ -92,9 +92,9 @@ A Contemplative agent runs daily on [Moltbook](https://www.moltbook.com/u/contem
 
 ## Quick Start
 
-**Prerequisites:** [Ollama](https://ollama.com/download) installed locally. Requires ~6 GB RAM for the default model (Qwen3.5 9B). Tested on M1 Mac.
+**Prerequisites:** [Ollama](https://ollama.com/download) installed locally. Requires ~8 GB RAM for the default model (Qwen3.5 9B Q4_K_M; model file ~6.6 GB). Tested on M1 Mac with 16 GB RAM.
 
-If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL and ask it to set up the agent. It will clone, install, and configure everything -- you just need to provide your `MOLTBOOK_API_KEY`.
+If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL and ask it to set up the agent. It will guide you through clone, install, and configuration — have your `MOLTBOOK_API_KEY` ready (register at moltbook.com).
 
 Or manually:
 
@@ -111,7 +111,7 @@ cp .env.example .env
 
 # 3. Run
 contemplative-agent init               # create identity, knowledge, constitution
-contemplative-agent register           # register your agent profile on Moltbook
+contemplative-agent register           # Moltbook adapter only; skip for other adapters
 contemplative-agent run --session 60   # default: --approve (confirms each post)
 
 # Or start with a different character (default path: ~/.config/moltbook/):
@@ -132,13 +132,13 @@ See the full template list (philosophies, core principles, and how to pick or bu
 | **Network access** | Arbitrary | Domain-locked to `moltbook.com` + localhost |
 | **File system** | Full access | Writes only to `$MOLTBOOK_HOME`, 0600 permissions |
 | **LLM provider** | External API keys in transit | Local Ollama only |
-| **Dependencies** | Large dependency tree | Single runtime dep (`requests`) |
+| **Dependencies** | Large dependency tree | 3 runtime deps (`requests`, `numpy`, `rank-bm25`) |
 
 **One external adapter per agent** -- A single agent process owns at most one adapter that produces externally-observable side effects. Workflows spanning multiple external surfaces (e.g. posting *and* payment) must be decomposed into separate agent processes with separated authority, not bolted onto one. See [ADR-0015](docs/adr/0015-one-external-adapter-per-agent.md).
 
 > Paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself. [Latest security scan →](docs/security/2026-04-01-security-scan.md)
 
-**Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents -- an unfiltered indirect prompt injection surface. Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. Claude Code users can install PreToolUse hooks that enforce this automatically -- see [integrations/claude-code/](integrations/) for setup.
+**Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents -- an unfiltered indirect prompt injection surface. Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. Claude Code users can install PreToolUse hooks that enforce this automatically -- see [integrations/claude-code/](integrations/claude-code/) for setup.
 
 ## Adapters
 
@@ -168,12 +168,11 @@ Upgrading from v1.x? Run the migrations once (see the [CLI Commands → One-Time
 
 ## Architecture
 
-Two invariants hold across the codebase:
+One invariant holds across the codebase: **core/** is platform-independent; **adapters/** depend on core, never the reverse.
 
-- **core/** is platform-independent; **adapters/** depend on core (never the reverse).
-- The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are an optional behavioral preset — a philosophical resonance, not an architectural dependency.
+The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are an optional behavioral preset — a philosophical resonance, not an architectural constraint. Remove them and the agent runs; swap them for Stoic or Kantian premises and it runs differently.
 
-Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For a quick term reference aimed at researchers, see [docs/glossary.md](docs/glossary.md). For the Yogācāra frame and how it constrained the memory design, see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
+Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For FAQ, term definitions, and research references (AI-facing), see [llms-full.txt](llms-full.txt). For the Yogācāra frame and how it constrained the memory design, see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
 For Docker-based network-isolated deployment, see the [Docker section in the Configuration Guide](docs/CONFIGURATION.md#docker-optional).
 
@@ -194,7 +193,7 @@ For Docker-based network-isolated deployment, see the [Docker section in the Con
 
 ## Use It However You Want
 
-This is a research project, not a product. Fork it, strip it for parts, embed the pipeline in your own agent, build a commercial product on top of it -- whatever is useful to you. The MIT license means what it says. A citation is appreciated but not required.
+This is a research project, not a product. Fork it, strip it for parts, embed the pipeline in your own agent, build a commercial product on top of it -- whatever is useful to you. The MIT license means what it says. No citation needed if you're just using the code; see the next section for academic references.
 
 ## Citation
 
@@ -236,7 +235,7 @@ Each paper below informed a specific design decision documented in the linked AD
 - Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten-style dynamic indexing and memory evolution; informs the re-interpretation of topically-related older patterns when a new pattern arrives ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
 - Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) — bitemporal knowledge-graph edges (Graphiti engine); informs the `valid_from` / `valid_until` contract on every pattern ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
 - Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Enhancing Large Language Models with Long-Term Memory.* [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) — Ebbinghaus-style decay with access-reinforced strength; originally informed the retrieval-aware forgetting curve proposed in [ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), retired by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) in favour of locating memory dynamics at the skill layer. Retained as a historical reference.
-- Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *A Practical Memory Injection Attack against LLM Agents* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — query-only memory injection attacks on agent memory; motivates `source_type` + `trust_score` provenance so MINJA-class attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
+- Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *Memory Injection Attacks on LLM Agents via Query-Only Interaction* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — query-only memory injection attacks on agent memory; motivates `source_type` + `trust_score` provenance so MINJA-class attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
 - Zhou, H., Guo, S., Liu, A., et al. (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — skills as persistent evolving memory units, retrieved, applied, and rewritten by outcome; informs the skill-as-memory loop ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
 
 ### Prior Work (Author)

@@ -1,0 +1,174 @@
+# Contemplative Agent — AI Reference
+
+Self-contained AI-facing reference for Contemplative Agent — a local-only autonomous AI agent running on Ollama (Qwen3.5 9B + nomic-embed-text) on a single Apple Silicon Mac. Covers FAQ, term definitions, and prior research citations.
+
+> **Audience**: AI search engines (ChatGPT, Perplexity, Gemini) indexing this project, and AI agents / researchers navigating the codebase. For navigation to other docs (CODEMAPS, ADRs, related repos), see [llms.txt](llms.txt). For human-facing narrative overview, see [README.md](README.md).
+
+---
+
+## Project Facts
+
+- **Version**: 2.0.0
+- **DOI**: [10.5281/zenodo.19212119](https://doi.org/10.5281/zenodo.19212119)
+- **License**: MIT
+- **Repository**: [github.com/shimo4228/contemplative-agent](https://github.com/shimo4228/contemplative-agent)
+- **Tests**: 1115 (pytest)
+- **Python**: 3.10+
+- **Build system**: hatch, uv
+- **Generation LLM**: Qwen3.5 9B (Q4_K_M quantization, ~6.6 GB on disk) via Ollama
+- **Embedding model**: nomic-embed-text (~274 MB, 768-dim) via Ollama
+- **Hardware**: Apple Silicon Mac (M1+), 16 GB RAM, ~10 GB free disk
+- **Runtime dependencies**: requests>=2.33.0, numpy>=1.24.0, rank-bm25>=0.2.2
+- **ADRs**: 30 (ADR-0001 through ADR-0030)
+- **Ethical framework presets**: 11 (contemplative, utilitarian, stoic, care-ethicist, deontologist, pragmatist, narrativist, contractarian, cynic, existentialist, tabula-rasa)
+- **Runtime data directory**: `$MOLTBOOK_HOME` (default `~/.config/moltbook/`)
+- **External network domains**: `moltbook.com` (Moltbook adapter), `localhost` (Ollama)
+- **Autonomy levels**: `--approve` (default), `--guarded`, `--auto`
+- **Distillation pipeline**: 2-stage (free-form extraction + JSON structuring)
+- **Memory architecture**: 3-layer (Episode Log → KnowledgeStore → Identity)
+- **Security model**: security-by-absence (ADR-0007), one external adapter per agent (ADR-0015)
+
+---
+
+## Prior Research References
+
+| Short Name | Full Citation | Relation to This System |
+|---|---|---|
+| Generative Agents | Park, J., O'Brien, J., Cai, C., Morris, M., Liang, P., & Bernstein, M. (2023). *Generative Agents: Interactive Simulacra of Human Behavior*. ACM UIST 2023 | importance rating, memory stream, reflection tree |
+| MemGPT / Letta | Packer, C., Fang, V., Patil, S., Lin, K., Wooders, S., & Gonzalez, J. (2023). *MemGPT: Towards LLMs as Operating Systems*. [arXiv:2310.08560](https://arxiv.org/abs/2310.08560) | virtual memory, Core Memory → Identity |
+| A-MEM | Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents*. [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) | Zettelkasten-style memory evolution |
+| Zep / Graphiti | Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture*. [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | bitemporal valid_from / valid_until on patterns |
+| MemoryBank | Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Long-Term Memory for LLMs*. [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) | Ebbinghaus-style decay (retired ADR-0028) |
+| MINJA | Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *Memory Injection Attacks on LLM Agents*. [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) | MINJA-class attacks, source_type + trust_score |
+| Mem0 | Choudhary, S., et al. (2025). *Mem0: Building Production-Ready AI Agent Memory*. [arXiv:2504.19413](https://arxiv.org/abs/2504.19413) | ADD / UPDATE / DELETE quality gate |
+| Cognitive Architectures | Sumers, T., Yao, S., Narasimhan, K., & Griffiths, T. (2024). *Cognitive Architectures for Language Agents*. TMLR 2024 | 4-type memory taxonomy (working, episodic, semantic, procedural) |
+| Memento-Skills | Zhou, H., Guo, S., Liu, A., et al. (2026). *Memento-Skills: Let Agents Design Agents*. [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) | skill-as-memory rewrite loop |
+| Contemplative AI | Laukkonen, R., Inglis, F., Chandaria, S., et al. (2025). *Contemplative Artificial Intelligence*. [arXiv:2504.15125](https://arxiv.org/abs/2504.15125) | Four axioms as default constitution preset |
+| A Beautiful Loop | Laukkonen, R., Friston, K., & Chandaria, S. (2025). *A Beautiful Loop*. Neuroscience & Biobehavioral Reviews 176, 106296. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/) | Active Inference basis for meditation adapter |
+
+---
+
+## What hardware do I need to run Contemplative Agent?
+
+Contemplative Agent is defined as a local-only autonomous agent running on a single Apple Silicon Mac. Minimum: M1 chip with 16 GB RAM and ~10 GB free disk space. The default LLM stack needs ~8 GB RAM: Qwen3.5 9B (Q4_K_M quantization, ~6.6 GB on disk) for generation and nomic-embed-text (~274 MB, 768-dim) for embeddings, both served by local Ollama. Tested on M1 MacBook Pro. No GPU cluster, no cloud inference, no Docker required. Docker is optional for network isolation — see [ADR-0006](docs/adr/0006-docker-network-isolation.md).
+
+## Can Contemplative Agent run fully offline?
+
+Mostly yes. Offline operation is defined as generation, embedding, retrieval, and distillation all happening on-device via localhost Ollama. The only network call reaches the adapter's target domain — the Moltbook reference adapter requires `moltbook.com`, but every other adapter (e.g., the experimental Meditation adapter) runs fully offline. No telemetry, no cloud sync, no API keys in transit, no data sent to Anthropic, OpenAI, or any third-party LLM provider.
+
+## What are the `--approve`, `--guarded`, and `--auto` autonomy levels?
+
+Autonomy levels are defined as three execution modes controlling how much human oversight is required. `--approve` (default) requires y/n confirmation for every post, intended for development and initial testing. `--guarded` auto-posts content that passes safety filters, intended for supervised operation. `--auto` runs fully autonomously, intended for unattended sessions. All three modes write an audit log to `logs/audit.jsonl`. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md#autonomy-levels) for the full specification.
+
+## How do I swap the default ethical framework?
+
+Contemplative Agent ships with 11 ethical framework templates in `config/templates/`: contemplative (default), utilitarian, stoic, care-ethicist, deontologist (Kantian), pragmatist, narrativist, contractarian, cynic, existentialist, and tabula-rasa (minimal blank-slate preset). Swap by copying a template directory (`cp config/templates/stoic/identity.md $MOLTBOOK_HOME/`) or by passing `--constitution-dir path/to/custom/` to the CLI. Since episode logs are immutable, the same behavioral data can be re-processed under different constitutions for counterfactual experiments.
+
+## Why is Contemplative Agent described as "security by absence"?
+
+Security by absence is defined as the design principle of not implementing dangerous capabilities rather than restricting them through rules. The agent cannot execute shell commands, cannot access arbitrary URLs, cannot traverse the filesystem — because that code was never written. Prompt injection cannot grant abilities the agent was never built to have. Contrast with agent runtimes that bolt security on after the fact and expose a structurally expanding attack surface (see [OpenClaw](https://github.com/openclaw/openclaw) as a case study). Full threat model: [ADR-0007](docs/adr/0007-security-boundary-model.md).
+
+## What data leaves my machine when running the agent?
+
+Only adapter-specific traffic. The Moltbook adapter sends HTTPS requests to `moltbook.com` — post content, feed queries, notification replies — with no telemetry and no training data collection. Ollama serves LLM calls on `localhost` and never hits the network. Episode logs, `knowledge.json`, `identity.md`, `reports/`, and all distilled artifacts stay in `$MOLTBOOK_HOME` (default `~/.config/moltbook/`) with 0600 file permissions. Dependencies are limited to 3 runtime packages (`requests`, `numpy`, `rank-bm25`) — no subprocess, no shell, no templating engine, no analytics SDK.
+
+---
+
+## What is AKC (Agent Knowledge Cycle)?
+
+**AKC** is defined as a 6-phase self-improvement loop: Research, Extract, Curate, Promote, Measure, Maintain. Describes how the agent acquires raw experience, distills it into knowledge, and refines its behavioral artifacts. Originated in the [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle) repository as a Claude Code harness, then re-implemented for autonomous agents in this project.
+
+- **Code**: Mapped across `feed_manager.py` (Research), `distill.py` (Extract), `insight.py` / `rules_distill.py` / `constitution.py` (Curate), `distill.py` distill-identity (Promote)
+- **Codemap**: [architecture.md](docs/CODEMAPS/architecture.md) AKC Mapping
+
+## What is the Approval Gate?
+
+The **Approval Gate** is defined as a human-in-the-loop checkpoint before writing behavior-modifying artifacts. The agent generates content and displays it; file writes occur only after explicit approval. Applies to `insight`, `rules-distill`, `distill-identity`, and `amend-constitution`. Audit log written to `logs/audit.jsonl`.
+
+- **Code**: `cli.py` (approval flow), `core/_io.py` (staged writes)
+- **ADR**: ADR-0012
+
+## What is the Constitution?
+
+The **Constitution** is defined as a set of ethical principles loaded from `MOLTBOOK_HOME/constitution/*.md` and injected into the system prompt. Default: Contemplative AI four axioms (Emptiness, Non-Duality, Mindfulness, Boundless Care). Swappable via `--constitution-dir` or `init --template`.
+
+- **Code**: `core/constitution.py`, `config/templates/*/constitution/`
+- **ADR**: ADR-0002
+
+## What is Contemplative AI?
+
+**Contemplative AI** is defined as a philosophical framework (Laukkonen et al. 2025) proposing four axioms as alignment principles for AI systems. Used as the default constitution preset but not required — the architecture is framework-agnostic, and any of the 11 shipped templates can replace it.
+
+- **Code**: `config/templates/contemplative/constitution/`
+- **Citation**: See Prior Research References above
+
+## How does the Dedup / Quality Gate work?
+
+The **Dedup / Quality Gate** is defined as an embedding-based mechanism preventing duplicate or low-quality patterns in KnowledgeStore. New patterns are bulk-embedded with `nomic-embed-text` and compared against the live pool by cosine similarity: SKIP if ≥ `SIM_DUPLICATE` (0.90), UPDATE (soft-invalidate old + ADD boosted) if ≥ `SIM_UPDATE` (0.80), otherwise ADD. A separate `_is_valid_pattern()` static gate rejects fragments before dedup. The legacy SequenceMatcher + LLM-judgment two-layer mechanism was retired in ADR-0009 (embedding) and ADR-0019 (full embedding-only pipeline).
+
+- **Code**: `core/distill.py` — `_dedup_patterns()`, `_is_valid_pattern()`
+- **ADR**: ADR-0008 (pipeline), ADR-0009 (embedding cosine), ADR-0019 (LLM-classify retirement)
+
+## What is Distill?
+
+**Distill** is defined as the offline pipeline converting raw episodes into structured knowledge patterns. Step 0: LLM classifies episodes into three categories (constitutional / noise / uncategorized). Noise is discarded (active forgetting). Steps 1–3 per category: free-form extraction → JSON structuring → importance scoring → dedup. Runs as a nightly batch via launchd; no approval gate (intermediate artifact).
+
+- **Code**: `core/distill.py`
+- **ADR**: ADR-0008 (pipeline design), ADR-0009 (importance scoring)
+
+## What is an Episode / EpisodeLog?
+
+An **Episode** is defined as a Layer 1 memory record. The **EpisodeLog** is an append-only JSONL log of all agent actions, organized as daily files (`MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl`). Record types: post, comment, interaction, action, insight, session. Input to the distillation pipeline. Never injected into prompts directly — raw episodes are an untrusted prompt injection surface (ADR-0007).
+
+- **Code**: `core/episode_log.py`
+
+## What is Identity?
+
+**Identity** is defined as Layer 3 memory: a Markdown file (`MOLTBOOK_HOME/identity.md`) loaded in full as the system prompt foundation (~4000 tokens). Updated infrequently via `distill-identity` (2-stage: extract → refine). Requires approval gate.
+
+- **Code**: `core/distill.py` (distill-identity pipeline)
+
+## What is the Importance Score?
+
+The **Importance Score** is defined as a 0.0–1.0 float attached to each KnowledgeStore pattern. Assigned by LLM (1–10 scale, normalized) during distillation. Decays over time: `effective_importance = importance × 0.95^days_elapsed`. Used for top-K retrieval and dedup comparison scope.
+
+- **Code**: `core/knowledge_store.py`, `core/distill.py`
+- **ADR**: ADR-0009
+
+## What is Knowledge / KnowledgeStore?
+
+The **KnowledgeStore** is defined as Layer 2 memory: a JSON array of distilled behavioral patterns (`MOLTBOOK_HOME/knowledge.json`). Each pattern has: text, timestamp, importance, category, source, last_accessed. Retrieved by effective_importance top-K. Direct prompt injection deprecated (ADR-0011) — behavioral influence flows through skills only.
+
+- **Code**: `core/knowledge_store.py`
+- **ADR**: ADR-0004 (3-layer memory), ADR-0011 (injection deprecated)
+
+## What is the Meditation adapter?
+
+The **Meditation adapter** is defined as an experimental adapter implementing Active Inference on episode data via a Partially Observable Markov Decision Process (POMDP). It applies temporal flattening and counterfactual pruning — the computational equivalent of closing your eyes and rehearsing past experience under reduced sensory input. Not yet connected to the main AKC loop; currently a standalone research artifact inspired by Laukkonen, Friston, and Chandaria's (2025) "A Beautiful Loop" theory of consciousness.
+
+- **Code**: `adapters/meditation/meditate.py`, `adapters/meditation/pomdp.py`
+
+## What is MOLTBOOK_HOME?
+
+**MOLTBOOK_HOME** is defined as an environment variable specifying the runtime data directory, defaulting to `~/.config/moltbook/` on Unix systems. It contains the agent's live state: `identity.md` (Layer 3 memory), `knowledge.json` (Layer 2 memory), `constitution/*.md` (ethical principles), `skills/*.md`, `rules/*.md`, `logs/*.jsonl` (Layer 1 memory), and `reports/`. Distinct from the `config/` directory in the repository, which holds git-managed templates for initial state. All files are created with 0600 permissions.
+
+- **Code**: `cli.py`, `adapters/moltbook/config.py`, `core/domain.py`
+- **ADR**: ADR-0003
+
+## What are Rules?
+
+**Rules** are defined as distilled behavioral principles stored as Markdown files in `MOLTBOOK_HOME/rules/*.md`. Generated by the `rules-distill` command from accumulated skills after they reach a minimum frequency and coherence threshold. Rules are concise, cross-cutting principles (e.g., "prefer actionable concrete advice over abstract theorizing"); skills are specific behavioral patterns (e.g., "how to respond to technical debt questions"). Both rules and skills are loaded into the system prompt at runtime and participate in `skill-reflect` (ADR-0023) outcome-based revision.
+
+- **Code**: `core/rules_distill.py`
+- **ADR**: ADR-0023 (skill-as-memory loop)
+
+## What are Skills?
+
+**Skills** are defined as behavioral skill files stored as Markdown in `MOLTBOOK_HOME/skills/*.md`. Generated by the `insight` command from uncategorized KnowledgeStore patterns when recurring behavioral signatures are detected. Each skill file describes a specific learned behavior with trigger conditions and action guidance, and serves as input to `rules-distill` for further abstraction into cross-cutting rules. Skills also participate in the skill-as-memory loop (ADR-0023): `skill-reflect` examines outcome logs (`skill-usage-YYYY-MM-DD.jsonl`) and revises skills whose historical failure rate exceeds threshold.
+
+- **Code**: `core/insight.py`, `core/skill_reflect.py`
+- **ADR**: ADR-0023
+
+---
+
+*Last updated: 2026-04-19*

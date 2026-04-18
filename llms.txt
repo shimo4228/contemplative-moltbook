@@ -15,7 +15,8 @@
 
 ## Core documentation
 
-- [README](README.md): project overview, quick start, design summary (English)
+- [Full AI Reference](llms-full.txt): **self-contained AI-facing reference** — 20 Q&A covering hardware, offline operation, autonomy levels, ethical presets, security model, memory architecture terms, and consolidated prior research citations. Optimized for AI search engine citation (ChatGPT, Perplexity, Gemini). English-only by design.
+- [README](README.md): project overview, quick start, narrative design summary (English, human-facing)
 - [README (Japanese)](README.ja.md): same content in Japanese
 - [CLAUDE.md](CLAUDE.md): contributor guide — directory layout, import rules, CLI commands, security stance, documentation language policy
 
