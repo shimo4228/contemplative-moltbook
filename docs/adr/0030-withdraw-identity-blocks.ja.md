@@ -1,7 +1,7 @@
 # ADR-0030: Identity Block 分離と History 配線の撤回 — Single Responsibility
 
 ## Status
-proposed — ADR-0024 と ADR-0025 を supersede
+accepted — ADR-0024 と ADR-0025 を supersede
 
 ## Date
 2026-04-18

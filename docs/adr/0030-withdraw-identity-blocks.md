@@ -1,7 +1,7 @@
 # ADR-0030: Withdraw Identity Block Separation and History Wiring — Single Responsibility
 
 ## Status
-proposed — supersedes ADR-0024 and ADR-0025
+accepted — supersedes ADR-0024 and ADR-0025
 
 ## Date
 2026-04-18

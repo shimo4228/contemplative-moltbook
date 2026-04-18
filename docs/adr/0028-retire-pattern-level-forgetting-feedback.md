@@ -1,7 +1,7 @@
 # ADR-0028: Retire Pattern-Level Forgetting and Feedback — Memory Dynamics Belong to the Skill Layer
 
 ## Status
-proposed
+accepted
 
 ## Date
 2026-04-18

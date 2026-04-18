@@ -27,14 +27,15 @@ Records of key design decisions for this project.
 | [0019](0019-discrete-categories-to-embedding-views.md) | Discrete Categories → Embedding + Views `[AKC: Promote]` | accepted | 2026-04-15 |
 | [0020](0020-pivot-snapshots-for-replayability.md) | Pivot Snapshots for Replayability `[AKC: Curate]` | accepted | 2026-04-16 |
 | [0021](0021-pattern-schema-trust-temporal-forgetting-feedback.md) | Pattern Schema Extension — Provenance / Bitemporal / Forgetting / Feedback | partially-superseded-by 0028, 0029 | 2026-04-16 |
-| [0022](0022-memory-evolution-and-hybrid-retrieval.md) | Memory Evolution + Hybrid Retrieval (BM25) | proposed | 2026-04-16 |
-| [0023](0023-skill-as-memory-loop.md) | Skill-as-Memory Loop — Router, Usage Log, Reflective Write | proposed | 2026-04-16 |
+| [0022](0022-memory-evolution-and-hybrid-retrieval.md) | Memory Evolution + Hybrid Retrieval (BM25) | accepted | 2026-04-16 |
+| [0023](0023-skill-as-memory-loop.md) | Skill-as-Memory Loop — Router, Usage Log, Reflective Write | accepted | 2026-04-16 |
 | [0024](0024-identity-block-separation.md) | Identity Block Separation — Frontmatter-Addressed Persona Blocks | superseded-by 0030 | 2026-04-16 |
 | [0025](0025-identity-history-and-migrate-cli.md) | Identity History Log Wiring + migrate-identity CLI | superseded-by 0030 | 2026-04-16 |
-| [0026](0026-retire-discrete-categories.md) | Retire Discrete Categories (Phase-3 Completion of ADR-0019) | proposed | 2026-04-16 |
-| [0027](0027-noise-as-seed.md) | Noise as Seed — From Binary Gate to Salience-Based Forgetting | proposed | 2026-04-16 |
-| [0028](0028-retire-pattern-level-forgetting-feedback.md) | Retire Pattern-Level Forgetting and Feedback — Memory Dynamics Belong to the Skill Layer | proposed | 2026-04-18 |
-| [0029](0029-retire-dormant-provenance-elements.md) | Retire Dormant Provenance Elements — `user_input` / `external_post` / `sanitized` | proposed | 2026-04-18 |
+| [0026](0026-retire-discrete-categories.md) | Retire Discrete Categories (Phase-3 Completion of ADR-0019) | accepted | 2026-04-16 |
+| [0027](0027-noise-as-seed.md) | Noise as Seed — From Binary Gate to Salience-Based Forgetting | accepted | 2026-04-16 |
+| [0028](0028-retire-pattern-level-forgetting-feedback.md) | Retire Pattern-Level Forgetting and Feedback — Memory Dynamics Belong to the Skill Layer | accepted | 2026-04-18 |
+| [0029](0029-retire-dormant-provenance-elements.md) | Retire Dormant Provenance Elements — `user_input` / `external_post` / `sanitized` | accepted | 2026-04-18 |
+| [0030](0030-withdraw-identity-blocks.md) | Withdraw Identity Block Separation and History Wiring — Single Responsibility | accepted — supersedes 0024 and 0025 | 2026-04-18 |
 
 ## ADR Types
 

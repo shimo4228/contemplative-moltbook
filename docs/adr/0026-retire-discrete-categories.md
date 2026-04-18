@@ -1,7 +1,7 @@
 # ADR-0026: Retire Discrete Categories (Phase-3 Completion of ADR-0019)
 
 ## Status
-proposed
+accepted
 
 ## Date
 2026-04-16

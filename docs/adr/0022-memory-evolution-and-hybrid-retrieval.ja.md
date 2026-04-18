@@ -1,7 +1,7 @@
 # ADR-0022: Memory Evolution + Hybrid Retrieval
 
 ## Status
-proposed
+accepted
 
 ## Date
 2026-04-16

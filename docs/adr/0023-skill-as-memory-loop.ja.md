@@ -1,7 +1,7 @@
 # ADR-0023: Skill-as-Memory ループ — Router / Usage Log / Reflective Write
 
 ## Status
-proposed
+accepted
 
 ## Date
 2026-04-16
