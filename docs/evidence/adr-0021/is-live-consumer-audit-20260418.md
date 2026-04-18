@@ -1,7 +1,7 @@
 # is_live Consumer Audit — 2026-04-18
 
-F6 follow-up of `.reports/adr-0021-audit-followups-20260418.md`.
-Baseline: `.reports/adr-0021-implementation-audit-20260418.md` section 4 P2.4.
+F6 follow-up of `audit-followups-20260418.md`.
+Baseline: `implementation-audit-20260418.md` section 4 P2.4.
 
 ## is_live API
 

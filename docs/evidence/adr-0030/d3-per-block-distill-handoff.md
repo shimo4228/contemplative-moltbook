@@ -1,6 +1,6 @@
 # D3 — Per-Block Distill Routing 引き継ぎ (2026-04-18)
 
-次セッションで cold start できるように作成。`.reports/remaining-issues-2026-04-18.md` §1 (D3) の実装着手用。
+次セッションで cold start できるように作成。内部 issue tracker `.notes/remaining-issues-2026-04-18.md` §1 (D3) の実装着手用（※ADR-0030 で D3/D4 は撤回済み、本 handoff は退役参照）。
 
 ## What is D3
 

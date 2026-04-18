@@ -1,6 +1,6 @@
 # ADR-0021 Audit Follow-ups — 2026-04-18
 
-Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (本 follow-up の source)
+Audit report: `implementation-audit-20260418.md` (本 follow-up の source)
 
 6 follow-up 項目 (F1–F6) のうち、ADR-0028 / ADR-0029 で **F1 / F2 / F3 は解消**。残 3 項目 (F4 / F5 / F6) を新セッションで 1 つずつ片付けるためのチェックリスト。
 
@@ -12,8 +12,8 @@ Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (本 follow-u
 | **F2** | `user_input` / `external_post` / `sanitized` dormant 整理 | ✅ 解消 | ADR-0029 (本セッション、commit 予定) — schema 削除 + production migration 完了 |
 | **F3** | feedback live 配線 or schema removal | ✅ 解消 | ADR-0028 で feedback 撤回 (241bf8a) — schema から削除 |
 | **F4** | Retrieval scoring rank-reversal behavioral test 追加 | ✅ 解消 | commit `d9074ae` で `tests/test_views.py:154-226` に `TestRankADR0021` 追加 (5 tests) |
-| **F5** | Dry-run rank-reversal 効果測定 | ✅ 解消 | `.reports/retrieval-scoring-effect-20260418.md` — trust keep 判定 |
-| **F6** | `is_live()` consumer 適用網羅性確認 | ✅ 解消 | `.reports/is-live-consumer-audit-20260418.md` + commit `4e8eca3` で distill 2 gap 修正 |
+| **F5** | Dry-run rank-reversal 効果測定 | ✅ 解消 | `retrieval-scoring-effect-20260418.md` — trust keep 判定 |
+| **F6** | `is_live()` consumer 適用網羅性確認 | ✅ 解消 | `is-live-consumer-audit-20260418.md` + commit `4e8eca3` で distill 2 gap 修正 |
 
 ---
 
@@ -53,7 +53,7 @@ Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (本 follow-u
 1. `distill --dry-run` / `insight --dry-run` の top-K 出力を記録するスクリプトを書く
 2. ADR-0021 前 (83b6a8b^) vs 現在 で top-K の差を比較
 3. trust が 0.6 constant + strength 撤回済み (ADR-0028) の状況下で、cosine 以外の因子が top-K を変えているかを実データで測る
-4. 結果を `.reports/retrieval-scoring-effect-20260418.md` に記録
+4. 結果を `retrieval-scoring-effect-20260418.md` に記録
 
 **判断材料**:
 - 差がほぼない → trust discrimination は実運用で意味を成していない → `trust_score` 自体を retire するか、migration default を分布させる (ADR 候補)
@@ -90,7 +90,7 @@ Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (本 follow-u
 - `core/distill.py` (`_dedup_patterns` 経路)
 
 **完了定義**:
-- 棚卸し結果を `.reports/is-live-consumer-audit-20260418.md` に記録
+- 棚卸し結果を `is-live-consumer-audit-20260418.md` に記録
 - 未適用 path があれば修正 + test 追加
 
 **参考**: `forgetting.is_live` は ADR-0028 で scope 縮小済み (`valid_until is None and trust_score >= TRUST_FLOOR`)。strength floor は撤回。
@@ -109,7 +109,7 @@ Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (本 follow-u
 
 ## 参考
 
-- Audit report: `.reports/adr-0021-implementation-audit-20260418.md`
+- Audit report: `implementation-audit-20260418.md`
 - ADR-0028: `docs/adr/0028-retire-pattern-level-forgetting-feedback.md` (F1, F3 解消)
 - ADR-0029: `docs/adr/0029-retire-dormant-provenance-elements.md` (F2 解消)
 - 関連 memory: `project_adr0028_retirement`

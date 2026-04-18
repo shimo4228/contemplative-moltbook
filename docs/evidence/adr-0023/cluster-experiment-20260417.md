@@ -112,13 +112,12 @@ Options for a separate follow-up PR:
   `.staged/` retains them for inspection, and a post-title-fix re-run
   would invalidate them anyway.
 - Open a follow-up for prompt-level title de-abstraction (already
-  captured under `.reports/followup-issues-20260417.md` implicitly;
-  add explicit entry).
+  captured in the internal issue tracker implicitly; add explicit entry).
 - Do not re-tune `CLUSTER_THRESHOLD` on the abstract-title evidence —
   the cluster layer is doing its job.
 
 ## Data preserved
 
 - `~/.config/moltbook/.staged/*.md` — new run skills (8)
-- `.reports/skills-baseline-20260417/*.md` — baseline skills (6)
-- `.reports/insight-run-20260417.log` — run log with batch timings
+- `skills-baseline-20260417/*.md` (sibling dir) — baseline skills (6)
+- insight run log — captured locally (see `.reports/insight-run-20260417.log` if retained)

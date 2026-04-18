@@ -1,6 +1,6 @@
 # Retrieval Scoring Effect — F5 Measurement — 2026-04-18
 
-ADR-0021 audit follow-up F5 (see `.reports/adr-0021-audit-followups-20260418.md:46-68`).
+ADR-0021 audit follow-up F5 (see `audit-followups-20260418.md:46-68`).
 F4 / F6 は完了済み。本 report は F5 の単体成果。
 
 ## Context
@@ -174,8 +174,8 @@ Jaccard 判定 + top-K の 63% が trust=0.9 で占有される実態より、tr
 
 ## Artifacts
 
-- 測定 script: `.reports/retrieval-scoring-effect-20260418.py` (read-only guaranteed)
-- 生データ JSON: `.reports/retrieval-scoring-effect-20260418.json` (3 variant × 6 view × top-10 の pattern dump)
+- 測定 script: `retrieval-scoring-effect-20260418.py` (read-only guaranteed)
+- 生データ JSON: `retrieval-scoring-effect-20260418.json` (3 variant × 6 view × top-10 の pattern dump)
 
 ### Read-only 検証
 

@@ -11,7 +11,7 @@ above floor), and reports:
 
 Average-linkage clustering (same algorithm Phase A1 will implement).
 
-Not committed. Run with: python .reports/threshold-sweep.py
+Run with: python docs/evidence/adr-0009/threshold-sweep.py
 """
 
 from __future__ import annotations

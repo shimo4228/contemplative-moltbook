@@ -119,5 +119,5 @@ rather than bundling into Phase A.
 
 ## Script
 
-`.reports/threshold-sweep.py` — one-shot, not committed. Re-run with
-`python .reports/threshold-sweep.py` after significant corpus change.
+`threshold-sweep.py` (sibling script). Re-run with
+`python docs/evidence/adr-0009/threshold-sweep.py` after significant corpus change.

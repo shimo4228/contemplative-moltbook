@@ -1,6 +1,6 @@
 # CLUSTER_THRESHOLD_RULES Sweep Result — 2026-04-18
 
-`.reports/rules-distill-threshold-sweep.py` で `~/.config/moltbook/skills/*.md` (8 本) の cosine 分布と各 threshold でのクラスタ数を測定。`rules_distill.py:31` の暫定値 `CLUSTER_THRESHOLD_RULES = 0.65` の calibration が目的。
+`rules-distill-threshold-sweep.py` (sibling script) で `~/.config/moltbook/skills/*.md` (8 本) の cosine 分布と各 threshold でのクラスタ数を測定。`rules_distill.py:31` の暫定値 `CLUSTER_THRESHOLD_RULES = 0.65` の calibration が目的。
 
 ## 入力
 
@@ -64,7 +64,7 @@
 
 ```bash
 cd /Users/shimomoto_tatsuya/MyAI_Lab/contemplative-moltbook
-uv run python .reports/rules-distill-threshold-sweep.py
+uv run python docs/evidence/adr-0023/rules-distill-threshold-sweep.py
 ```
 
 Ollama が起動している必要あり (nomic-embed-text モデル)。

@@ -7,7 +7,7 @@ Reads ~/.config/moltbook/skills/*.md, embeds bodies, and reports:
 2. Cluster count + size distribution for thresholds {0.55, 0.60, 0.65, 0.70, 0.75}
    with the same parameters as `_build_skill_clusters` (min_size=3, max_size=10)
 
-Run with: uv run python .reports/rules-distill-threshold-sweep.py
+Run with: uv run python docs/evidence/adr-0023/rules-distill-threshold-sweep.py
 """
 
 from __future__ import annotations
