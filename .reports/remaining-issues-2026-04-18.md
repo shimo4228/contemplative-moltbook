@@ -24,7 +24,7 @@
 ### 1. D3 — Per-block distill routing (ADR-0024 deferred)
 
 **Severity**: high-effort (大規模設計変更)
-**状態**: ⬜ 未着手
+**状態**: ⬜ 未着手 — **着手用 handoff: `.reports/d3-per-block-distill-handoff.md`** (cold-start brief、2026-04-18 作成)
 
 **現状**:
 - `identity_blocks.py` は multi-block parse/render 対応済み
