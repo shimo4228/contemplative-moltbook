@@ -13,7 +13,6 @@ from urllib.parse import urlparse
 
 import requests
 
-from . import identity_blocks
 from .config import (
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
@@ -261,7 +260,11 @@ def _build_system_prompt() -> str:
     base_prompt = _get_default_system_prompt()
     identity = _identity_path
     if identity is not None and identity.exists():
-        content = identity_blocks.load_for_prompt(identity).strip()
+        try:
+            content = identity.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            logger.warning("failed to read identity file %s: %s", identity, exc)
+            content = ""
         if content and validate_identity_content(content):
             base_prompt = content
 

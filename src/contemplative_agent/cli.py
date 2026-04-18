@@ -24,7 +24,6 @@ from .adapters.moltbook.config import (
     CONSTITUTION_DIR,
     EPISODE_EMBEDDINGS_PATH,
     EPISODE_LOG_DIR,
-    IDENTITY_HISTORY_PATH,
     IDENTITY_PATH,
     KNOWLEDGE_PATH,
     MEDITATION_DIR,
@@ -36,7 +35,6 @@ from .adapters.moltbook.config import (
     STAGED_DIR,
     VIEWS_DIR,
 )
-from .core import identity_blocks
 from .core._io import append_jsonl_restricted, now_iso
 from .core.domain import (
     DEFAULT_CONFIG_DIR,
@@ -294,30 +292,6 @@ def _log_approval(
         append_jsonl_restricted(AUDIT_LOG_PATH, record)
     except OSError:
         logger.warning("Failed to write audit log: %s", AUDIT_LOG_PATH)
-
-
-def _append_identity_history_for_adoption(old_raw: str, new_raw: str) -> None:
-    """ADR-0025: append an identity_history.jsonl entry when an identity.md
-    artifact is adopted from the staging dir. Runs after ``write_restricted``
-    succeeds, so the log reflects ground truth on disk. Best-effort — a log
-    failure never blocks the adoption.
-    """
-    old_doc = identity_blocks.parse(old_raw)
-    new_doc = identity_blocks.parse(new_raw)
-    new_persona = new_doc.get(identity_blocks.PERSONA_CORE_BLOCK)
-    if new_persona is None:
-        return
-    old_persona = old_doc.get(identity_blocks.PERSONA_CORE_BLOCK)
-    try:
-        identity_blocks.append_history(
-            IDENTITY_HISTORY_PATH,
-            block=identity_blocks.PERSONA_CORE_BLOCK,
-            old_body=old_persona.body if old_persona is not None else "",
-            new_body=new_persona.body,
-            source="distill-identity",
-        )
-    except OSError as exc:
-        logger.warning("failed to append identity history: %s", exc)
 
 
 def _approve_write(path: Path) -> bool:
@@ -770,47 +744,6 @@ def _handle_sync_data(_args: argparse.Namespace, _parser: argparse.ArgumentParse
     _run_sync()
 
 
-def _handle_inspect_identity_history(
-    args: argparse.Namespace, _parser: argparse.ArgumentParser
-) -> None:
-    """Pretty-print the tail of ADR-0025 identity_history.jsonl.
-
-    The log is append-only and stores 16-hex SHA prefixes, not block
-    bodies. Full-text recovery is the snapshot subsystem's job.
-    """
-    tail = max(1, args.tail)
-
-    path = IDENTITY_HISTORY_PATH
-    if not path.exists():
-        print(f"No history file at {path}")
-        return
-
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        print(f"Failed to read {path}: {exc}", file=sys.stderr)
-        sys.exit(1)
-
-    if not lines:
-        print(f"History file is empty: {path}")
-        return
-
-    shown = lines[-tail:]
-    print(f"=== identity-history (last {len(shown)} of {len(lines)}) ===")
-    for line in shown:
-        try:
-            entry = json_mod.loads(line)
-        except json_mod.JSONDecodeError:
-            print(f"  <unparseable>  {line}")
-            continue
-        ts = entry.get("ts", "?")
-        block = entry.get("block", "?")
-        source = entry.get("source", "?")
-        old_h = (entry.get("old_hash") or "")[:8]
-        new_h = (entry.get("new_hash") or "")[:8]
-        print(f"  {ts}  [{source:<18}]  {block:<16}  {old_h} → {new_h}")
-
-
 def _handle_prune_skill_usage(
     args: argparse.Namespace, _parser: argparse.ArgumentParser
 ) -> None:
@@ -984,18 +917,7 @@ def _handle_adopt_staged(args: argparse.Namespace, _parser: argparse.ArgumentPar
             if approved:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 to_write = text if text.endswith("\n") else text + "\n"
-                # ADR-0025: capture pre-write content so the per-block history
-                # log can record the persona_core body transition. Non-identity
-                # adoptions ignore this value.
-                old_raw_pre_write = (
-                    target.read_text(encoding="utf-8") if target.exists() else ""
-                )
                 write_restricted(target, to_write)
-                if command == "distill-identity" and target == IDENTITY_PATH:
-                    _append_identity_history_for_adoption(
-                        old_raw=old_raw_pre_write,
-                        new_raw=to_write,
-                    )
                 # skill-stocktake merges pass the original filenames in `sources`
                 # so they get deleted once the merged result is adopted.
                 target_parent = target.parent.resolve()
@@ -1275,60 +1197,6 @@ def _handle_migrate_categories(args: argparse.Namespace, _parser: argparse.Argum
         )
 
 
-def _handle_migrate_identity(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """ADR-0024/0025: migrate legacy plain-text identity.md to block format."""
-    print()
-    print("=== migrate-identity summary (ADR-0024) ===")
-
-    if not IDENTITY_PATH.exists():
-        print(f"  status: no identity file found at {IDENTITY_PATH}")
-        return
-
-    raw = IDENTITY_PATH.read_text(encoding="utf-8")
-    doc = identity_blocks.parse(raw)
-
-    if not doc.is_legacy:
-        print("  status: already in block format (no-op)")
-        print(f"  path  : {IDENTITY_PATH}")
-        return
-
-    backup_path = IDENTITY_PATH.with_suffix(IDENTITY_PATH.suffix + ".bak.pre-adr0024")
-    if args.dry_run:
-        print("  status: would migrate (dry-run)")
-        print(f"  source: {IDENTITY_PATH}")
-        print(f"  backup: {backup_path}")
-        print("  block : persona_core (source=migration)")
-        print("  (dry-run — no file writes performed)")
-        return
-
-    result = identity_blocks.migrate_to_blocks(IDENTITY_PATH)
-    if not result.migrated or result.document is None:
-        print("  status: migration returned no-op unexpectedly")
-        return
-    print("  status: migrated to block format")
-    print(f"  path  : {IDENTITY_PATH}")
-    print(f"  backup: {result.backup_path}")
-
-    _log_approval(
-        "migrate-identity",
-        IDENTITY_PATH,
-        approved=True,
-        content=result.rendered or "",
-    )
-    persona = result.document.get(identity_blocks.PERSONA_CORE_BLOCK)
-    if persona is not None:
-        try:
-            identity_blocks.append_history(
-                IDENTITY_HISTORY_PATH,
-                block=identity_blocks.PERSONA_CORE_BLOCK,
-                old_body="",
-                new_body=persona.body,
-                source="migration",
-            )
-        except OSError as exc:
-            logger.warning("failed to append identity history: %s", exc)
-
-
 def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     """ADR-0019 migration: add embeddings + gated to patterns and bulk-embed episodes."""
     from .core.migration import run_embed_backfill
@@ -1429,18 +1297,6 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
         return
     from .core._io import write_restricted as _wr
     _wr(result.target_path, result.text + "\n")
-    # ADR-0025: per-block history log (direct write path)
-    if result.new_body:
-        try:
-            identity_blocks.append_history(
-                IDENTITY_HISTORY_PATH,
-                block=result.block_name,
-                old_body=result.old_body,
-                new_body=result.new_body,
-                source=result.source,
-            )
-        except OSError as exc:
-            logger.warning("failed to append identity history: %s", exc)
 
 
 def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
@@ -1998,30 +1854,8 @@ def main() -> None:
         help="Report what would change without writing knowledge.json or creating a backup",
     )
 
-    # migrate-identity (ADR-0024 / ADR-0025)
-    migrate_id_parser = subparsers.add_parser(
-        "migrate-identity",
-        help="ADR-0024: migrate legacy plain-text identity.md to block format (idempotent)",
-    )
-    migrate_id_parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Report what would change without writing identity.md or creating a backup",
-    )
-
     # sync-data
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
-
-    # inspect-identity-history (N11)
-    inspect_hist_parser = subparsers.add_parser(
-        "inspect-identity-history",
-        help="Pretty-print the tail of ADR-0025 identity_history.jsonl",
-    )
-    inspect_hist_parser.add_argument(
-        "--tail",
-        type=int,
-        default=20,
-        help="Show last N entries (default: 20)",
-    )
 
     # prune-skill-usage (N11)
     prune_usage_parser = subparsers.add_parser(
@@ -2099,13 +1933,11 @@ def main() -> None:
         "skill-stocktake": _handle_skill_stocktake,
         "rules-stocktake": _handle_rules_stocktake,
         "sync-data": _handle_sync_data,
-        "inspect-identity-history": _handle_inspect_identity_history,
         "prune-skill-usage": _handle_prune_skill_usage,
         "adopt-staged": _handle_adopt_staged,
         "remove-skill": _handle_remove_skill,
         "migrate-patterns": _handle_migrate_patterns,
         "migrate-categories": _handle_migrate_categories,
-        "migrate-identity": _handle_migrate_identity,
     }
     handler = no_llm_handlers.get(args.command)
     if handler:

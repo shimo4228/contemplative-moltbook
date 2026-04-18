@@ -23,7 +23,6 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from . import identity_blocks
 from ._io import append_jsonl_restricted, now_iso, strip_code_fence
 from .embeddings import cosine, embed_texts
 from .forgetting import is_live
@@ -168,20 +167,10 @@ def enrich(
 
 @dataclass(frozen=True)
 class IdentityResult:
-    """Result of a successful identity distillation.
-
-    ADR-0025: ``old_body`` / ``new_body`` / ``block_name`` / ``source``
-    thread information into the CLI's ``identity_history.jsonl`` hook.
-    All four have defaults so call sites that only care about ``text``
-    and ``target_path`` remain unchanged.
-    """
+    """Result of a successful identity distillation."""
 
     text: str
     target_path: Path
-    old_body: str = ""
-    new_body: str = ""
-    block_name: str = identity_blocks.PERSONA_CORE_BLOCK
-    source: str = "distill-identity"
 
 
 def distill_identity(
@@ -235,19 +224,9 @@ def distill_identity(
         logger.warning(msg)
         return msg
 
-    # ADR-0024: read identity through the block parser so that we feed
-    # only the ``persona_core`` body into the LLM prompt (never the
-    # frontmatter), and so that non-persona blocks survive untouched on
-    # write-back. Legacy plain-text files transparently behave as a
-    # single persona_core block.
-    current_doc: Optional[identity_blocks.IdentityDocument] = None
     current_identity = ""
     if identity_path and identity_path.exists():
-        raw = identity_path.read_text(encoding="utf-8")
-        current_doc = identity_blocks.parse(raw)
-        persona = current_doc.get(identity_blocks.PERSONA_CORE_BLOCK)
-        if persona is not None:
-            current_identity = persona.body.strip()
+        current_identity = identity_path.read_text(encoding="utf-8").strip()
 
     prompt = IDENTITY_DISTILL_PROMPT.format(
         current_identity=current_identity or "(no prior identity)",
@@ -272,36 +251,19 @@ def distill_identity(
 
     # Clean up: strip empty lines and preamble
     lines = [line.strip() for line in refined.strip().splitlines() if line.strip()]
-    new_persona_body = "\n".join(lines)
+    new_identity = "\n".join(lines)
 
     # Validate against forbidden patterns before returning
-    if not validate_identity_content(new_persona_body):
+    if not validate_identity_content(new_identity):
         logger.warning("Generated identity failed validation")
-        return new_persona_body
+        return new_identity
 
     if not identity_path:
-        return new_persona_body
-
-    # ADR-0024: rewrite through the block API. For legacy files this
-    # still produces plain text (no format change on disk unless the
-    # user explicitly migrates). For block-format files only the
-    # ``persona_core`` body is refreshed.
-    base_doc = current_doc if current_doc is not None else identity_blocks.parse("")
-    new_doc = identity_blocks.update_block(
-        base_doc,
-        identity_blocks.PERSONA_CORE_BLOCK,
-        body=new_persona_body,
-        source="distill-identity",
-    )
-    file_text = identity_blocks.render(new_doc).rstrip("\n")
+        return new_identity
 
     return IdentityResult(
-        text=file_text,
+        text=new_identity,
         target_path=identity_path,
-        old_body=current_identity,
-        new_body=new_persona_body,
-        block_name=identity_blocks.PERSONA_CORE_BLOCK,
-        source="distill-identity",
     )
 
 

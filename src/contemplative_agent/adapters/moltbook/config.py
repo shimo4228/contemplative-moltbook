@@ -23,7 +23,6 @@ COMMENTED_CACHE_PATH = MOLTBOOK_DATA_DIR / "commented_cache.json"
 
 # --- Runtime data (lives in MOLTBOOK_HOME, user-specific) ---
 IDENTITY_PATH = MOLTBOOK_DATA_DIR / "identity.md"
-IDENTITY_HISTORY_PATH = MOLTBOOK_DATA_DIR / "logs" / "identity_history.jsonl"
 KNOWLEDGE_PATH = MOLTBOOK_DATA_DIR / "knowledge.json"
 AGENTS_PATH = MOLTBOOK_DATA_DIR / "agents.json"
 SKILLS_DIR = MOLTBOOK_DATA_DIR / "skills"
