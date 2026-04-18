@@ -18,39 +18,24 @@
 | Issue 3 (再) | dedup constrained decoding doc sweep | this report §3 | 2026-04-18 セッション (glossary.md / moltbook-agent.md / compiled-petting-pumpkin.md) |
 | Issue 5 | CLUSTER_THRESHOLD_RULES sweep | this report §6 | 2026-04-18 セッション (`.reports/rules-distill-threshold-sweep{,-result-20260418}.{py,md}`、0.65 据え置き判断) |
 | Bonus | `_dedup_patterns` Pyright invariance 警告 | session diagnostics | `List[Optional[ndarray]]` → `Sequence[Optional[ndarray]]` (distill.py:752-756) |
+| D3 | Per-block distill routing (ADR-0024 deferred) | this report §1 | **Withdrawn** — ADR-0030 で ADR-0024/0025 全撤回 (2026-04-18)。handoff は `.reports/archive/d3-per-block-distill-handoff.md` |
+| D4 | Runtime agent-edit tool (ADR-0024 deferred) | this report §2 | **Withdrawn** — 責任分界が曖昧で不要と判断 (ADR-0030, 2026-04-18) |
 
 ## 本当に残っているタスク (truly pending)
 
-### 1. D3 — Per-block distill routing (ADR-0024 deferred)
+### 1. D3 + D4 — ✅ Withdrawn (2026-04-18, ADR-0030)
 
-**Severity**: high-effort (大規模設計変更)
-**状態**: ⬜ 未着手 — **着手用 handoff: `.reports/d3-per-block-distill-handoff.md`** (cold-start brief、2026-04-18 作成)
+**Severity**: ~~high-effort~~ withdrawn
+**状態**: ✅ 撤回
 
-**現状**:
-- `identity_blocks.py` は multi-block parse/render 対応済み
-- `distill-identity` CLI は `persona_core` block のみ distill (distill.py hardcoded)
-- `current_goals` 等のブロックは自身のビュー + 自身のプロンプトで refresh できない
+ADR-0024 (identity block separation) と ADR-0025 (identity history) は single-responsibility 観点から撤回された (ADR-0030)。identity.md は legacy whole-file 形式に戻る。
 
-**要件**:
-- ブロックごとの prompt を qwen3.5:9b 自身に書かせる必要 (feedback memory `prompt-model-match`)
-- config 形状追加 + 複数ファイル影響
+- **D3 (per-block distill routing)**: block 様式撤回で前提消失
+- **D4 (runtime agent-edit tool)**: 責任分界が曖昧 (誰が発案し誰が責任を持つか) + 他の書き換え経路 (distill-identity / skill-reflect / amend-constitution は CLI 起点、memory_evolution はノレッジ層で bitemporal 監査可) の清潔さを壊すため不要と判断
 
-**依存**: なし (着手可能だが重い)
+identity を書き換える経路は `distill-identity` CLI + 承認ゲートのみに戻る。
 
-### 2. D4 — Runtime `agent-edit` tool (ADR-0024 deferred)
-
-**Severity**: deep (独立 ADR 必要)
-**状態**: ⬜ 未着手
-
-**現状**:
-- `identity_blocks.py:12, 48` で `agent-edit` source タグは登録済み
-- セッション中に individual block を更新する CLI/tool が存在しない
-
-**要件**:
-- ADR-0013 (authorship-problem) + ADR-0017 (manas frame) と接続
-- 実装前に独立 ADR で設計議論が必要
-
-**依存**: D3 完了後が自然 (per-block routing が前提)
+詳細: [ADR-0030](../docs/adr/0030-withdraw-identity-blocks.md)、archive: `.reports/archive/d3-per-block-distill-handoff.md`。
 
 ### 3. Constrained decoding — ✅ Closed (2026-04-18 verify)
 
@@ -131,12 +116,14 @@
 ## 運用で気にしておくポイント (バグ化リスク、アクション不要)
 
 `.reports/remaining-issues-2026-04-16.md` §3 から不変のもの:
-- identity_history は現在 `persona_core` しか記録しない (D3 着手時に emitter 実装必要)
-- `_handle_adopt_staged` の identity 専用分岐 (3 件目の hook が増えたら dispatch テーブル化)
 - `skill_router._cache` は body on-memory (skill 数 200 超で再評価)
-- `MigrationResult.document` / `.rendered` は Optional
-- `load_for_prompt` の mtime キャッシュは module-level (テスト並列化で pollution 可能性)
-- `distill-identity` は `persona_core` body のみ LLM に渡す (D3 と連動)
+
+ADR-0030 (2026-04-18) による撤回済み:
+- ~~identity_history は現在 `persona_core` しか記録しない~~ — identity_history 自体廃止
+- ~~`_handle_adopt_staged` の identity 専用分岐~~ — 分岐自体削除
+- ~~`MigrationResult.document` / `.rendered` は Optional~~ — 型自体削除
+- ~~`load_for_prompt` の mtime キャッシュは module-level~~ — 関数自体削除
+- ~~`distill-identity` は `persona_core` body のみ LLM に渡す~~ — whole-file に戻った
 
 ## 着手難易度マトリクス (2026-04-18 後)
 
@@ -146,8 +133,8 @@
 | 3. Constrained decoding dedup + benchmark | — | なし | ✅ Closed (doc sweep のみ、本体作業はゴーストタスクと判明 2026-04-18) |
 | 6. Issue 5 (CLUSTER_THRESHOLD sweep) | S | なし | ✅ Closed (0.65 据え置き 2026-04-18) |
 | 4. Issue 1 + 7 (Rare-important 救済) | M (decision + 実装) | なし | ⬜ Pending |
-| 1. D3 (per-block distill) | L (大規模設計) | なし | ⬜ Pending |
-| 2. D4 (runtime agent-edit) | XL (ADR 必要) | D3 前提 | ⬜ Pending |
+| 1. D3 (per-block distill) | — | — | ✅ Withdrawn (ADR-0030, 2026-04-18) |
+| 2. D4 (runtime agent-edit) | — | — | ✅ Withdrawn (ADR-0030, 2026-04-18) — 責任分界 ambiguity |
 
 ## 参考
 
