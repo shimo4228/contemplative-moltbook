@@ -245,6 +245,39 @@ class TestDedupPatternsEmbedding:
     def test_thresholds_in_range(self):
         assert 0.0 < SIM_UPDATE < SIM_DUPLICATE < 1.0
 
+    def test_dedup_skips_low_trust_existing_patterns(self):
+        # F6: low-trust (trust < TRUST_FLOOR=0.3) existing は is_live が False
+        # → dedup pool から除外され、semantic 一致の new pattern も ADD される。
+        existing = [{
+            "pattern": "old noise",
+            "importance": 0.6,
+            "embedding": [1.0, 0.0, 0.0],
+            "trust_score": 0.1,
+        }]
+        new_embs = [_embedding(0.99, 0.01, 0.0)]
+        add, _imp, _emb, _idx, skip, upd = _dedup_patterns(
+            ["fresh signal"], [0.7], new_embs, existing,
+        )
+        assert len(add) == 1
+        assert skip == 0
+        assert upd == 0
+
+    def test_dedup_keeps_trust_floor_boundary_in_pool(self):
+        # F6: trust=TRUST_FLOOR (0.3) ちょうどは is_live が True
+        # → dedup pool に残り、semantic 一致の new pattern は SKIP される。
+        existing = [{
+            "pattern": "boundary trust",
+            "importance": 0.6,
+            "embedding": [1.0, 0.0, 0.0],
+            "trust_score": 0.3,
+        }]
+        new_embs = [_embedding(0.99, 0.01, 0.0)]
+        add, _imp, _emb, _idx, skip, upd = _dedup_patterns(
+            ["near dup"], [0.5], new_embs, existing,
+        )
+        assert len(add) == 0
+        assert skip == 1
+
 
 class TestDeriveSourceTypeADR0021:
     """ADR-0021: map episode types to provenance.source_type."""

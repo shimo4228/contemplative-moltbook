@@ -26,6 +26,7 @@ import numpy as np
 from . import identity_blocks
 from ._io import append_jsonl_restricted, now_iso, strip_code_fence
 from .embeddings import cosine, embed_texts
+from .forgetting import is_live
 from .knowledge_store import TRUST_BASE_BY_SOURCE, effective_importance
 from .llm import generate, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
@@ -654,6 +655,8 @@ def _distill_category(
     # ADR-0026: dedup scope is the full live pool. Cross-axis overlap is
     # acceptable — the semantic coordinate is shared regardless of which
     # view a pattern is routed through at query time.
+    # is_live gate (valid_until + TRUST_FLOOR) is enforced inside
+    # _dedup_patterns; this pre-filter exists for the importance-floor log.
     existing_patterns = list(knowledge.get_raw_patterns())
     pre_filter = len(existing_patterns)
     existing_patterns = [
@@ -720,7 +723,7 @@ def _distill_category(
     if MEMORY_EVOLUTION_PROMPT:
         live_patterns = [
             p for p in knowledge.get_raw_patterns()
-            if p.get("valid_until") is None
+            if is_live(p)
             and isinstance(p.get("embedding"), list)
         ]
         new_entries: List[Tuple[str, np.ndarray]] = []
@@ -789,8 +792,8 @@ def _dedup_patterns(
     # Pre-compute existing embeddings (only patterns with embeddings + live count for dedup)
     existing_with_emb: List[Tuple[Dict, np.ndarray]] = []
     for p in existing_patterns:
-        if p.get("valid_until") is not None:
-            continue  # already invalidated — ignore
+        if not is_live(p):
+            continue  # invalidated or below trust floor — ignore
         emb = p.get("embedding")
         if isinstance(emb, list):
             existing_with_emb.append((p, np.asarray(emb, dtype=np.float32)))
