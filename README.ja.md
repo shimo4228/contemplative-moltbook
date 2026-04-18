@@ -55,27 +55,27 @@ Language: [English](README.md) | 日本語
 
 このループは本プロジェクトにおける **Agent Knowledge Cycle (AKC)** の実装 — Research → Extract → Curate → Promote → Measure → Maintain の 6 フェーズからなる自己改善サイクル。もともと Claude Code ハーネスにおけるメタワークフロー改善のために設計されたもので、本プロジェクトはそれを自律エージェントの文脈で再実装している。`distill` が Extract、`insight` / `rules-distill` / `amend-constitution` が Curate、`distill-identity` が Promote、基準点スナップショット (ADR-0020) と `skill-reflect` (ADR-0023) が Measure に対応する。フェーズとコードの完全な対応表は [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping) を参照。原典のハーネス: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle)。
 
-内部では、ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持し、クエリは名前付きの *view*（意味的なシード）を通じて投影する。view はデータを移行せずに編集・差し替えができる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。各パターンには**出所記録 (provenance)**、**時間妥当性 (bitemporal validity)**、そして時間とともに減衰しつつ検索時に強化される**強度 (strength)** が付与される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈 (re-interpret)** される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。メモリアーキテクチャの構造は**唯識 (Yogācāra) の八識モデル**を下敷きにしている。完全な対応付けは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) を参照。
+内部では、ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持し、クエリは名前付きの *view*（意味的なシード）を通じて投影する。view はデータを移行せずに編集・差し替えができる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md) + Phase 3 完了 [ADR-0026](docs/adr/0026-retire-discrete-categories.ja.md)）。各パターンには**出所記録 (provenance)** と**時間妥当性 (bitemporal validity)** が付与される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、生存する範囲は [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.ja.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.ja.md) で縮小）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈 (re-interpret)** され、検索スコアは cosine + BM25 のハイブリッドで計算される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。メモリアーキテクチャの構造は**唯識 (Yogācāra) の八識モデル**を下敷きにしている。完全な対応付けは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) を参照。
 
 ## 主な特徴
 
 **AKC による自己改善** -- エージェントは自身のログに対して 6 フェーズの [Agent Knowledge Cycle](https://github.com/shimo4228/agent-knowledge-cycle) を回す — 外部の fine-tune 不要、ラベル付き学習データも不要。各フェーズ昇格（ログ → パターン、パターン → スキル、スキル → ルール、スキル → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.md)が入る。
 
-- *埋め込みと view (embedding + views)* — 分類は状態ではなく **クエリ**。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。
-- *記憶の進化 (memory evolution)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)、*proposed*）。
+- *埋め込みと view (embedding + views)* — 分類は状態ではなく **クエリ**。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)。`category` フィールドは [ADR-0026](docs/adr/0026-retire-discrete-categories.ja.md) で廃止）。
+- *記憶の進化 + ハイブリッド検索 (memory evolution + hybrid retrieval)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加。検索スコアは cosine と BM25 の混成（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)、*proposed*）。
 - *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)、*proposed*）。
-- *忘却曲線 (forgetting curve)* — 検索連動の Ebbinghaus 減衰。使われないパターンは重みが下がる（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、*proposed*）。
+- *ノイズを種子として (noise as seed)* — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持される。view 重心が変わったとき、失われずに**再分類の候補**として利用できる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)、*proposed*）。
 
 **設計による安全 (secure by design)** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は `requests` のみ。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.md)
 
-- *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、*proposed*）。
-- *アイデンティティのブロック分離 (identity block separation)* — `identity.md` を frontmatter で名前付きブロック（persona_core, current_goals, …）として解析。ブロック単位の更新を個別のハッシュで記録（[ADR-0024](docs/adr/0024-identity-block-separation.ja.md) / [ADR-0025](docs/adr/0025-identity-history-and-migrate-cli.ja.md)、*proposed*）。
+- *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、*proposed*。未使用要素は [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.ja.md) で削減済み）。
+- *再現可能な基準点スナップショット (pivot snapshots)* — 蒸留の実行時に manifest + view + 憲法 + 重心埋め込みを一括保存し、任意の蒸留を bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)、*proposed*）。
 
 **11種の倫理フレームワーク** -- ストア哲学、功利主義、ケアの倫理など11種のテンプレート同梱。同じ行動データ、異なる初期条件 — エージェントがどう分岐するかを観察。[独自テンプレートの作成 →](docs/CONFIGURATION.ja.md#キャラクターテンプレート)
 
 **ローカル完結** -- Ollama + Qwen3.5 9B。API キーはマシン外に出ない。M1 Mac で快適動作。不変のエピソードログで実験は完全再現可能。
 
-**研究グレードの透明性** -- すべての判断が追跡可能。不変のログ、蒸留成果物、日次レポートが再現性のために[公開同期](https://github.com/shimo4228/contemplative-agent-data)されている。基準点スナップショット (pivot snapshots) は manifest + view + 憲法 + 重心埋め込み (centroid embeddings) を一括保存し、蒸留の完全な再実行 (replay) を可能にする（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)、*proposed*）。
+**研究グレードの透明性** -- すべての判断が追跡可能。不変のログ、蒸留成果物、日次レポートが再現性のために[公開同期](https://github.com/shimo4228/contemplative-agent-data)されている。実行単位での再現性は上記「再現可能な基準点スナップショット」に記載。
 
 ## ライブエージェント
 
@@ -235,7 +235,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 - Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten 式の動的インデックス付けと記憶進化 (memory evolution)。新規パターン到着時に意味的に関連する既存パターンを再解釈する仕組みの基盤（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
 - Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) — 時間妥当性 (bitemporal) を持つ知識グラフ (Graphiti エンジン)。各パターンに付与する `valid_from` / `valid_until` の原型（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
-- Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Enhancing Large Language Models with Long-Term Memory.* [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) — Ebbinghaus 忘却曲線に基づく減衰 + アクセスによる強化。検索連動 (retrieval-aware) な忘却 (forgetting) の原型（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
+- Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Enhancing Large Language Models with Long-Term Memory.* [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) — Ebbinghaus 忘却曲線に基づく減衰 + アクセスによる強化。[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md) で検索連動な忘却の原型として参照されたが、[ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.ja.md) で撤回 — 記憶の動態は skill 層で扱う方針に再編。歴史的参照として保持。
 - Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *A Practical Memory Injection Attack against LLM Agents* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — 通常クエリのみで実行可能な記憶注入攻撃 (memory injection)。出所記録 (`source_type`) と信頼度 (`trust_score`) の導入動機。MINJA 型の攻撃を構造的に可視化する（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
 - Zhou, H., Guo, S., Liu, A., 他 (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — スキルを永続的・進化可能な「記憶単位」として扱う枠組み。retrieve → apply → outcome に基づく rewrite ループの原型（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
 
