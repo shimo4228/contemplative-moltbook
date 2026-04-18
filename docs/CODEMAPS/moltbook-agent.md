@@ -164,7 +164,7 @@ In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 - submolt_selection
 
 **Distillation**:
-- distill, distill_constitutional, distill_refine, distill_importance, distill_dedup
+- distill, distill_constitutional, distill_refine, distill_importance
 - identity_distill, identity_refine
 - insight_extraction
 - rules_distill, rules_distill_refine

@@ -39,11 +39,11 @@ A philosophical framework (Laukkonen et al. 2025) proposing four axioms as align
 
 ### Dedup / Quality Gate
 
-A two-layer mechanism preventing duplicate or low-quality patterns in KnowledgeStore. Layer 1: SequenceMatcher classifies candidates as SKIP (ratio ≥ 0.95), UPDATE (0.70–0.95), UNCERTAIN (0.30–0.70), or ADD (< 0.30). Layer 2: LLM semantic judgment for UNCERTAIN cases only. LLM failure falls back to ADD (safe default).
+An embedding-based mechanism preventing duplicate or low-quality patterns in KnowledgeStore. New patterns are bulk-embedded with `nomic-embed-text` and compared against the live pool by cosine similarity: SKIP if ≥ `SIM_DUPLICATE` (0.90), UPDATE (soft-invalidate old + ADD boosted) if ≥ `SIM_UPDATE` (0.80), otherwise ADD. A separate `_is_valid_pattern()` static gate rejects fragments before dedup. The legacy SequenceMatcher + LLM-judgment two-layer mechanism was retired in ADR-0009 (embedding) and ADR-0019 (full embedding-only pipeline).
 
 - **Prior research**: Mem0 (Choudhary et al. 2025) ADD/UPDATE/DELETE gate
-- **Code**: `core/distill.py` — `_dedup_patterns()`, `_llm_quality_gate()`
-- **ADR**: ADR-0008
+- **Code**: `core/distill.py` — `_dedup_patterns()`, `_is_valid_pattern()`
+- **ADR**: ADR-0008 (pipeline), ADR-0009 (embedding cosine), ADR-0019 (LLM-classify retirement)
 
 ### Distill
 
