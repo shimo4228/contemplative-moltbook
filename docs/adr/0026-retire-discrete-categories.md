@@ -135,4 +135,4 @@ The `audit.jsonl` entry is written by the CLI, same pattern as `migrate-patterns
 - [ADR-0019](0019-discrete-categories-to-embedding-views.md) — declared the direction; this ADR finishes the `category` half of that direction.
 - [ADR-0021](0021-pattern-schema-trust-temporal-forgetting-feedback.md) — the `migrate-patterns` CLI shape that `migrate-categories` mirrors.
 - [ADR-0025](0025-identity-history-and-migrate-cli.md) — the deferred-wiring-lands-now discipline this ADR reuses.
-- [`.reports/remaining-issues-2026-04-16.md`](../../.reports/remaining-issues-2026-04-16.md) — the N4 entry that motivated this ADR.
+- Internal issue tracker (local-only) entry N4 — motivated this ADR.

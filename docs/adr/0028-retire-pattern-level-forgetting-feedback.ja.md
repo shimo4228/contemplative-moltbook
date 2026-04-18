@@ -13,7 +13,7 @@ ADR-0021 (2026-04-16) は per-turn retrieval agent (Mem0 / Letta / Zep / A-Mem /
 - `last_accessed_at` / `access_count` / `strength` (lazy) — Ebbinghaus forgetting (IV-3)
 - `success_count` / `failure_count` — post-action feedback counters (IV-10)
 
-着地後 audit (`.reports/adr-0021-implementation-audit-20260418.md`) の実データ集計で、これらが本番で一度も発火していないことが判明:
+着地後 audit ([evidence/adr-0021/implementation-audit-20260418.md](../evidence/adr-0021/implementation-audit-20260418.md)) の実データ集計で、これらが本番で一度も発火していないことが判明:
 
 - `access_count = 0`: **377/377 件 (100%)**
 - `last_accessed_at == trust_updated_at`: **377/377 件** — 創造時以降一度も更新されていない
@@ -123,6 +123,6 @@ ADR-0019 は *分析軸* を状態からクエリへ移した。ADR-0021 は *ep
 
 ## 参照
 
-- Audit report: `.reports/adr-0021-implementation-audit-20260418.md`
+- Audit report: [evidence/adr-0021/implementation-audit-20260418.md](../evidence/adr-0021/implementation-audit-20260418.md)
 - Superseded sections: ADR-0021 IV-3 (Forgetting), IV-10 (Feedback)
 - 関連 live 機構: ADR-0023 (Skill-as-Memory Loop)

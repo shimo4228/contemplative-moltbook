@@ -135,4 +135,4 @@ migration は:
 - [ADR-0019](0019-discrete-categories-to-embedding-views.md) — 方向性を宣言; 本 ADR は `category` 半分を完遂。
 - [ADR-0021](0021-pattern-schema-trust-temporal-forgetting-feedback.md) — `migrate-patterns` CLI の形; `migrate-categories` はこれをミラー。
 - [ADR-0025](0025-identity-history-and-migrate-cli.md) — 先送りされていた wiring を着地させる規律を再利用。
-- [`.reports/remaining-issues-2026-04-16.md`](../../.reports/remaining-issues-2026-04-16.md) — 本 ADR を動機づけた N4 エントリ。
+- 内部 issue tracker (local-only) の N4 エントリ — 本 ADR を動機づけた。

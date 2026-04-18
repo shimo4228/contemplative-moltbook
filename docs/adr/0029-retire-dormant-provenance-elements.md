@@ -8,7 +8,7 @@ accepted
 
 ## Context
 
-ADR-0021 (2026-04-16) added a provenance + trust layer to `knowledge.json`. The post-landing audit (`.reports/adr-0021-implementation-audit-20260418.md`) found three schema elements in the Provenance group that were declared but structurally non-functional. ADR-0028 (2026-04-18) retired the forgetting and feedback groups; this ADR cleans up the remaining dormant elements in the Provenance group.
+ADR-0021 (2026-04-16) added a provenance + trust layer to `knowledge.json`. The post-landing audit ([evidence/adr-0021/implementation-audit-20260418.md](../evidence/adr-0021/implementation-audit-20260418.md)) found three schema elements in the Provenance group that were declared but structurally non-functional. ADR-0028 (2026-04-18) retired the forgetting and feedback groups; this ADR cleans up the remaining dormant elements in the Provenance group.
 
 ### 1. `source_type = "user_input"` — no producer, conflicts with security boundary
 
@@ -105,7 +105,7 @@ The pattern echoes ADR-0028: a schema borrowed from per-turn retrieval systems c
 
 ## References
 
-- Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (sections 2.D1, 2.D2, 2.D3, 6)
+- Audit report: [evidence/adr-0021/implementation-audit-20260418.md](../evidence/adr-0021/implementation-audit-20260418.md) (sections 2.D1, 2.D2, 2.D3, 6)
 - Superseded sections: ADR-0021 L31-32, L34, L47-48, L52, L133
 - Companion retirement: ADR-0028 (forgetting / feedback)
 - Structural defense reference: ADR-0007 (security boundary model), ADR-0015 (one external adapter per agent)

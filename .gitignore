@@ -46,10 +46,18 @@ docs/*
 !docs/spec/
 !docs/security/
 !docs/assets/
+!docs/evidence/
+!docs/runbooks/
 !docs/CONFIGURATION.md
 !docs/CONFIGURATION.ja.md
 !docs/glossary.md
 Modelfile.contemplative
+
+# Internal working notes (local-only, not tracked)
+.notes/
+
+# Experiment scratch (local-only; promote to docs/evidence/ when shipping)
+.reports/
 
 # Runtime data (lives in MOLTBOOK_HOME, not in git)
 config/identity.md

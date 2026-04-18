@@ -35,7 +35,7 @@ ADR-0020 (pivot snapshots) provides full-text identity replay. `audit.jsonl` rec
 - ~550 LOC of unused parser / renderer in `core/identity_blocks.py`
 - ~450 LOC of tests that cover only the unused path
 - Two CLI subcommands (`migrate-identity`, `inspect-identity-history`) that never get invoked
-- Two follow-up tasks (D3, D4) permanently parked in `.reports/remaining-issues-*.md` as "high-effort, not started"
+- Two follow-up tasks (D3, D4) permanently parked in the internal issue tracker (local-only) as "high-effort, not started"
 - An ongoing invitation to add more concerns to identity.md whenever a new piece of state is considered, instead of asking which existing layer it belongs in
 
 ## Decision
@@ -58,7 +58,7 @@ The on-disk `~/.config/moltbook/identity.md` stays untouched — it is already i
 
 **Positive**:
 - ~1000 LOC of dead scaffolding removed (implementation + tests)
-- Two permanent TODO entries (D3, D4) disappear from `.reports/remaining-issues-*.md`
+- Two permanent TODO entries (D3, D4) disappear from the internal issue tracker
 - `identity.md` returns to its intended role: one file, one concern. New kinds of agent state get placed in the layer that matches their semantics (a new view, a new skill, a new rule, a new episode schema), not shoved into identity with a sub-address
 - D4 (runtime agent-edit) is withdrawn along with D3 — not as a side effect of block removal, but as an independent decision. A tool where the agent proposes identity edits mid-session would blur the responsibility boundary: every other self-rewrite path is either CLI-triggered (`distill-identity`, `skill-reflect`, `amend-constitution`) or lives in a knowledge layer with bitemporal audit (`memory_evolution`). D4 would be the sole exception, and the ambiguity is not worth carrying
 - The `prompt-model-match` constraint (memory), which would have forced every future block to be prompted by `qwen3.5:9b` itself, stops being a blocker for a line of work that had no users
@@ -92,4 +92,4 @@ Concrete check, added as `feedback_single_responsibility_per_artifact.md` in mem
 - [ADR-0025](0025-identity-history-and-migrate-cli.md) — superseded
 - [ADR-0019](0019-discrete-categories-to-embedding-views.md) — the layer designed for addressable state (embedding + views)
 - [ADR-0020](0020-pivot-snapshots-for-replayability.md) — the replay/recovery mechanism that the withdrawn `identity_history.jsonl` was duplicating
-- `.reports/d3-per-block-distill-handoff.md` (archived in `.reports/archive/` after this ADR lands)
+- [evidence/adr-0030/d3-per-block-distill-handoff.md](../evidence/adr-0030/d3-per-block-distill-handoff.md) — archived handoff for the withdrawn approach

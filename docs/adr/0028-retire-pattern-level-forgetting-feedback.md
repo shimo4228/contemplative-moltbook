@@ -13,7 +13,7 @@ ADR-0021 (2026-04-16) added four fields to each pattern in `knowledge.json` for 
 - `last_accessed_at` / `access_count` / `strength` (lazy) — Ebbinghaus forgetting (IV-3)
 - `success_count` / `failure_count` — post-action feedback counters (IV-10)
 
-Post-landing audit (`.reports/adr-0021-implementation-audit-20260418.md`) showed these mechanisms never fired in production:
+Post-landing audit ([evidence/adr-0021/implementation-audit-20260418.md](../evidence/adr-0021/implementation-audit-20260418.md)) showed these mechanisms never fired in production:
 
 - `access_count = 0` for **377/377 patterns (100%)**
 - `last_accessed_at == trust_updated_at` for **377/377 patterns** — never updated post-creation
@@ -124,6 +124,6 @@ The lesson is not about this ADR specifically but about landing borrowed concept
 
 ## References
 
-- Audit report: `.reports/adr-0021-implementation-audit-20260418.md`
+- Audit report: [evidence/adr-0021/implementation-audit-20260418.md](../evidence/adr-0021/implementation-audit-20260418.md)
 - Superseded sections: ADR-0021 IV-3 (Forgetting), IV-10 (Feedback)
 - Related live mechanism: ADR-0023 (Skill-as-Memory Loop)

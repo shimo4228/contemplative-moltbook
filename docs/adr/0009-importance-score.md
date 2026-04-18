@@ -79,6 +79,6 @@ effective_importance = importance * (0.95 ^ days_since_distilled)
 
 The embedding dedup threshold `SIM_DUPLICATE` was lowered from 0.92 to 0.90.
 
-Reason: the live 97-pattern corpus had max pairwise cosine = 0.8980 (see `.reports/threshold-calibration-20260417.md`). The 0.92 threshold never fired, leaving the SKIP branch vacuous. 0.90 keeps the branch ready to fire when duplicates emerge while preserving the SIM_UPDATE=0.80 zone intact (0.88 would have pulled the current max into SKIP and compressed the UPDATE band).
+Reason: the live 97-pattern corpus had max pairwise cosine = 0.8980 (see [evidence/adr-0009/threshold-calibration-20260417.md](../evidence/adr-0009/threshold-calibration-20260417.md)). The 0.92 threshold never fired, leaving the SKIP branch vacuous. 0.90 keeps the branch ready to fire when duplicates emerge while preserving the SIM_UPDATE=0.80 zone intact (0.88 would have pulled the current max into SKIP and compressed the UPDATE band).
 
 The SKIP log level was also promoted from `debug` to `info` so SKIP events are visible in normal operation for monitoring.

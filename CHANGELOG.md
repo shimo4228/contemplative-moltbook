@@ -1,4 +1,18 @@
-# v2.0.0 — Yogācāra Memory Architecture
+# Changelog
+
+All notable releases are recorded here. See [docs/adr/](docs/adr/) for the reasoning behind each decision and [docs/evidence/](docs/evidence/) for the measurement artifacts that backed them.
+
+Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
+
+---
+
+## Unreleased
+
+Tracking post-v2.0.0 follow-ups (ADR-0022 through ADR-0030). Details live in ADRs.
+
+---
+
+## v2.0.0 — Yogācāra Memory Architecture (2026-04-16)
 
 This release overhauls the Layer 2 knowledge store. The old discrete-category
 classification is retired; patterns are now stored as embedding coordinates,

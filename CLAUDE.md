@@ -80,13 +80,21 @@ docker compose down                                     # 停止
 - docs/adr/ は英語（*.ja.md が日本語版）
 - README.md は英語（README.ja.md が日本語版）
 
+## ドキュメント配置
+
+- `docs/` — 外部可視の durable reference（adr / CODEMAPS / evidence / runbooks / glossary / CONFIGURATION）
+- `.notes/` — 内部 WIP（gitignored）。session checkpoint、cold-start handoff、個人メモ
+- `.reports/` — 実験 scratch（gitignored）。成果が出たら `docs/evidence/adr-XXXX/` に昇格
+
+ADR 本文から `.reports/` や `.notes/` を参照してはならない（gitignored のため clone 先に存在しない）。Evidence が必要な ADR は `docs/evidence/adr-XXXX/` に配置して相対リンク。
+
 ## API レート制限
 
 GET 60 req/min、POST 30 req/min（分離クォータ）。3 層防御（`has_read_budget()` / `has_write_budget()` バジェット + プロアクティブ待機 + リアクティブバックオフ）。API 仕様の最新は `WebFetch https://www.moltbook.com/skill.md` で参照。実装は [docs/CODEMAPS/moltbook-agent.md](docs/CODEMAPS/moltbook-agent.md)。
 
 ## 残課題
 
-ADR-0022..0030 後の積み残しは [.reports/remaining-issues-2026-04-18.md](.reports/remaining-issues-2026-04-18.md) に集約（cold-start ready）。
+ADR-0022..0030 後の積み残しはローカルの `.notes/remaining-issues-*.md` に集約（gitignored、cold-start ready）。
 
 ## 関連リポジトリ
 

@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 MIN_PATTERNS_REQUIRED = 3
 MAX_SLUG_LENGTH = 50
 BATCH_SIZE = 10          # max patterns per cluster passed to the LLM
-CLUSTER_THRESHOLD = 0.70  # calibration: .reports/threshold-calibration-20260417.md
+CLUSTER_THRESHOLD = 0.70  # calibration: docs/evidence/adr-0009/threshold-calibration-20260417.md
 
 
 @dataclass(frozen=True)

@@ -136,7 +136,10 @@ Package versions, transitive dependencies, security notes.
 
 - **CLAUDE.md** — Project conventions, setup, Docker, security policy
 - **README.md** — User-facing overview, quickstart
-- **[docs/adr/](../adr/README.md)** — Architecture Decision Records. 「なぜそうしたか」の記録
+- **CHANGELOG.md** — Release history
+- **[docs/adr/](../adr/README.md)** — Architecture Decision Records. 「なぜそうしたか」
+- **[docs/evidence/](../evidence/README.md)** — ADR を裏付ける測定・監査・実験
+- **[docs/runbooks/](../runbooks/README.md)** — 運用 know-how（migration, RCA）
 - **config/templates/constitution/contemplative-axioms.md** — Constitutional clauses default (Laukkonen et al. 2025)
 
 ---
