@@ -1,7 +1,9 @@
 # ADR-0024: Identity Block Separation — Frontmatter で addressing する persona ブロック
 
+> **[ADR-0030](0030-withdraw-identity-blocks.ja.md) に supersede された (2026-04-18)。** 単一責任原則の観点から撤回: 複数の concern (`persona_core`、`current_goals`、将来の block) を 1 ファイルに詰め込み、その内部に sub-addressing を再構築するのは、周囲のメモリ stack が既に責務ごとに層を提供している状況では、concern を分離すべき場所として間違っている。履歴として本文は保持。
+
 ## Status
-proposed
+superseded-by 0030
 
 ## Date
 2026-04-16

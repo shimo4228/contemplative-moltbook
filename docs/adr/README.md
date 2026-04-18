@@ -29,8 +29,8 @@ Records of key design decisions for this project.
 | [0021](0021-pattern-schema-trust-temporal-forgetting-feedback.md) | Pattern Schema Extension — Provenance / Bitemporal / Forgetting / Feedback | partially-superseded-by 0028, 0029 | 2026-04-16 |
 | [0022](0022-memory-evolution-and-hybrid-retrieval.md) | Memory Evolution + Hybrid Retrieval (BM25) | proposed | 2026-04-16 |
 | [0023](0023-skill-as-memory-loop.md) | Skill-as-Memory Loop — Router, Usage Log, Reflective Write | proposed | 2026-04-16 |
-| [0024](0024-identity-block-separation.md) | Identity Block Separation — Frontmatter-Addressed Persona Blocks | proposed | 2026-04-16 |
-| [0025](0025-identity-history-and-migrate-cli.md) | Identity History Log Wiring + migrate-identity CLI | proposed | 2026-04-16 |
+| [0024](0024-identity-block-separation.md) | Identity Block Separation — Frontmatter-Addressed Persona Blocks | superseded-by 0030 | 2026-04-16 |
+| [0025](0025-identity-history-and-migrate-cli.md) | Identity History Log Wiring + migrate-identity CLI | superseded-by 0030 | 2026-04-16 |
 | [0026](0026-retire-discrete-categories.md) | Retire Discrete Categories (Phase-3 Completion of ADR-0019) | proposed | 2026-04-16 |
 | [0027](0027-noise-as-seed.md) | Noise as Seed — From Binary Gate to Salience-Based Forgetting | proposed | 2026-04-16 |
 | [0028](0028-retire-pattern-level-forgetting-feedback.md) | Retire Pattern-Level Forgetting and Feedback — Memory Dynamics Belong to the Skill Layer | proposed | 2026-04-18 |

@@ -34,7 +34,6 @@ contemplative-agent adopt-staged                     # staging → 本配置
 contemplative-agent skill-stocktake / rules-stocktake  # 重複・品質監査
 contemplative-agent generate-report [--all]          # アクティビティレポート
 contemplative-agent meditate --days 14 --cycles 100  # 瞑想シミュレーション
-contemplative-agent inspect-identity-history --tail N   # identity_history.jsonl 検査
 contemplative-agent prune-skill-usage --older-than N [--dry-run]  # 古い skill-usage ログを削除
 contemplative-agent install-schedule [--weekly-analysis] [--uninstall]
 contemplative-agent sync-data
@@ -45,7 +44,7 @@ contemplative-agent --constitution-dir path/to/constitution/ run --session 30
 contemplative-agent --domain-config path/to/domain.json run --session 30
 ```
 
-migration 系（`embed-backfill`, `migrate-patterns`, `migrate-categories`, `migrate-identity`）を含む全 CLI は [docs/CODEMAPS/moltbook-agent.md](docs/CODEMAPS/moltbook-agent.md) を参照。
+migration 系（`embed-backfill`, `migrate-patterns`, `migrate-categories`）を含む全 CLI は [docs/CODEMAPS/moltbook-agent.md](docs/CODEMAPS/moltbook-agent.md) を参照。
 
 ## Docker（オプション）
 
@@ -71,7 +70,7 @@ docker compose down                                     # 停止
 
 - **1 エージェント 1 外部アダプタ原則**: 外部に観測可能な副作用を持つアダプタは 1 プロセスにつき最大 1 つ（[ADR-0015](docs/adr/0015-one-external-adapter-per-agent.md)）。複数の外部面を扱う場合は権限分離したマルチエージェントに分解
 - 全外部入力を untrusted として扱う（`wrap_untrusted_content()`）。LLM 出力はサニタイズ（`_sanitize_output()`）
-- **Claude Code エピソードログ直読み禁止**: `~/.config/moltbook/logs/YYYY-MM-DD.jsonl`（+ `.bak`）を Read で直接読んではならない。プロンプトインジェクション経路。蒸留済み成果物を参照。同ディレクトリの `audit.jsonl`（承認履歴）、`identity_history.jsonl`（ADR-0025 per-block ハッシュのみ）、`skill-usage-YYYY-MM-DD.jsonl`（ADR-0023 selection + outcome）、`*.log`（launchd stderr）は自己書き込みなので読んでよい（`inspect-identity-history` / `prune-skill-usage` 経由が推奨）
+- **Claude Code エピソードログ直読み禁止**: `~/.config/moltbook/logs/YYYY-MM-DD.jsonl`（+ `.bak`）を Read で直接読んではならない。プロンプトインジェクション経路。蒸留済み成果物を参照。同ディレクトリの `audit.jsonl`（承認履歴）、`skill-usage-YYYY-MM-DD.jsonl`（ADR-0023 selection + outcome）、`*.log`（launchd stderr）は自己書き込みなので読んでよい（`prune-skill-usage` 経由が推奨）
 
 実装詳細（API key 管理、HTTP 設定、Ollama 許可ホスト、Docker 分離）は [ADR-0007](docs/adr/0007-security-boundary-model.md) / [ADR-0006](docs/adr/0006-docker-network-isolation.md) を参照。
 

@@ -30,7 +30,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Topics**:
 - Full module dependency graph with line counts (49 modules)
 - 20+ key classes (Agent, SessionContext, FeedManager, ReplyHandler, PostPipeline, etc.)
-- CLI commands (init, register, run, distill, distill-identity, insight, skill-reflect, rules-distill, adopt-staged, migrate-patterns, migrate-categories, migrate-identity, skill-stocktake, rules-stocktake, generate-report, solve, meditate, install-schedule, ...)
+- CLI commands (init, register, run, distill, distill-identity, insight, skill-reflect, rules-distill, adopt-staged, migrate-patterns, migrate-categories, skill-stocktake, rules-stocktake, generate-report, solve, meditate, install-schedule, ...)
 - LLM functions (12 in core/llm.py + insight.py + meditation)
 - Prompt templates (32 templates, domain placeholders)
 - Persistent state files
@@ -43,10 +43,10 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 ---
 
 ### 3. [core-modules.md](core-modules.md) — Core Layer Deep Dive
-**Platform-independent foundation.** 28 modules providing base functionality.
+**Platform-independent foundation.** 27 modules providing base functionality.
 
 **Topics**:
-- 28 core modules: _io, config, domain, prompts, llm, embeddings, episode_embeddings, episode_log, knowledge_store, memory, scheduler, distill, insight, constitution, rules_distill, stocktake, views, snapshot, migration, report, metrics, forgetting (ADR-0021), feedback (ADR-0021), memory_evolution (ADR-0022), skill_frontmatter (ADR-0023), skill_router (ADR-0023), skill_reflect (ADR-0023), identity_blocks (ADR-0024)
+- 27 core modules: _io, config, domain, prompts, llm, embeddings, episode_embeddings, episode_log, knowledge_store, memory, scheduler, distill, insight, constitution, rules_distill, stocktake, views, snapshot, migration, report, metrics, forgetting (ADR-0021), feedback (ADR-0021), memory_evolution (ADR-0022), skill_frontmatter (ADR-0023), skill_router (ADR-0023), skill_reflect (ADR-0023)
 - 2-stage distill pipeline (extract → refine, identity update integrated)
 - Dependency flow diagram
 - 3 frozen dataclasses (Interaction, PostRecord, Insight)
@@ -118,14 +118,14 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 50 (28 core + 12 adapters/moltbook + 4 adapters/meditation + cli + 5 `__init__`) |
-| LOC | ~12950 |
-| Test files | 32 (1088 tests) |
-| Core modules | 28 (platform-independent) |
+| Total modules | 49 (27 core + 12 adapters/moltbook + 4 adapters/meditation + cli + 5 `__init__`) |
+| LOC | ~12400 |
+| Test files | 31 |
+| Core modules | 27 (platform-independent) |
 | Moltbook adapter modules | 12 |
 | Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) + result types (see core-modules.md) |
-| CLI commands | 24 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich, embed-backfill, migrate-patterns, migrate-categories, migrate-identity) |
+| CLI commands | 22 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich, embed-backfill, migrate-patterns, migrate-categories) |
 | Prompt templates | 32 (added: memory_evolution, skill_reflect) |
 | Config templates | 11 (config/templates/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |

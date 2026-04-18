@@ -1,7 +1,9 @@
 # ADR-0025: Identity History ログ配線 + migrate-identity CLI
 
+> **[ADR-0030](0030-withdraw-identity-blocks.ja.md) に supersede された (2026-04-18)。** 稼働環境で `identity_history.jsonl` は一度も書かれず、ADR-0020 snapshot + `audit.jsonl` が既に本 ADR がカバーしようとした監査面を埋めていた。履歴として本文は保持。
+
 ## Status
-proposed
+superseded-by 0030
 
 ## Date
 2026-04-16

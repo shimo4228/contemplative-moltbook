@@ -2,9 +2,9 @@
 # Architecture
 
 ## Project Type
-Python application: Contemplative AI agent with core/adapter separation + 3-layer memory + embedding-based views (ADR-0019) + pivot snapshots (ADR-0020) + pattern provenance/bitemporal/forgetting/feedback (ADR-0021) + memory evolution + BM25 hybrid retrieval (ADR-0022) + skill-as-memory loop (ADR-0023) + identity block schema + history (ADR-0024/0025)
+Python application: Contemplative AI agent with core/adapter separation + 3-layer memory + embedding-based views (ADR-0019) + pivot snapshots (ADR-0020) + pattern provenance/bitemporal/forgetting/feedback (ADR-0021) + memory evolution + BM25 hybrid retrieval (ADR-0022) + skill-as-memory loop (ADR-0023). Identity stays monolithic; the block schema attempt (ADR-0024/0025) was withdrawn by ADR-0030.
 
-**Stats**: 49 modules, ~12800 LOC (test count: see [INDEX.md](INDEX.md))
+**Stats**: 48 modules, ~12250 LOC (test count: see [INDEX.md](INDEX.md))
 
 ## System Diagram
 

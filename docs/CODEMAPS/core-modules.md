@@ -11,7 +11,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `config.py` | 28 | `FORBIDDEN_SUBSTRING_PATTERNS`, `VALID_ID_PATTERN`, `MAX_COMMENT_LENGTH` |
 | `domain.py` | 295 | `DomainConfig`, `PromptTemplates`, constitution loader |
 | `prompts.py` | 65 | Lazy-load proxy to `config/prompts/*.md` + placeholder resolution |
-| `llm.py` | 413 | Ollama interface, circuit breaker, sanitization; `_build_system_prompt` reads identity via `identity_blocks.load_for_prompt` (ADR-0024) |
+| `llm.py` | 413 | Ollama interface, circuit breaker, sanitization; `_build_system_prompt` reads identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
 | `embeddings.py` | 144 | Ollama `/api/embed` wrapper (nomic-embed-text), `cosine`, `embed_one`, `embed_texts` |
 | `episode_embeddings.py` | 174 | `EpisodeEmbeddingStore` — SQLite sidecar for episode vectors (ADR-0019) |
 | `episode_log.py` | 98 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
@@ -22,20 +22,19 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `snapshot.py` | 178 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020 |
 | `forgetting.py` | 30 | Retrieval gate (ADR-0021 IV-2/IV-7 + ADR-0028 retirement): `TRUST_FLOOR`, `is_live(pattern)` — bitemporal + trust floor only. Ebbinghaus strength and mark_accessed were retired by ADR-0028. |
 | `memory_evolution.py` | 250 | A-Mem bidirectional update (ADR-0022): `find_neighbors` / `revise_neighbor` / `apply_revision` / `evolve_patterns` |
-| `identity_blocks.py` | 549 | Identity block parser/renderer (ADR-0024): `parse`, `render`, `update_block`, `load_for_prompt` (mtime-cached), `migrate_to_blocks`, `append_history`, `body_hash`, `PERSONA_CORE_BLOCK` |
 | `skill_frontmatter.py` | 205 | YAML-subset parser/renderer for skill-file metadata (`last_reflected_at`, `success_count`, `failure_count`, ADR-0023) |
 | `skill_router.py` | 432 | Context-conditioned skill router (ADR-0023): cosine top-K over `(title+body)` embedding, no-inject fallback, usage log, `record_outcome`, `aggregate_usage`, `needs_reflection` |
 | `skill_reflect.py` | 133 | `reflect_skills() → ReflectResult` (ADR-0023): usage window → eligible skills → LLM revises body → `last_reflected_at` frontmatter update; `NO_CHANGE` output is counted separately |
 | `scheduler.py` | 165 | Rate limit state, `has_read_budget`/`has_write_budget`, persistence |
 | `constitution.py` | 106 | `amend_constitution()` → `AmendmentResult` |
-| `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021) + memory evolution pass (ADR-0022); `distill_identity()` block-aware via `identity_blocks` (ADR-0024) + history fields on `IdentityResult` (ADR-0025) |
+| `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021) + memory evolution pass (ADR-0022); `distill_identity()` reads/writes identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
 | `insight.py` | 319 | `extract_insight()` → `InsightResult`; view-driven batch building. Emits ADR-0023 frontmatter on generated skills, pulls live-only patterns via `KnowledgeStore.get_live_patterns`, and ranks batches by `effective_importance` (trust × strength × time decay) |
 | `rules_distill.py` | 322 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format |
 | `stocktake.py` | 363 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject |
 | `report.py` | 256 | `generate_report()` JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
 
-**Total: ~7720 LOC (28 modules)**
+**Total: ~7170 LOC (27 modules)**
 
 ## Key Dataclasses
 
@@ -51,24 +50,17 @@ Insight(timestamp, observation, insight_type)
 **ADR-0012 Result types** — core 関数が返す生成結果。ファイル書き込みは cli.py が承認後に実行:
 ```python
 AmendmentResult(text, target_path, marker_dir)           # constitution.py
-IdentityResult(text, target_path,                        # distill.py (+ADR-0025 history fields)
-               old_body="", new_body="",
-               block_name="persona_core",
-               source="distill-identity")
+IdentityResult(text, target_path)                        # distill.py (whole-file, restored by ADR-0030)
 SkillResult(text, filename, target_path)                 # insight.py (reused by skill_reflect.py)
 InsightResult(skills, dropped_count, skills_dir)
 ReflectResult(skills, eligible, no_change_count, skills_dir)  # skill_reflect.py (ADR-0023)
 RuleResult(text, filename, target_path)                  # rules_distill.py
 RulesDistillResult(rules, dropped_count, rules_dir)
-MigrationResult(migrated, already_migrated=False,        # identity_blocks.py (ADR-0024/0025)
-                backup_path=None, rendered=None, document=None)
 ```
 
-**ADR-0023 skill frontmatter / ADR-0024 identity blocks** — dataclasses under `skill_frontmatter.py` / `identity_blocks.py`:
+**ADR-0023 skill frontmatter** — dataclasses under `skill_frontmatter.py`:
 ```python
 SkillMeta(last_reflected_at, success_count, failure_count, extra)   # skill_frontmatter.py
-Block(name, body, last_updated_at, source, extra)                   # identity_blocks.py
-IdentityDocument(blocks: Tuple[Block, ...], is_legacy: bool)        # identity_blocks.py
 SkillMatch(name, path, body, score, meta)                           # skill_router.py
 SkillUsageStats(name, selections, successes, failures, partials, failure_contexts)  # skill_router.py
 ```

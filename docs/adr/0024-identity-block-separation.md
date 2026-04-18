@@ -1,7 +1,9 @@
 # ADR-0024: Identity Block Separation — Frontmatter-Addressed Persona Blocks
 
+> **Superseded by [ADR-0030](0030-withdraw-identity-blocks.md) (2026-04-18).** The block scheme was withdrawn on single-responsibility grounds: packing multiple concerns (`persona_core`, `current_goals`, future blocks) into a single file and rebuilding sub-addressing inside it is the wrong place to separate concerns when the surrounding memory stack already offers a layer per responsibility. Body retained for the historical record.
+
 ## Status
-proposed
+superseded-by 0030
 
 ## Date
 2026-04-16

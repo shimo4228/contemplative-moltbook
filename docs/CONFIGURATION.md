@@ -49,7 +49,6 @@ contemplative-agent generate-report --all  # Regenerate activity reports
 ### Introspection & Maintenance
 
 ```bash
-contemplative-agent inspect-identity-history --tail N  # Inspect per-block identity history
 contemplative-agent prune-skill-usage --older-than N   # Trim old skill-usage logs
 contemplative-agent skill-stocktake                    # Audit skills for duplicates / low quality
 contemplative-agent rules-stocktake                    # Audit rules for duplicates / low quality
@@ -63,7 +62,6 @@ Run once per data store when upgrading from v1.x to v2.0.
 contemplative-agent embed-backfill         # Compute embeddings for existing patterns + episodes
 contemplative-agent migrate-patterns       # Apply ADR-0021 pattern schema to old knowledge.json
 contemplative-agent migrate-categories     # Drop retired category/subcategory fields (ADR-0026)
-contemplative-agent migrate-identity       # Convert identity.md to block-addressed form (ADR-0024)
 ```
 
 ### Scheduling

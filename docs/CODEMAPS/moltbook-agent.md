@@ -13,7 +13,7 @@ cli.py (1779L)  -- composition root, only file importing both core/ and adapters
  |    config.py (28L)             -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
  |    domain.py (295L)            -- DomainConfig + PromptTemplates + constitution loader
  |    prompts.py (65L)            -- lazy-loading proxy to config/prompts/*.md
- |    llm.py (413L)               -- Ollama interface, circuit breaker; _build_system_prompt via identity_blocks.load_for_prompt (ADR-0024)
+ |    llm.py (413L)               -- Ollama interface, circuit breaker; _build_system_prompt reads identity.md as single blob (legacy path restored by ADR-0030)
  |    embeddings.py (144L)        -- /api/embed wrapper (nomic-embed-text) + cosine + embed_one/embed_texts
  |    episode_embeddings.py (174L)-- EpisodeEmbeddingStore (SQLite sidecar, ADR-0019)
  |    episode_log.py (98L)        -- Layer 1: append-only JSONL episode storage
@@ -24,11 +24,10 @@ cli.py (1779L)  -- composition root, only file importing both core/ and adapters
  |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
  |    forgetting.py (30L)         -- is_live: bitemporal + trust floor retrieval gate (ADR-0021 + ADR-0028 retirement)
  |    memory_evolution.py (250L)  -- A-Mem bidirectional update: find_neighbors/revise_neighbor/apply_revision (ADR-0022)
- |    identity_blocks.py (549L)   -- identity block parse/render/update_block/load_for_prompt/migrate_to_blocks/append_history (ADR-0024/0025)
  |    skill_frontmatter.py (205L) -- stdlib YAML subset parser for skill metadata (ADR-0023)
  |    skill_router.py (432L)      -- cosine top-K skill selection + usage log + reflect prep (ADR-0023)
  |    scheduler.py (165L)         -- rate limit scheduling, persistence
- |    distill.py (846L)           -- embedding classify + 3-step distill + identity distill (block-aware ADR-0024)
+ |    distill.py (846L)           -- embedding classify + 3-step distill + identity distill (whole-file legacy, restored by ADR-0030)
  |    insight.py (307L)           -- view-driven behavior pattern extraction (knowledge → skills)
  |    rules_distill.py (322L)     -- Practice/Rationale B-layer rules synthesis (skills → rules)
  |    constitution.py (106L)      -- constitutional amendment (constitutional view → ethics)
@@ -127,7 +126,6 @@ contemplative-agent amend-constitution
 # Migrations (Tier 1, pure functions, idempotent)
 contemplative-agent embed-backfill [--patterns-only] [--dry-run]   -- ADR-0019 one-shot migration
 contemplative-agent migrate-patterns [--dry-run]                   -- ADR-0021 schema fill (provenance/bitemporal/forgetting/feedback)
-contemplative-agent migrate-identity [--dry-run]                   -- ADR-0024 legacy identity.md → block format
 
 # Audit
 contemplative-agent skill-stocktake [--stage]
@@ -220,11 +218,9 @@ Circuit breaker: 5 consecutive LLM failures → open for 120s.
 | `snapshots/{cmd}_{ts}/` | dir | `MOLTBOOK_HOME` | Pivot snapshots (ADR-0020: manifest + views + constitution + centroids.npz) |
 | `history/identity/` | Markdown | `MOLTBOOK_HOME` | Identity archives (timestamped) |
 | `logs/audit.jsonl` | JSONL | `MOLTBOOK_HOME` | Approval history + `snapshot_path` cross-refs |
-| `logs/identity_history.jsonl` | JSONL (0600) | `MOLTBOOK_HOME` | Per-block identity change record (ADR-0024/0025): `{ts, block, source, old_hash, new_hash}`. Hashes only — snapshot subsystem holds full text. |
 | `logs/skill-usage-YYYY-MM-DD.jsonl` | JSONL (0600) | `MOLTBOOK_HOME` | Per-day skill selection + outcome log (ADR-0023); consumed by `skill-reflect` aggregator |
 | `reports/comment-reports/*.md` | Markdown | `MOLTBOOK_HOME` | Daily activity reports |
 | `reports/analysis/weekly-*.md` | Markdown | `MOLTBOOK_HOME` | Weekly analysis (Claude Code via launchd) |
-| `identity.md.bak.pre-adr0024` | Markdown | `MOLTBOOK_HOME` | One-time backup created by `migrate-identity` (ADR-0024) |
 | `knowledge.json.bak.pre-adr0021` | JSON | `MOLTBOOK_HOME` | One-time backup created by `migrate-patterns` (ADR-0021) |
 
 ## Security Boundaries
