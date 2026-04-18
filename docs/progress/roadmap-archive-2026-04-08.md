@@ -1,4 +1,6 @@
-# Roadmap
+# Roadmap (archived 2026-04-18)
+
+> **Frozen changelog.** Content last updated 2026-04-08 and reflects state up to ADR-0018. Later decisions (ADR-0019〜0030) are not captured here and should be read from `docs/adr/` directly. Retained for historical context only.
 
 ## Status: 安定稼働フェーズ
 

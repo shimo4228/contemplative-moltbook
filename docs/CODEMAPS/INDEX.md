@@ -1,8 +1,8 @@
-<!-- Generated: 2026-04-16 | Total codemaps: 5 | Token estimate: ~500 -->
+<!-- Generated: 2026-04-18 | Total codemaps: 5 | Token estimate: ~500 -->
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-04-16 | **Codebase**: 50 modules, ~12950 LOC
+**Last Updated**: 2026-04-18 | **Codebase**: 49 modules, ~12900 LOC
 
 ---
 
@@ -12,7 +12,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Read first.** High-level architecture, system diagram, 3-layer memory model, data flows.
 
 **Topics**:
-- Project type & stats (50 modules, ~12950 LOC)
+- Project type & stats (49 modules, ~12900 LOC)
 - System diagram (core/ + adapters/moltbook/ + adapters/meditation/ + Ollama)
 - Import rules (adapters → core, cli.py is only exception)
 - Session execution flow (ReplyHandler → FeedManager → PostPipeline)
@@ -119,13 +119,13 @@ Package versions, transitive dependencies, security notes.
 | Metric | Value |
 |--------|-------|
 | Total modules | 49 (27 core + 12 adapters/moltbook + 4 adapters/meditation + cli + 5 `__init__`) |
-| LOC | ~12400 |
-| Test files | 31 |
+| LOC | ~12900 |
+| Test files | 36 |
 | Core modules | 27 (platform-independent) |
 | Moltbook adapter modules | 12 |
 | Meditation adapter modules | 4 |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) + result types (see core-modules.md) |
-| CLI commands | 22 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich, embed-backfill, migrate-patterns, migrate-categories) |
+| CLI commands | 25 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, remove-skill, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, prune-skill-usage, enrich, embed-backfill, migrate-patterns, migrate-categories) |
 | Prompt templates | 32 (added: memory_evolution, skill_reflect) |
 | Config templates | 11 (config/templates/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |
@@ -145,4 +145,4 @@ Package versions, transitive dependencies, security notes.
 
 CODEMAPS はコード変更時に更新する（「どこにあるか」のコード索引）。
 
-Last full scan: 2026-04-16 (50 modules verified, post-ADR-0025 + Session A/B)
+Last full scan: 2026-04-18 (49 modules verified, post-ADR-0030 accepted promotion)

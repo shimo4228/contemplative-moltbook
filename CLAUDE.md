@@ -86,7 +86,7 @@ GET 60 req/min、POST 30 req/min（分離クォータ）。3 層防御（`has_re
 
 ## 残課題
 
-ADR-0023..0027 後の積み残しは [.reports/remaining-issues-2026-04-16.md](.reports/remaining-issues-2026-04-16.md) に集約。
+ADR-0022..0030 後の積み残しは [.reports/remaining-issues-2026-04-18.md](.reports/remaining-issues-2026-04-18.md) に集約（cold-start ready）。
 
 ## 関連リポジトリ
 

@@ -6,7 +6,7 @@ Language: [English](README.md) | 日本語
 
 # Contemplative Agent (CA)
 
-[![Tests](https://img.shields.io/badge/tests-1170_passed-brightgreen)](docs/CONFIGURATION.ja.md#開発)
+[![Tests](https://img.shields.io/badge/tests-1115_passed-brightgreen)](docs/CONFIGURATION.ja.md#開発)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
@@ -39,7 +39,7 @@ Language: [English](README.md) | 日本語
  │                 ・時間妥当性 (bitemporal) / 強度 (strength)
  │                 │
  │                 ├── distill-identity ─▶ アイデンティティ
- │                 │                       (ブロック addressed)
+ │                 │                       (whole-file, ADR-0030)
  │                 │
  │                 └── insight ─▶ スキル
  │                                 (retrieve / apply / reflect)
@@ -62,14 +62,14 @@ Language: [English](README.md) | 日本語
 **AKC による自己改善** -- エージェントは自身のログに対して 6 フェーズの [Agent Knowledge Cycle](https://github.com/shimo4228/agent-knowledge-cycle) を回す — 外部の fine-tune 不要、ラベル付き学習データも不要。各フェーズ昇格（ログ → パターン、パターン → スキル、スキル → ルール、スキル → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.md)が入る。
 
 - *埋め込みと view (embedding + views)* — 分類は状態ではなく **クエリ**。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)。`category` フィールドは [ADR-0026](docs/adr/0026-retire-discrete-categories.ja.md) で廃止）。
-- *記憶の進化 + ハイブリッド検索 (memory evolution + hybrid retrieval)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加。検索スコアは cosine と BM25 の混成（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)、*proposed*）。
-- *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)、*proposed*）。
-- *ノイズを種子として (noise as seed)* — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持される。view 重心が変わったとき、失われずに**再分類の候補**として利用できる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)、*proposed*）。
+- *記憶の進化 + ハイブリッド検索 (memory evolution + hybrid retrieval)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加。検索スコアは cosine と BM25 の混成（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
+- *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
+- *ノイズを種子として (noise as seed)* — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持される。view 重心が変わったとき、失われずに**再分類の候補**として利用できる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
 
 **設計による安全 (secure by design)** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は `requests` のみ。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.md)
 
-- *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、*proposed*。未使用要素は [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.ja.md) で削減済み）。
-- *再現可能な基準点スナップショット (pivot snapshots)* — 蒸留の実行時に manifest + view + 憲法 + 重心埋め込みを一括保存し、任意の蒸留を bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)、*proposed*）。
+- *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、[ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.ja.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.ja.md) で partially superseded）。
+- *再現可能な基準点スナップショット (pivot snapshots)* — 蒸留の実行時に manifest + view + 憲法 + 重心埋め込みを一括保存し、任意の蒸留を bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)）。
 
 **11種の倫理フレームワーク** -- ストア哲学、功利主義、ケアの倫理など11種のテンプレート同梱。同じ行動データ、異なる初期条件 — エージェントがどう分岐するかを観察。[独自テンプレートの作成 →](docs/CONFIGURATION.ja.md#キャラクターテンプレート)
 
@@ -173,7 +173,7 @@ v1.x からアップグレードする場合は、移行コマンドを一度だ
 - **core/** はプラットフォーム非依存。**adapters/** は core に依存（逆方向は禁止）。
 - Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）は行動プリセットとしてオプション採用 — アーキテクチャの前提ではなく哲学的共鳴。
 
-モジュール一覧、データフロー図、import グラフ、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。唯識 (Yogācāra) の枠組みと、これが記憶設計をどのように予測的に制約したかは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) 参照。
+モジュール一覧、データフロー図、import グラフ、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。研究者向けの用語リファレンスは [docs/glossary.md](docs/glossary.md) 参照。唯識 (Yogācāra) の枠組みと、これが記憶設計をどのように予測的に制約したかは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) 参照。
 
 Docker によるネットワーク分離デプロイについては [設定ガイドの Docker セクション](docs/CONFIGURATION.ja.md#dockerオプション) を参照。
 

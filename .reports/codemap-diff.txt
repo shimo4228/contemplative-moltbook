@@ -141,3 +141,64 @@ Not Touched This Pass
 - docs/CODEMAPS/adapters-moltbook.md
 - docs/CODEMAPS/architecture.md    (memory model unchanged; no new concept introduced)
 - docs/adr/                         (historical records; ADR-0023 deferred list NOT edited)
+
+
+==============================================================================
+Drift-fix pass — 2026-04-18 (post ADR-0030 + remove-skill)
+==============================================================================
+
+Trigger: /update-codemaps after status-promotion commit eca8cb8 (ADR-0022/0023/
+         0026/0027/0028/0029/0030 proposed → accepted). Previous scan had CLI
+         list drift (22 listed vs 25 actual) from commits 6642a95 (remove-skill)
+         + prune-skill-usage addition.
+
+Added to CLI list (moltbook-agent.md)
+-------------------------------------
+  remove-skill <name> [--reason TEXT]             (commit 6642a95, ADR-0012 gated)
+  prune-skill-usage --older-than N [--dry-run]    (ADR-0023, MEMORY.md-referenced)
+  migrate-categories [--dry-run]                  (ADR-0026, was missing from moltbook-agent.md)
+  enrich [--dry-run]                              (ADR-0021, was missing from moltbook-agent.md)
+  skill-reflect [--days N] [--stage]              (ADR-0023, cross-ref only)
+
+Modified (stat-only drift correction)
+-------------------------------------
+docs/CODEMAPS/INDEX.md
+  Header Generated        : 2026-04-16 → 2026-04-18
+  Last Updated            : 2026-04-16 → 2026-04-18
+  Codebase               : 50 modules, ~12950 LOC → 49 modules, ~12900 LOC
+  Statistics.LOC          : ~12400 → ~12900
+  Statistics.Test files   : 31 → 36
+  Statistics.CLI commands : 22 → 25 (full list in INDEX.md)
+  Update Cycle line       : "post-ADR-0025 + Session A/B" →
+                            "post-ADR-0030 accepted promotion"
+
+docs/CODEMAPS/moltbook-agent.md
+  Header Generated        : 2026-04-16 → 2026-04-18
+  CLI Commands section    : (22 subcommands) → (25 subcommands), 5 entries added
+  migrate-patterns annot. : now mentions ADR-0028/0029 field-drop behaviour
+
+Not modified
+------------
+- architecture.md     : ADR-0030 already referenced in project-type paragraph
+- core-modules.md     : 27 core modules still accurate; ADR-0028/0029 schema shrink
+                        already documented
+- adapters-moltbook.md: 12 moltbook + 4 meditation adapters unchanged
+- dependencies.md     : pyproject.toml unchanged since 2026-04-16
+
+Architecture changes
+--------------------
+None. This pass is pure drift-fix. No new modules, no import-graph changes,
+no new external dependencies, no new ADRs landed (only status promotion).
+
+Verified stats (2026-04-18)
+---------------------------
+  core modules     :    27 (*.py minus __init__.py under core/)
+  adapters/moltbook:    12
+  adapters/meditation:   4
+  test files       :    36 (*.py under tests/)
+  src LOC          : 12918 (wc -l across src/**/*.py)
+  CLI subcommands  :    25 (subparsers.add_parser in cli.py)
+
+Staleness warnings
+------------------
+None. All codemaps fresh within 2 days.

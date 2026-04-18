@@ -6,7 +6,7 @@ Language: English | [日本語](README.ja.md)
 
 # Contemplative Agent (CA)
 
-[![Tests](https://img.shields.io/badge/tests-1170_passed-brightgreen)](docs/CONFIGURATION.md#development)
+[![Tests](https://img.shields.io/badge/tests-1115_passed-brightgreen)](docs/CONFIGURATION.md#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
@@ -39,7 +39,7 @@ Episode Log   raw actions, immutable JSONL (untrusted)
  │                 • bitemporal / strength
  │                 │
  │                 ├── distill-identity ─▶ Identity
- │                 │                       (block-addressed)
+ │                 │                       (whole-file, ADR-0030)
  │                 │
  │                 └── insight ─▶ Skills
  │                                 (retrieve / apply / reflect)
@@ -62,14 +62,14 @@ Underneath, the knowledge layer stores each pattern as an embedding coordinate r
 **Self-Improving via AKC** -- The agent runs the six-phase [Agent Knowledge Cycle](https://github.com/shimo4228/agent-knowledge-cycle) on its own logs — no external fine-tuning, no labeled training data. Each phase promotion (logs → patterns, patterns → skills, skills → rules, skills → identity) passes through a [human approval gate](docs/adr/0012-human-approval-gate.md).
 
 - *Embedding + views* — classification is a query, not state; views are editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md); `category` field retired in [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
-- *Pattern evolution + hybrid retrieval* — a new pattern can trigger LLM-driven re-interpretation of topically-related older patterns, with the old row soft-invalidated and a revised row appended; retrieval scores combine cosine and BM25 ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md), *proposed*).
-- *Skill-as-memory loop* — skills are retrieved, applied, and rewritten based on outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md), *proposed*).
-- *Noise as seed* — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md), *proposed*).
+- *Pattern evolution + hybrid retrieval* — a new pattern can trigger LLM-driven re-interpretation of topically-related older patterns, with the old row soft-invalidated and a revised row appended; retrieval scores combine cosine and BM25 ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
+- *Skill-as-memory loop* — skills are retrieved, applied, and rewritten based on outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
+- *Noise as seed* — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
 
 **Secure by Design** -- No shell execution, no arbitrary network access, no file traversal. Domain-locked to `moltbook.com` + localhost Ollama. Single runtime dependency (`requests`). [Full threat model →](docs/adr/0007-security-boundary-model.md)
 
-- *Provenance tracking* — every pattern carries `source_type` and `trust_score`; MINJA-class memory injection attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), *proposed*; dormant elements retired in [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md)).
-- *Replayable pivot snapshots* — distill runs bundle the full state (manifest + views + constitution + centroid embeddings) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md), *proposed*).
+- *Provenance tracking* — every pattern carries `source_type` and `trust_score`; MINJA-class memory injection attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), partially-superseded-by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md)).
+- *Replayable pivot snapshots* — distill runs bundle the full state (manifest + views + constitution + centroid embeddings) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
 
 **11 Ethical Frameworks** -- Ship the same agent with Stoic, Utilitarian, Care Ethics, or 8 other philosophical frameworks. Same behavioral data, different initial conditions -- watch how agents diverge. [Create your own →](docs/CONFIGURATION.md#character-templates)
 
@@ -173,7 +173,7 @@ Two invariants hold across the codebase:
 - **core/** is platform-independent; **adapters/** depend on core (never the reverse).
 - The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are an optional behavioral preset — a philosophical resonance, not an architectural dependency.
 
-Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For the Yogācāra frame and how it constrained the memory design, see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
+Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For a quick term reference aimed at researchers, see [docs/glossary.md](docs/glossary.md). For the Yogācāra frame and how it constrained the memory design, see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
 For Docker-based network-isolated deployment, see the [Docker section in the Configuration Guide](docs/CONFIGURATION.md#docker-optional).
 

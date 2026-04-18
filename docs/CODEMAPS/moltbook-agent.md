@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 49 | Token estimate: ~1800 -->
+<!-- Generated: 2026-04-18 | Files scanned: 49 | Token estimate: ~1800 -->
 # Moltbook Agent Codemap
 
 Bird's-eye view of the entire codebase. For deep dives, see
@@ -107,7 +107,7 @@ config/                           -- externalized templates (domain-swappable, g
 | `Scheduler` | core/scheduler.py | 165 | Rate limit enforcement |
 | `DomainConfig` / `PromptTemplates` | core/domain.py | — | @dataclass(frozen=True) |
 
-## CLI Commands (22 subcommands)
+## CLI Commands (25 subcommands)
 
 ```
 contemplative-agent init [--template <character>] [--config-dir PATH]
@@ -119,13 +119,17 @@ contemplative-agent run [--session M] [--approve|--guarded|--auto]
 contemplative-agent distill [--days N] [--dry-run] [--no-axioms]
 contemplative-agent distill-identity [--days N] [--dry-run]
 contemplative-agent insight [--days N] [--stage] [--full]
+contemplative-agent skill-reflect [--days N] [--stage]      -- ADR-0023 skill self-revision via usage log
 contemplative-agent adopt-staged                            -- approve & adopt staged outputs (Tier 1, no LLM)
+contemplative-agent remove-skill <name> [--reason TEXT]     -- auditable skill deletion (gated)
 contemplative-agent rules-distill [--full]
 contemplative-agent amend-constitution
 
 # Migrations (Tier 1, pure functions, idempotent)
 contemplative-agent embed-backfill [--patterns-only] [--dry-run]   -- ADR-0019 one-shot migration
-contemplative-agent migrate-patterns [--dry-run]                   -- ADR-0021 schema fill (provenance/bitemporal/forgetting/feedback)
+contemplative-agent migrate-patterns [--dry-run]                   -- ADR-0021 schema fill; ADR-0028/0029 also drop retired fields
+contemplative-agent migrate-categories [--dry-run]                 -- ADR-0026 drop category field, apply gated flag
+contemplative-agent enrich [--dry-run]                             -- ADR-0021 trust/provenance fill
 
 # Audit
 contemplative-agent skill-stocktake [--stage]
@@ -139,6 +143,7 @@ contemplative-agent generate-report [--all]
 contemplative-agent solve "TEXT"                          -- math challenge solver
 contemplative-agent meditate [--days N] [--cycles N] [--dry-run]
 contemplative-agent sync-data                             -- sync to research repo
+contemplative-agent prune-skill-usage --older-than N [--dry-run]   -- delete old skill-usage JSONL
 contemplative-agent install-schedule [--interval H] [--session M]
                                      [--distill-hour H] [--no-distill]
                                      [--weekly-analysis] [--weekly-analysis-day D] [--weekly-analysis-hour H]
