@@ -191,6 +191,39 @@ class TestRankADR0021:
     # retired because the agent's hot path does not retrieve patterns
     # per-turn. Live memory dynamics live at the skill layer (ADR-0023).
 
+    def test_high_trust_overcomes_low_cosine(self):
+        # cosine 劣位 × high-trust が cosine 優位 × low-trust を逆転する。
+        # 0.5 × 0.9 = 0.45  >  0.9 × 0.4 = 0.36
+        seed = np.array([1.0, 0.0], dtype=np.float32)
+        candidates = [
+            {"pattern": "cos_high_trust_low", "embedding": [0.9, 0.4359], "trust_score": 0.4},
+            {"pattern": "cos_low_trust_high", "embedding": [0.5, 0.8660], "trust_score": 0.9},
+        ]
+        result = ViewRegistry._rank(seed, candidates, threshold=0.0, top_k=None)
+        assert [p["pattern"] for p in result] == ["cos_low_trust_high", "cos_high_trust_low"]
+
+    def test_cosine_dominance_survives_trust_gap(self):
+        # cosine 差が大きいときは trust 差で逆転しない (trust が過剰に効いていないこと)。
+        # 0.9 × 0.7 = 0.63  >  0.4 × 0.9 = 0.36
+        seed = np.array([1.0, 0.0], dtype=np.float32)
+        candidates = [
+            {"pattern": "cos_high_trust_mid", "embedding": [0.9, 0.4359], "trust_score": 0.7},
+            {"pattern": "cos_low_trust_high", "embedding": [0.4, 0.9165], "trust_score": 0.9},
+        ]
+        result = ViewRegistry._rank(seed, candidates, threshold=0.0, top_k=None)
+        assert [p["pattern"] for p in result] == ["cos_high_trust_mid", "cos_low_trust_high"]
+
+    def test_rank_reversal_at_trust_floor_boundary(self):
+        # trust=0.3 (TRUST_FLOOR ちょうど = is_live を pass) は除外されず乗算因子として残る。
+        # 0.95 × 0.3 = 0.285  <  0.5 × 0.9 = 0.45
+        seed = np.array([1.0, 0.0], dtype=np.float32)
+        candidates = [
+            {"pattern": "boundary_trust", "embedding": [0.95, 0.3122], "trust_score": 0.3},
+            {"pattern": "mid_cos_high_trust", "embedding": [0.5, 0.8660], "trust_score": 0.9},
+        ]
+        result = ViewRegistry._rank(seed, candidates, threshold=0.0, top_k=None)
+        assert [p["pattern"] for p in result] == ["mid_cos_high_trust", "boundary_trust"]
+
 
 class TestSeedFrom:
     """seed_from frontmatter injects external file contents as the seed."""
