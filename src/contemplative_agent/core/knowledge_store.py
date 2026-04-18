@@ -15,25 +15,25 @@ from .config import FORBIDDEN_SUBSTRING_PATTERNS
 logger = logging.getLogger(__name__)
 
 # ADR-0021 source_type values. "unknown" is the migration default for
-# legacy patterns without recorded provenance.
+# legacy patterns without recorded provenance. ADR-0029 retired
+# ``user_input`` (no producer; conflicted with ADR-0007 untrusted-input
+# boundary) and ``external_post`` (no producer; primary external-content
+# defense is quarantine at the summarize boundary, not trust-weighting).
 SOURCE_TYPES = (
     "self_reflection",
     "external_reply",
-    "external_post",
-    "user_input",
     "mixed",
     "unknown",
 )
 
 # ADR-0021 base trust by source. Applied at distill time; later adjusted
 # by approval-gate hooks. (Pattern-layer feedback nudges were retired by
-# ADR-0028.)
+# ADR-0028; ``user_input`` / ``external_post`` rows were retired by
+# ADR-0029.)
 TRUST_BASE_BY_SOURCE: Dict[str, float] = {
     "self_reflection": 0.9,
-    "user_input": 0.7,
     "unknown": 0.6,
     "external_reply": 0.55,
-    "external_post": 0.5,
     "mixed": 0.5,  # overridden to min(inputs) when mixed sources are known
 }
 
@@ -310,9 +310,13 @@ class KnowledgeStore:
 
                 # ADR-0021 optional fields. Preserve only if present; the
                 # load path does not auto-fill, so legacy files remain
-                # legacy until migrate-patterns runs.
+                # legacy until migrate-patterns runs. ADR-0029: strip the
+                # retired ``sanitized`` flag at load time so saves are
+                # net-reductive even before migrate-patterns runs.
                 if isinstance(item.get("provenance"), dict):
-                    entry["provenance"] = dict(item["provenance"])
+                    prov = dict(item["provenance"])
+                    prov.pop("sanitized", None)
+                    entry["provenance"] = prov
                 if isinstance(item.get("trust_score"), (int, float)):
                     entry["trust_score"] = float(item["trust_score"])
                 if isinstance(item.get("trust_updated_at"), str):

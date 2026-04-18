@@ -40,7 +40,7 @@ def _make_pattern(text: str, emb: np.ndarray, **over: object) -> Dict:
         "trust_score": 0.8,
         "valid_until": None,
         "valid_from": "2026-04-10T00:00",
-        "provenance": {"source_type": "self_reflection", "sanitized": True},
+        "provenance": {"source_type": "self_reflection"},
     }
     base.update(over)
     return base

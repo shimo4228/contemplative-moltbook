@@ -1217,6 +1217,8 @@ def _handle_migrate_patterns(args: argparse.Namespace, _parser: argparse.Argumen
     print(f"  patterns total  : {stats.patterns_total}")
     print(f"  patterns updated: {stats.patterns_updated}")
     print(f"  already migrated: {stats.patterns_already_migrated}")
+    if stats.patterns_stripped:
+        print(f"  fields stripped : {stats.patterns_stripped} (ADR-0028/0029 retired keys)")
     if stats.errors:
         print("  errors:")
         for err in stats.errors:
@@ -1224,14 +1226,15 @@ def _handle_migrate_patterns(args: argparse.Namespace, _parser: argparse.Argumen
     if args.dry_run:
         print("  (dry-run — no file writes performed)")
 
-    if not args.dry_run and stats.patterns_updated > 0:
+    if not args.dry_run and (stats.patterns_updated > 0 or stats.patterns_stripped > 0):
         _log_approval(
             "migrate-patterns",
             KNOWLEDGE_PATH,
             approved=True,
             content=(
                 f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
-                f"updated={stats.patterns_updated}/{stats.patterns_total}"
+                f"updated={stats.patterns_updated}/{stats.patterns_total} "
+                f"stripped={stats.patterns_stripped}"
             ),
         )
 

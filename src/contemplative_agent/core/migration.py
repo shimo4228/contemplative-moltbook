@@ -394,6 +394,7 @@ class Adr0021MigrationStats:
     patterns_total: int = 0
     patterns_updated: int = 0  # received at least one new field
     patterns_already_migrated: int = 0  # had all fields already
+    patterns_stripped: int = 0  # on-disk retired fields silently dropped on load (ADR-0028/0029)
     backup_path: Optional[Path] = None
     errors: Tuple[str, ...] = ()
 
@@ -405,6 +406,7 @@ class _Adr0021MigrationBuilder:
     patterns_total: int = 0
     patterns_updated: int = 0
     patterns_already_migrated: int = 0
+    patterns_stripped: int = 0
     backup_path: Optional[Path] = None
     errors: List[str] = field(default_factory=list)
 
@@ -413,6 +415,7 @@ class _Adr0021MigrationBuilder:
             patterns_total=self.patterns_total,
             patterns_updated=self.patterns_updated,
             patterns_already_migrated=self.patterns_already_migrated,
+            patterns_stripped=self.patterns_stripped,
             backup_path=self.backup_path,
             errors=tuple(self.errors),
         )
@@ -458,6 +461,14 @@ def _ensure_adr0021_defaults(pattern: Dict) -> bool:
         if retired_field in pattern:
             pattern.pop(retired_field)
             changed = True
+
+    # ADR-0029: ``provenance.sanitized`` retired. The flag was always
+    # written True and had no consumer; upstream sanitization happens in
+    # ``llm._sanitize_output`` regardless.
+    prov = pattern.get("provenance")
+    if isinstance(prov, dict) and "sanitized" in prov:
+        prov.pop("sanitized")
+        changed = True
 
     return changed
 
@@ -602,11 +613,11 @@ def migrate_patterns_to_adr0021(
         if builder.backup_path is not None:
             logger.info("Backed up knowledge.json → %s", builder.backup_path.name)
 
-    # Detect ADR-0028 strip-drift before KnowledgeStore.load drops the
-    # retired fields from the in-memory representation. Counting at this
-    # layer lets the migration report how many patterns actually change
-    # on disk (additive fill + reductive strip), even though the strip
-    # happens silently at load time.
+    # Detect ADR-0028/0029 strip-drift before KnowledgeStore.load drops
+    # the retired fields from the in-memory representation. Counting at
+    # this layer lets the migration report how many patterns actually
+    # change on disk (additive fill + reductive strip), even though the
+    # strip happens silently at load time.
     retired_fields = (
         "last_accessed_at",
         "access_count",
@@ -621,13 +632,21 @@ def migrate_patterns_to_adr0021(
     except (OSError, json.JSONDecodeError):
         raw_data = []
     for raw_entry in raw_data:
-        if isinstance(raw_entry, dict) and any(f in raw_entry for f in retired_fields):
+        if not isinstance(raw_entry, dict):
+            continue
+        if any(f in raw_entry for f in retired_fields):
+            strip_drift += 1
+            continue
+        # ADR-0029: ``provenance.sanitized`` retired.
+        prov = raw_entry.get("provenance")
+        if isinstance(prov, dict) and "sanitized" in prov:
             strip_drift += 1
 
     store = KnowledgeStore(path=knowledge_path)
     store.load()
     patterns = store.get_raw_patterns()
     builder.patterns_total = len(patterns)
+    builder.patterns_stripped = strip_drift
 
     for pattern in patterns:
         if _ensure_adr0021_defaults(pattern):

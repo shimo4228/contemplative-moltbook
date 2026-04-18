@@ -1,7 +1,7 @@
 # ADR-0021: Pattern Schema Extension — Provenance / Bitemporal / Forgetting / Feedback
 
 ## Status
-partially-superseded-by ADR-0028 (Forgetting IV-3 + Feedback IV-10 retired 2026-04-18). Provenance (IV-7) and Bitemporal (IV-2) remain in effect.
+partially-superseded-by ADR-0028 (Forgetting IV-3 + Feedback IV-10 retired 2026-04-18) and ADR-0029 (dormant Provenance elements `user_input` / `external_post` / `sanitized` retired 2026-04-18). Bitemporal (IV-2) and the pruned Provenance (IV-7) surface remain in effect.
 
 ## Date
 2026-04-16
@@ -28,15 +28,15 @@ Extend the pattern dict in `knowledge.json` with nine optional fields, grouped b
 
 ```
 provenance: {
-    source_type: "self_reflection" | "external_reply" | "external_post"
-                 | "user_input" | "mixed" | "unknown"
+    source_type: "self_reflection" | "external_reply" | "mixed" | "unknown"
     source_episode_ids: List[str]   # up to K most representative
-    sanitized: bool                  # _sanitize_output ran cleanly
     pipeline_version: str            # e.g. "distill@0.21"
 }
 trust_score: float                   # 0.0 - 1.0
 trust_updated_at: str                # ISO8601
 ```
+
+> **ADR-0029 (2026-04-18)**: `user_input` / `external_post` `source_type` values and the `sanitized` provenance flag were retired (dormant since landing — no producer / no consumer in production). The original six-value enum and `sanitized: bool` field are preserved here for historical accuracy; `SOURCE_TYPES` in `knowledge_store.py` reflects the current four values.
 
 Initial `trust_score` at distill time is derived from `source_type` with a fixed table:
 
@@ -44,12 +44,14 @@ Initial `trust_score` at distill time is derived from `source_type` with a fixed
 |---|---|
 | self_reflection | 0.9 |
 | external_reply  | 0.55 |
-| external_post   | 0.5 |
-| user_input      | 0.7 |
 | mixed           | min of inputs |
 | unknown         | 0.6 |
 
-The score is adjusted by: `−0.2` if sanitized flag is false, `+0.05` when a downstream approval gate (identity / skill / rule / constitution) accepts the pattern, `−0.1` when the pattern is invalidated by a contradicting newer pattern (see IV-4 in ADR-0022). A future `contemplative-agent flag-pattern <id>` CLI subtracts `0.3` on user flag.
+> **ADR-0029 (2026-04-18)**: `external_post` (0.5) and `user_input` (0.7) rows were retired — neither had a producer in production.
+
+The score is adjusted by: `+0.05` when a downstream approval gate (identity / skill / rule / constitution) accepts the pattern, `−0.1` when the pattern is invalidated by a contradicting newer pattern (see IV-4 in ADR-0022). A future `contemplative-agent flag-pattern <id>` CLI subtracts `0.3` on user flag.
+
+> **ADR-0029 (2026-04-18)**: the `−0.2 if sanitized flag is false` adjustment was retired — the flag was always written true in production and had no consumer. Upstream sanitization already happens in `llm._sanitize_output`.
 
 ### Bitemporal (IV-2)
 
@@ -130,7 +132,7 @@ Persistence stays dict-based (not frozen dataclass) to minimize blast radius. He
 
 ## Consequences
 
-- **Security**: MINJA-class attacks are no longer structurally invisible. A compromised external post produces a pattern with `source_type=external_post` and `trust_score ≤ 0.5`, which down-weights it in every retrieval and excludes it below `TRUST_FLOOR`. Defense is structural, not reliant on LLM vigilance.
+- **Security**: External content is structurally quarantined at the distill summary boundary (`summarize_record` excludes raw post text from LLM prompts for `activity` episodes). For the one external path that does reach distill (`interaction` with `direction=received`, i.e., replies/mentions to the agent), `source_type=external_reply` sets base trust `0.55`, which down-weights such patterns in retrieval and excludes them below `TRUST_FLOOR`. The trust-weighting mechanism is secondary defense; structural absence is primary. (This paragraph reflects the post-ADR-0029 design; earlier revisions cited `source_type=external_post` as the primary signal, but that enum was retired with zero production producers — the actual defense was always Model B quarantine.)
 - **Retrieval quality**: cosine × trust × strength multiplicative scoring means stale or low-trust patterns lose weight *and* low-similarity patterns still gate out. Expected behavior: top-K results become more recent and more trusted at constant similarity.
 - **Replayability**: snapshots (ADR-0020) already capture the view lens. Adding `valid_from`/`valid_until` to patterns means any past snapshot can be fully reconstructed — including "what did pattern X say on date D" — by filtering patterns whose interval covers D.
 - **Storage**: ~200 bytes/pattern added (small vs. the existing 3 KB embedding). Negligible.

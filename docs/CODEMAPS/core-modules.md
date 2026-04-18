@@ -98,7 +98,6 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
 
   "provenance": {"source_type": "self_reflection|external_reply|mixed|unknown",
                  "source_episode_ids": ["..."],
-                 "sanitized": true,
                  "pipeline_version": "distill@0.26"},
   "trust_score": 0.9,
   "trust_updated_at": "2026-04-16T…",
@@ -112,6 +111,7 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
 - `valid_until=None` means live; superseded rows keep the timestamp (bitemporal soft-invalidate, ADR-0021). Retrieval must filter via `forgetting.is_live(p)`.
 - `effective_importance = importance × trust_score × 0.95^days_since_distilled` — see `knowledge_store.effective_importance` (ADR-0021 + ADR-0028 strength-factor retirement).
 - `last_accessed_at` / `access_count` / `success_count` / `failure_count` fields retired by ADR-0028. Memory dynamics at skill layer (ADR-0023).
+- `provenance.sanitized` flag + `source_type=user_input|external_post` retired by ADR-0029 (dormant at landing; MINJA defense is structurally quarantine at `summarize_record`, not trust-weighting).
 - `category` field removed by ADR-0026. Run `contemplative-agent migrate-categories` on legacy `knowledge.json` to drop the field (legacy `category == "noise"` is preserved as `gated = True`).
 
 ## LLM Functions (core/llm.py)

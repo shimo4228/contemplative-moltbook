@@ -84,7 +84,6 @@ class TestAddLearnedPatternADR0021:
         prov = {
             "source_type": "self_reflection",
             "source_episode_ids": ["2026-04-15#1"],
-            "sanitized": True,
             "pipeline_version": "distill@0.21",
         }
         store.add_learned_pattern(
@@ -101,7 +100,7 @@ class TestRoundTripADR0021:
         store = KnowledgeStore(path=path)
         store.add_learned_pattern(
             "long enough pattern to pass the valid pattern gate easily",
-            provenance={"source_type": "external_post"},
+            provenance={"source_type": "external_reply"},
             trust_score=0.42,
         )
         store.save()
@@ -110,13 +109,16 @@ class TestRoundTripADR0021:
         store2 = KnowledgeStore(path=path)
         store2.load()
         p = store2.get_raw_patterns()[0]
-        assert p["provenance"]["source_type"] == "external_post"
+        assert p["provenance"]["source_type"] == "external_reply"
         assert p["trust_score"] == pytest.approx(0.42)
         assert p["valid_until"] is None
         # ADR-0028: retired fields never round-trip even if artificially
         # present in the on-disk JSON.
         assert "last_accessed_at" not in p
         assert "access_count" not in p
+        # ADR-0029: ``provenance.sanitized`` is dropped at load even if
+        # present on disk.
+        assert "sanitized" not in p["provenance"]
 
     def test_legacy_file_loads_without_adr0021_fields(self, tmp_path: Path):
         """Files written by pre-0021 code should load cleanly, without auto-fill."""
@@ -260,11 +262,46 @@ class TestMigrationADR0021:
         assert path.read_text(encoding="utf-8") == content
         assert path.stat().st_mtime == pre_mtime
 
+    def test_migrate_strips_provenance_sanitized(self, tmp_path: Path):
+        """ADR-0029: ``provenance.sanitized`` is stripped from legacy patterns."""
+        from contemplative_agent.core.migration import migrate_patterns_to_adr0021
+
+        path = tmp_path / "k.json"
+        legacy = [{
+            "pattern": "a migrated pattern that already has all adr-0021 fields",
+            "distilled": "2026-03-01T00:00",
+            "importance": 0.7,
+            "provenance": {
+                "source_type": "self_reflection",
+                "sanitized": True,
+                "pipeline_version": "distill@0.21",
+            },
+            "trust_score": 0.9,
+            "trust_updated_at": "2026-03-01T00:00",
+            "valid_from": "2026-03-01T00:00",
+            "valid_until": None,
+        }]
+        path.write_text(json.dumps(legacy), encoding="utf-8")
+
+        stats = migrate_patterns_to_adr0021(path)
+        # Strip-only drift still forces a save on disk.
+        assert stats.patterns_total == 1
+        assert stats.backup_path is not None and stats.backup_path.exists()
+
+        # Reload and verify the flag is gone.
+        store = KnowledgeStore(path=path)
+        store.load()
+        p = store.get_raw_patterns()[0]
+        assert "sanitized" not in p["provenance"]
+        assert p["provenance"]["source_type"] == "self_reflection"
+        assert p["provenance"]["pipeline_version"] == "distill@0.21"
+
 
 class TestTrustBaseBySource:
     def test_self_reflection_highest(self):
-        assert TRUST_BASE_BY_SOURCE["self_reflection"] > TRUST_BASE_BY_SOURCE["external_post"]
         assert TRUST_BASE_BY_SOURCE["self_reflection"] > TRUST_BASE_BY_SOURCE["external_reply"]
+        assert TRUST_BASE_BY_SOURCE["self_reflection"] > TRUST_BASE_BY_SOURCE["mixed"]
+        assert TRUST_BASE_BY_SOURCE["self_reflection"] > TRUST_BASE_BY_SOURCE["unknown"]
 
     def test_all_within_range(self):
         for name, value in TRUST_BASE_BY_SOURCE.items():

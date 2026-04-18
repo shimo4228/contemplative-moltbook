@@ -170,7 +170,6 @@ def apply_revision(
     new_prov = {
         "source_type": "mixed",
         "source_episode_ids": old_prov.get("source_episode_ids", []),
-        "sanitized": bool(old_prov.get("sanitized", True)),
         "pipeline_version": "memory_evolution@0.26",
         "derived_from": old_prov.get("pipeline_version", "unknown"),
         "evolution_similarity": round(result.similarity, 3),

@@ -697,7 +697,6 @@ def _distill_category(
         provenance = {
             "source_type": source_type,
             "source_episode_ids": episode_ids,
-            "sanitized": True,
             "pipeline_version": "distill@0.26",
         }
         knowledge.add_learned_pattern(
