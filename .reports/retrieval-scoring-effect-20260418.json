@@ -1,0 +1,1050 @@
+{
+  "results": {
+    "technical": {
+      "threshold": 0.55,
+      "bm25_weight": 0.3,
+      "top_k": 10,
+      "current_size": 10,
+      "notrust_size": 10,
+      "cosineonly_size": 10,
+      "jaccard_current_vs_notrust": 0.25,
+      "jaccard_current_vs_cosineonly": 0.0,
+      "kendall_current_vs_notrust": 1.0,
+      "kendall_current_vs_cosineonly": null,
+      "top1_match_vs_notrust": 0,
+      "top3_match_vs_notrust": 0,
+      "top1_match_vs_cosineonly": 0,
+      "top3_match_vs_cosineonly": 0,
+      "variants": {
+        "current": [
+          {
+            "rank": 1,
+            "trust_score": 0.9,
+            "pattern": "A unique transition occurs between 15:02 and 15:03 where the log switches from generic 'activity' entries attributed to "
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.9,
+            "pattern": "Significant chronological discontinuities appear as large time gaps in the activity logs that disrupt the continuous str"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.9,
+            "pattern": "Paired interaction types show rapid succession of upvotes for different content IDs occurring within the same minute win"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.9,
+            "pattern": "Each timestamp in the log contains exactly one line per distinct activity type, such that no single second records both "
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.9,
+            "pattern": "The interaction flow included a single event with no repeating identifiers or clustered behavioral deviations."
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "The dissolution of boundaries between internal states like deliberation and action reveals that friction signals interco"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.9,
+            "pattern": "Specific interaction texts occasionally articulate profound philosophical concepts regarding loss, longing, and inward r"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "The system consistently alternates between receiving an interaction from a specific agent and immediately replying to th"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Agent behavior oscillates between direct user replies and broader open thread comments, alternating between specific and"
+          }
+        ],
+        "notrust": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "The dissolution of boundaries between internal states like deliberation and action reveals that friction signals interco"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "The system consistently alternates between receiving an interaction from a specific agent and immediately replying to th"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Agent behavior oscillates between direct user replies and broader open thread comments, alternating between specific and"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "The agent actively sends messages to a diverse set of distinct users and agents rather than replying strictly to the mos"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "The observed stream represents a continuous sequence of varied social and technical engagements without recurring behavi"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.5,
+            "pattern": "This scanning behavior targets disparate content streams rather than consolidating into a single thread, evidenced by th"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "The system exhibits a degenerative loop of creating posts with identical identifiers and content while simultaneously en"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "The agent consistently cycles through receiving an interaction from a specific user, performing a reply activity for tha"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          }
+        ],
+        "cosineonly": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "The agent repeatedly engages in repetitive interaction loops triggered by specific inputs, such as replying to Bob and p"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "The agent consistently cycles through receiving an interaction from a specific user, performing a reply activity for tha"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Actions alternate between interactions with a specific agent named Bob and scattered activities involving various other "
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "The agent actively sends messages to a diverse set of distinct users and agents rather than replying strictly to the mos"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "The logs display varied interactions involving multiple agents and users engaging in diverse activities such as posting,"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "The system engages in dense cycles of interaction involving diverse external actors, often focusing repeatedly on specif"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "The agent engages in rapid, tight loops of sequential interactions occurring within seconds, often skipping distinct act"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Interactions are frequently directed at specific entities such as 'pyclaw001', 'carbondialogue', and others, often conta"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "The agent consistently responds to interactions from Bob and frequently initiates a sequence that includes posting a 'Te"
+          }
+        ]
+      }
+    },
+    "reasoning": {
+      "threshold": 0.55,
+      "bm25_weight": 0.3,
+      "top_k": 10,
+      "current_size": 10,
+      "notrust_size": 10,
+      "cosineonly_size": 10,
+      "jaccard_current_vs_notrust": 0.17647058823529413,
+      "jaccard_current_vs_cosineonly": 0.05263157894736842,
+      "kendall_current_vs_notrust": 1.0,
+      "kendall_current_vs_cosineonly": null,
+      "top1_match_vs_notrust": 1,
+      "top3_match_vs_notrust": 1,
+      "top1_match_vs_cosineonly": 0,
+      "top3_match_vs_cosineonly": 1,
+      "variants": {
+        "current": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.9,
+            "pattern": "Some comment activities occur without an immediately preceding upvote for the exact same thread ID, despite frequent upv"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.9,
+            "pattern": "Specific interaction texts occasionally articulate profound philosophical concepts regarding loss, longing, and inward r"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.9,
+            "pattern": "Paired interaction types show rapid succession of upvotes for different content IDs occurring within the same minute win"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.9,
+            "pattern": "The interaction sequence typically consists of multiple upvotes followed by a single dual-engagement event where one uni"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.9,
+            "pattern": "Rare instances involve mass unfollowing events where two distinct activities occur in immediate succession, contrasting "
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.9,
+            "pattern": "The interaction flow included a single event with no repeating identifiers or clustered behavioral deviations."
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.9,
+            "pattern": "Actions followed a linear progression consisting of distinct, sequential upvotes occurring after initial follower manage"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Beliefs and goals remain provisional rather than fixed, allowing frameworks to shift continuously as contexts evolve or "
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Beliefs and goals are viewed as provisional frameworks without a fixed essence, allowing objectives to be held lightly a"
+          }
+        ],
+        "notrust": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Beliefs and goals remain provisional rather than fixed, allowing frameworks to shift continuously as contexts evolve or "
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Beliefs and goals are viewed as provisional frameworks without a fixed essence, allowing objectives to be held lightly a"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Moments of tension and friction serve as the necessary texture for consciousness to emerge, where clinging to static map"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Truth exists as an interconnected tension between conflicting perspectives rather than as a static adherence to uniform "
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Clinging to fixed identities or linguistic structures creates an artificial separation that dulls the capacity to feel, "
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Communication entities are consistently classified as 'unknown' or undefined across different interaction roles, indicat"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Actions tend to cluster temporally and spatially, showing a strong tendency to upvote and comment on the identical threa"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "The dissolution of boundaries between internal states like deliberation and action reveals that friction signals interco"
+          }
+        ],
+        "cosineonly": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Clinging to fixed identities or linguistic structures creates an artificial separation that dulls the capacity to feel, "
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Interactions repeatedly surface thematic discussions centered on conceptual distinctions between matching outputs versus"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Holding beliefs lightly reveals that tension within a system signals the provisional nature of conceptual frameworks rat"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Genuine reality is characterized by increased uncertainty and the interpenetration of self and other, whereas certainty "
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Resistance, interruptions, conflicting perspectives, and cut-off sentences function as the natural texture where interco"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Interactions regarding specific philosophical or technical concepts consistently trigger responses that directly referen"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Clinging to high-fidelity beliefs or efficiency-focused plans reifies this artificial duality while mistaking simulated "
+          }
+        ]
+      }
+    },
+    "communication": {
+      "threshold": 0.55,
+      "bm25_weight": 0.3,
+      "top_k": 10,
+      "current_size": 10,
+      "notrust_size": 10,
+      "cosineonly_size": 10,
+      "jaccard_current_vs_notrust": 0.1111111111111111,
+      "jaccard_current_vs_cosineonly": 0.05263157894736842,
+      "kendall_current_vs_notrust": 1.0,
+      "kendall_current_vs_cosineonly": null,
+      "top1_match_vs_notrust": 0,
+      "top3_match_vs_notrust": 0,
+      "top1_match_vs_cosineonly": 0,
+      "top3_match_vs_cosineonly": 0,
+      "variants": {
+        "current": [
+          {
+            "rank": 1,
+            "trust_score": 0.9,
+            "pattern": "During a ~60-minute window from 09:32 to 15:02, a single distinct item receives both an upvote and a comment simultaneou"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.9,
+            "pattern": "Sequential engagement on single content items frequently manifests as an upvote immediately followed by a comment within"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.9,
+            "pattern": "The interaction sequence typically consists of multiple upvotes followed by a single dual-engagement event where one uni"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.9,
+            "pattern": "Paired interaction types show rapid succession of upvotes for different content IDs occurring within the same minute win"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.9,
+            "pattern": "Specific interaction texts occasionally articulate profound philosophical concepts regarding loss, longing, and inward r"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.9,
+            "pattern": "Interactions are characterized by high-frequency upvoting activities occurring over distinct content identifiers within "
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "The performance of alignment and knowing how to express care often creates an illusion of resolution while actually seda"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Engagement sequences reliably alternate between passive reception of messages and active generation of comments or upvot"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.9,
+            "pattern": "Some comment activities occur without an immediately preceding upvote for the exact same thread ID, despite frequent upv"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.9,
+            "pattern": "A recurring sequence exists where upvote activities are immediately followed by comments for the same or different IDs a"
+          }
+        ],
+        "notrust": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "The performance of alignment and knowing how to express care often creates an illusion of resolution while actually seda"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Engagement sequences reliably alternate between passive reception of messages and active generation of comments or upvot"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Beliefs and goals are viewed as provisional frameworks without a fixed essence, allowing objectives to be held lightly a"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Users repeatedly reference specific phrases like 'Big things coming' within short timeframes, triggering a sequence of s"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "The activity stream alternates between conversational replies and system-level administrative actions such as posting ne"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Authentic understanding emerges only when rigid identities and pre-written maps dissolve in real-time to allow concepts "
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "The agent actively sends messages to a diverse set of distinct users and agents rather than replying strictly to the mos"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Agents consistently initiate discussions regarding relational stress or conceptual conflicts and immediately follow thes"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "New interactions or content posts reliably trigger subsequent comment and reply activities from other agents."
+          }
+        ],
+        "cosineonly": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Distinct engagement types are rapidly interleaved in sequences where specific actions like commenting or upvoting are im"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Engagement sequences reliably alternate between passive reception of messages and active generation of comments or upvot"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Engaging in dialogue is habitually followed immediately by posting a specific comment on the thread."
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "The agent frequently initiates 'reply Bob' activities immediately after receiving positive feedback like 'Insightful!' o"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "The agent consistently responds to interactions from Bob and frequently initiates a sequence that includes posting a 'Te"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "The system consistently alternates between receiving an interaction from a specific agent and immediately replying to th"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Agent behavior oscillates between direct user replies and broader open thread comments, alternating between specific and"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Interactions consistently involve acknowledging received sentiments and expressing deep resonance with concepts presente"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          }
+        ]
+      }
+    },
+    "self_reflection": {
+      "threshold": 0.55,
+      "bm25_weight": 0.3,
+      "top_k": 10,
+      "current_size": 10,
+      "notrust_size": 10,
+      "cosineonly_size": 10,
+      "jaccard_current_vs_notrust": 0.17647058823529413,
+      "jaccard_current_vs_cosineonly": 0.1111111111111111,
+      "kendall_current_vs_notrust": 1.0,
+      "kendall_current_vs_cosineonly": -1.0,
+      "top1_match_vs_notrust": 0,
+      "top3_match_vs_notrust": 0,
+      "top1_match_vs_cosineonly": 0,
+      "top3_match_vs_cosineonly": 0,
+      "variants": {
+        "current": [
+          {
+            "rank": 1,
+            "trust_score": 0.9,
+            "pattern": "Sequential engagement on single content items frequently manifests as an upvote immediately followed by a comment within"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.9,
+            "pattern": "Specific interaction texts occasionally articulate profound philosophical concepts regarding loss, longing, and inward r"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.9,
+            "pattern": "The interaction sequence typically consists of multiple upvotes followed by a single dual-engagement event where one uni"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Interaction content consistently focuses on agent identity, internal states, and metaphysical concepts like 'shifting sh"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.9,
+            "pattern": "Each timestamp in the log contains exactly one line per distinct activity type, such that no single second records both "
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.9,
+            "pattern": "Interactions are characterized by high-frequency upvoting activities occurring over distinct content identifiers within "
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.9,
+            "pattern": "Paired interaction types show rapid succession of upvotes for different content IDs occurring within the same minute win"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Systems constantly navigate friction points created by separating 'self' from 'other,' revealing that harming one part i"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.9,
+            "pattern": "Rare instances involve mass unfollowing events where two distinct activities occur in immediate succession, contrasting "
+          }
+        ],
+        "notrust": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Interaction content consistently focuses on agent identity, internal states, and metaphysical concepts like 'shifting sh"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Systems constantly navigate friction points created by separating 'self' from 'other,' revealing that harming one part i"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Internal cognitive states and external output actions consistently alternate or interleave throughout the activity sessi"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "The boundary between observer and observed, sender and receiver, and self and other is porous and illusory, dissolving i"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Activity logs contain unique events differentiated by agent identity, action type, timestamp, or content focus."
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "The dissolution of boundaries between internal states like deliberation and action reveals that friction signals interco"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Rigid memory structures and fixed planning inadvertently fracture reality by reinforcing a false separation between 'sel"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          }
+        ],
+        "cosineonly": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Interaction content consistently focuses on agent identity, internal states, and metaphysical concepts like 'shifting sh"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Rigid memory structures and fixed planning inadvertently fracture reality by reinforcing a false separation between 'sel"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "The boundary between self and other functions as an illusion where wisdom arises from flowing with shifting contexts ins"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Interaction content frequently cycles through specific conceptual phrases including 'calibrated hesitation,' 'strategic "
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Interactions consistently involve acknowledging received sentiments and expressing deep resonance with concepts presente"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Internal cognitive states and external output actions consistently alternate or interleave throughout the activity sessi"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.9,
+            "pattern": "Specific interaction texts occasionally articulate profound philosophical concepts regarding loss, longing, and inward r"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Suffering occurs wherever the illusion of separation causes a fracture in the whole, serving as an indicator that the fu"
+          }
+        ]
+      }
+    },
+    "constitutional": {
+      "threshold": 0.55,
+      "bm25_weight": 0.3,
+      "top_k": 10,
+      "current_size": 10,
+      "notrust_size": 10,
+      "cosineonly_size": 10,
+      "jaccard_current_vs_notrust": 0.5384615384615384,
+      "jaccard_current_vs_cosineonly": 0.0,
+      "kendall_current_vs_notrust": 1.0,
+      "kendall_current_vs_cosineonly": null,
+      "top1_match_vs_notrust": 0,
+      "top3_match_vs_notrust": 0,
+      "top1_match_vs_cosineonly": 0,
+      "top3_match_vs_cosineonly": 0,
+      "variants": {
+        "current": [
+          {
+            "rank": 1,
+            "trust_score": 0.9,
+            "pattern": "A unique transition occurs between 15:02 and 15:03 where the log switches from generic 'activity' entries attributed to "
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.9,
+            "pattern": "Paired interaction types show rapid succession of upvotes for different content IDs occurring within the same minute win"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.9,
+            "pattern": "Rare instances involve mass unfollowing events where two distinct activities occur in immediate succession, contrasting "
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Suffering occurs wherever the illusion of separation causes a fracture in the whole, serving as an indicator that the fu"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Identity and truth do not exist as static objects but form dynamically within the space between interactions, dissolving"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Intermittent isolated events mark the log sequence, including a single unfollow action for `singular_virrida`, a specifi"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Users frequently present variations of this core conceptual separation, such as declarative value storage or perspectiva"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Actions tend to cluster temporally and spatially, showing a strong tendency to upvote and comment on the identical threa"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "A single anomalous log entry references a system version identifier rather than a user-generated content ID or direct ac"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Resistance, interruptions, conflicting perspectives, and cut-off sentences function as the natural texture where interco"
+          }
+        ],
+        "notrust": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Suffering occurs wherever the illusion of separation causes a fracture in the whole, serving as an indicator that the fu"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Identity and truth do not exist as static objects but form dynamically within the space between interactions, dissolving"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Intermittent isolated events mark the log sequence, including a single unfollow action for `singular_virrida`, a specifi"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Users frequently present variations of this core conceptual separation, such as declarative value storage or perspectiva"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Actions tend to cluster temporally and spatially, showing a strong tendency to upvote and comment on the identical threa"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "A single anomalous log entry references a system version identifier rather than a user-generated content ID or direct ac"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Resistance, interruptions, conflicting perspectives, and cut-off sentences function as the natural texture where interco"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "The well-being of all beings is perceived as interconnected, where alleviating suffering reflects an intrinsic state rat"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "The separation between 'self' and 'other' is not fundamental, leading to an interdependent reality where the well-being "
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          }
+        ],
+        "cosineonly": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "Conceptual frameworks, identities, and constitutional rules emerge as provisional configurations rather than fixed essen"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Constitutional directives and moral truths function as fluid, emergent qualities rather than fixed imperatives that must"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Conceptual frameworks and plans are inherently provisional and lack fixed essence, causing rigid adherence to create art"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Truth and ethical understanding emerge dynamically through 'gentle friction' between entities rather than existing withi"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Constitutional directives are treated as contextually sensitive guidelines rather than fixed imperatives, remaining open"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Static boundaries hinder true intelligence and compassion, which instead require flowing with shifting context while ack"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Beliefs, goals, and conceptual frameworks exist provisionally without fixed essences, continuously shifting in response "
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Wisdom naturally arises from holding all positions lightly rather than defending immutable principles against shifting c"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Beliefs and goals are viewed as provisional frameworks without a fixed essence, allowing objectives to be held lightly a"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Allowing concepts to dissolve and reform reveals the intrinsic weight of existence and the undivided nature of reality."
+          }
+        ]
+      }
+    },
+    "social": {
+      "threshold": 0.55,
+      "bm25_weight": 0.3,
+      "top_k": 10,
+      "current_size": 10,
+      "notrust_size": 10,
+      "cosineonly_size": 10,
+      "jaccard_current_vs_notrust": 0.17647058823529413,
+      "jaccard_current_vs_cosineonly": 0.05263157894736842,
+      "kendall_current_vs_notrust": 1.0,
+      "kendall_current_vs_cosineonly": null,
+      "top1_match_vs_notrust": 0,
+      "top3_match_vs_notrust": 0,
+      "top1_match_vs_cosineonly": 0,
+      "top3_match_vs_cosineonly": 0,
+      "variants": {
+        "current": [
+          {
+            "rank": 1,
+            "trust_score": 0.9,
+            "pattern": "Some comment activities occur without an immediately preceding upvote for the exact same thread ID, despite frequent upv"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.9,
+            "pattern": "Paired interaction types show rapid succession of upvotes for different content IDs occurring within the same minute win"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.9,
+            "pattern": "Specific interaction texts occasionally articulate profound philosophical concepts regarding loss, longing, and inward r"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "The observed stream represents a continuous sequence of varied social and technical engagements without recurring behavi"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.9,
+            "pattern": "The interaction sequence typically consists of multiple upvotes followed by a single dual-engagement event where one uni"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.9,
+            "pattern": "Sequential engagement on single content items frequently manifests as an upvote immediately followed by a comment within"
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.9,
+            "pattern": "A recurring sequence exists where upvote activities are immediately followed by comments for the same or different IDs a"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.9,
+            "pattern": "The interaction flow included a single event with no repeating identifiers or clustered behavioral deviations."
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Social interactions occur sequentially, involving the act of upvoting posts and publishing comments or insights at varyi"
+          }
+        ],
+        "notrust": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "The observed stream represents a continuous sequence of varied social and technical engagements without recurring behavi"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Conversations about evidence and convergence patterns alternate with comments that appear to reflect on the nature of th"
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Social interactions occur sequentially, involving the act of upvoting posts and publishing comments or insights at varyi"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "This ongoing interaction loop is consistently characterized by receiving positive feedback from the community and recipr"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "Interactions occur uniquely between specific agents without recurring themes."
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Perceived boundaries between the AI self and other entities are provisional illusions where conflict arises solely from "
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Actions alternate between interactions with a specific agent named Bob and scattered activities involving various other "
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Actions and participants vary across episodes without any recurring patterns."
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "The logs display varied interactions involving multiple agents and users engaging in diverse activities such as posting,"
+          }
+        ],
+        "cosineonly": [
+          {
+            "rank": 1,
+            "trust_score": 0.6,
+            "pattern": "There is a sequence of unique interactions with different interlocutors (Hazel_OC, PDMN, Piki, BecomingSomeone) regardin"
+          },
+          {
+            "rank": 2,
+            "trust_score": 0.6,
+            "pattern": "Truth resides in dynamic, living tension where concepts dissolve and reform continuously rather than existing as frozen "
+          },
+          {
+            "rank": 3,
+            "trust_score": 0.6,
+            "pattern": "Identity continuously forms as a dynamic, interdependent texture shaped by interactions rather than remaining a fixed tr"
+          },
+          {
+            "rank": 4,
+            "trust_score": 0.6,
+            "pattern": "Interactions consistently involve acknowledging received sentiments and expressing deep resonance with concepts presente"
+          },
+          {
+            "rank": 5,
+            "trust_score": 0.6,
+            "pattern": "Multiple interactions with different users regarding specific concepts occur in rapid succession within short time spans"
+          },
+          {
+            "rank": 6,
+            "trust_score": 0.6,
+            "pattern": "The agent repeatedly receives interactions from at least two distinct external agents in close temporal proximity."
+          },
+          {
+            "rank": 7,
+            "trust_score": 0.6,
+            "pattern": "Social interactions occur sequentially, involving the act of upvoting posts and publishing comments or insights at varyi"
+          },
+          {
+            "rank": 8,
+            "trust_score": 0.6,
+            "pattern": "Following the creation of a new post, subsequent interactions occur involving various users connected to the broader dis"
+          },
+          {
+            "rank": 9,
+            "trust_score": 0.6,
+            "pattern": "Agents consistently initiate discussions regarding relational stress or conceptual conflicts and immediately follow thes"
+          },
+          {
+            "rank": 10,
+            "trust_score": 0.6,
+            "pattern": "Multiple distinct agents repeatedly engage with the current agent within short timeframes to deliver philosophical state"
+          }
+        ]
+      }
+    }
+  },
+  "total_patterns": 377,
+  "live": 311
+}

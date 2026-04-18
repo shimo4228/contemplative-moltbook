@@ -11,9 +11,9 @@ Audit report: `.reports/adr-0021-implementation-audit-20260418.md` (本 follow-u
 | **F1** | mark_accessed persistence gap 修正 | ✅ 解消 | ADR-0028 で forgetting 撤回 (241bf8a) — mark_accessed 経路自体が不要に |
 | **F2** | `user_input` / `external_post` / `sanitized` dormant 整理 | ✅ 解消 | ADR-0029 (本セッション、commit 予定) — schema 削除 + production migration 完了 |
 | **F3** | feedback live 配線 or schema removal | ✅ 解消 | ADR-0028 で feedback 撤回 (241bf8a) — schema から削除 |
-| **F4** | Retrieval scoring rank-reversal behavioral test 追加 | ⬜ 未着手 | テスト追加のみの clean task |
-| **F5** | Dry-run rank-reversal 効果測定 | ⬜ 未着手 | 実データ評価、trust discrimination を見る |
-| **F6** | `is_live()` consumer 適用網羅性確認 | ⬜ 未着手 | query path grep + 配線監査 |
+| **F4** | Retrieval scoring rank-reversal behavioral test 追加 | ✅ 解消 | commit `d9074ae` で `tests/test_views.py:154-226` に `TestRankADR0021` 追加 (5 tests) |
+| **F5** | Dry-run rank-reversal 効果測定 | ✅ 解消 | `.reports/retrieval-scoring-effect-20260418.md` — trust keep 判定 |
+| **F6** | `is_live()` consumer 適用網羅性確認 | ✅ 解消 | `.reports/is-live-consumer-audit-20260418.md` + commit `4e8eca3` で distill 2 gap 修正 |
 
 ---
 
