@@ -54,10 +54,9 @@ docs/*
 Modelfile.contemplative
 
 # Internal working notes (local-only, not tracked)
+# Experiments, session checkpoints, handoffs, tool outputs
+# Promote to docs/evidence/ when the work ships
 .notes/
-
-# Experiment scratch (local-only; promote to docs/evidence/ when shipping)
-.reports/
 
 # Runtime data (lives in MOLTBOOK_HOME, not in git)
 config/identity.md

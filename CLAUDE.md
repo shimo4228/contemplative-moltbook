@@ -83,10 +83,9 @@ docker compose down                                     # 停止
 ## ドキュメント配置
 
 - `docs/` — 外部可視の durable reference（adr / CODEMAPS / evidence / runbooks / glossary / CONFIGURATION）
-- `.notes/` — 内部 WIP（gitignored）。session checkpoint、cold-start handoff、個人メモ
-- `.reports/` — 実験 scratch（gitignored）。成果が出たら `docs/evidence/adr-XXXX/` に昇格
+- `.notes/` — 内部 WIP（gitignored）。session checkpoint、cold-start handoff、実験 scratch、ツール出力。成果が出たら `docs/evidence/adr-XXXX/` に昇格
 
-ADR 本文から `.reports/` や `.notes/` を参照してはならない（gitignored のため clone 先に存在しない）。Evidence が必要な ADR は `docs/evidence/adr-XXXX/` に配置して相対リンク。
+ADR 本文から `.notes/` を参照してはならない（gitignored のため clone 先に存在しない）。Evidence が必要な ADR は `docs/evidence/adr-XXXX/` に配置して相対リンク。
 
 ## API レート制限
 
