@@ -1,5 +1,7 @@
 # Followup Issues — 2026-04-17
 
+> **SUPERSEDED 2026-04-18**: `.reports/remaining-issues-2026-04-18.md` に consolidated。Issue 3 (SIM_DUPLICATE) は completed、Issue 6 (title-abstraction) は対応不要確定。残りは consolidated file 参照。
+
 本セッション (Phase B+C+A1+A2+A3+A4+D) で浮上したが結論保留の項目を記録。次セッションで仕様を詰めて別 PR。
 
 ## 1. Rare-important pattern の救済パス
