@@ -78,7 +78,7 @@ docker compose down                                     # 停止
 
 - CLAUDE.md、docs/CODEMAPS/ は日本語
 - docs/adr/ は英語（*.ja.md が日本語版）
-- README.md は英語（README.ja.md が日本語版）
+- README は 6 言語対応: `README.md`（英語=正本）、`README.ja.md`、`README.zh-CN.md`、`README.zh-TW.md`、`README.pt-BR.md`、`README.es.md`。訳語規約と固有名詞の keep-original ポリシーは [docs/glossary.md](docs/glossary.md)。README 本文に新しい project-coined term を入れる時は glossary も同 PR で更新する
 
 ## ドキュメント配置
 
