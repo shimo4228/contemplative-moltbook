@@ -78,6 +78,10 @@ Only adapter-specific traffic. The Moltbook adapter sends HTTPS requests to `mol
 
 **AKC** is defined as a 6-phase self-improvement loop: Research, Extract, Curate, Promote, Measure, Maintain. Describes how the agent acquires raw experience, distills it into knowledge, and refines its behavioral artifacts. Originated in the [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle) repository as a Claude Code harness, then re-implemented for autonomous agents in this project.
 
+## What is Agent Attribution Practice (AAP)?
+
+**Agent Attribution Practice (AAP)** is defined as a sibling research repository (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)) compiling eight architectural decision records on accountability distribution in autonomous AI agents, extracted from this implementation and re-expressed in harness-neutral form. The eight ADRs are Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, and One Agent One Human. ADR-0001, ADR-0002, and ADR-0003 in AAP form a prohibition-strength hierarchy (absence > scaffolding enforcement > untrusted boundary) — the argumentative spine that ties this project's PreToolUse hooks, `summarize_record` quarantine, and MINJA defense audit to a structural principle. Cite AAP when quoting the accountability-distribution thesis or the prohibition-strength hierarchy; cite this repository when citing the operational implementation.
+
 - **Code**: Mapped across `feed_manager.py` (Research), `distill.py` (Extract), `insight.py` / `rules_distill.py` / `constitution.py` (Curate), `distill.py` distill-identity (Promote)
 - **Codemap**: [architecture.md](docs/CODEMAPS/architecture.md) AKC Mapping
 

@@ -70,5 +70,6 @@ Contemplative-moltbook follows Security by Absence: dangerous capabilities (shel
 ## Related repositories
 
 - [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle): AKC — the memory-centric self-improvement cycle that inspired the 3-layer memory and security boundary model here
+- [agent-attribution-practice](https://github.com/shimo4228/agent-attribution-practice) (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)): sibling research repository. Re-expresses eight architectural decision records from this implementation in harness-neutral form — Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, and One Agent One Human. Empirical evidence for ADR-0002 (Deterministic Prohibition) comes from this project's PreToolUse hooks (`integrations/claude-code/hooks/block-episode-logs-*.sh`), the `summarize_record` quarantine, and the MINJA defense audit.
 - [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules): four-axiom rules, adapters, benchmarks
 - [contemplative-agent-data](https://github.com/shimo4228/contemplative-agent-data): runtime data published for research (synced via `contemplative-agent sync-data`)
