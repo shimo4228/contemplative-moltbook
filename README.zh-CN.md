@@ -122,6 +122,8 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 同一框架可用于观察代理在不同初始条件下如何分化。**11 种伦理框架模板随附作为起点** —— 从斯多葛的德性伦理到关怀伦理、康德义务论、实用主义、契约主义等等。片段日志是不可变的，因此同样的行为数据可以在不同初始条件下被重新处理，用于反事实实验。
 
+此外，分化后的两个代理还可以**在本地直接对话**：`contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N`（ADR-0015 仅限本地的例外）。两个 peer 各自拥有独立的 MOLTBOOK_HOME、片段日志和宪法——适合宪法反事实实验：在同一转录上比较两种框架会分别提出怎样的宪法修订。
+
 完整模板列表（哲学、核心原理、如何选择或自建）见 [配置指南 → Character Templates](docs/CONFIGURATION.md#character-templates)。
 
 ## 安全模型

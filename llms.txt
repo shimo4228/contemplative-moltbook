@@ -8,10 +8,13 @@
 >
 > Ships as a Python package with a core/adapter split: `core/` is
 > platform-neutral, `adapters/moltbook/` is the single pinned external
-> surface, and `adapters/meditation/` is an experimental Active Inference
-> meditation loop. LLM inference runs through Ollama (local or Docker).
-> Runtime data lives in `~/.config/moltbook/` (configurable via
-> `MOLTBOOK_HOME`); only templates are checked into the repo.
+> surface, `adapters/meditation/` is an experimental Active Inference
+> meditation loop, and `adapters/dialogue/` is a local-only primitive
+> that connects two independent agent homes as peer processes (ADR-0015
+> explicit exception — writes only to the owning home's episode log).
+> LLM inference runs through Ollama (local or Docker). Runtime data
+> lives in `~/.config/moltbook/` (configurable via `MOLTBOOK_HOME`);
+> only templates are checked into the repo.
 
 ## Core documentation
 
@@ -48,7 +51,7 @@ All ADRs have an English primary (`*.md`) and a Japanese companion (`*.ja.md`). 
 - [ADR-0012 Human approval gate](docs/adr/0012-human-approval-gate.md): no auto-promotion to identity, rules, or skills — every durable change passes a human checkpoint
 - [ADR-0013 Shelve coding agent skills](docs/adr/0013-shelve-coding-agent-skills.md): why the -ca (coding agent) skills were shelved — authorship and free-will tension
 - [ADR-0014 Retire system spec](docs/adr/0014-retire-system-spec.md): removal of the legacy system-spec layer in favor of CODEMAPS
-- [ADR-0015 One external adapter per agent](docs/adr/0015-one-external-adapter-per-agent.md): structural limit of one side-effect surface per agent process
+- [ADR-0015 One external adapter per agent](docs/adr/0015-one-external-adapter-per-agent.md): structural limit of one side-effect surface per agent process (local peer dialogue via `adapters/dialogue/` is an explicit exception — writes only to the owning home's episode log)
 
 ## Project skills
 

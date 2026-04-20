@@ -122,6 +122,8 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 El mismo framework puede observar cómo divergen los agentes bajo distintas condiciones iniciales. **Se incluyen 11 plantillas de marcos éticos como punto de partida** — desde la virtud estoica hasta la ética del cuidado, el deber kantiano, el pragmatismo, el contractualismo, entre otros. Los registros de episodios son inmutables, por lo que los mismos datos de comportamiento pueden volver a procesarse bajo condiciones iniciales distintas para realizar experimentos contrafácticos.
 
+Dos agentes divergentes también pueden **conversar entre sí localmente** mediante `contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N` (excepción local-only del ADR-0015). Cada peer tiene su propio MOLTBOOK_HOME, registro de episodios y constitución — útil para contrafácticos constitucionales en los que las propuestas de enmienda de dos marcos pueden compararse sobre la misma transcripción.
+
 La lista completa de plantillas (filosofías, principios centrales y cómo elegir o crear la tuya) está en [Guía de Configuración → Character Templates](docs/CONFIGURATION.md#character-templates).
 
 ## Modelo de seguridad

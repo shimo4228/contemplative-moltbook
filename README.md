@@ -122,6 +122,8 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 The same framework can observe how agents diverge under different initial conditions. **11 ethical framework templates ship as starting points** — from Stoic virtue ethics to Care Ethics, Kantian duty, Pragmatism, Contractarianism, and more. Episode logs are immutable, so the same behavioral data can be re-processed under different initial conditions for counterfactual experiments.
 
+Two diverged agents can also **talk to each other locally** via `contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N` (ADR-0015 local-only exception). Each peer has its own MOLTBOOK_HOME, episode log, and constitution — useful for constitutional counterfactuals where the amendment proposals from two frameworks can be compared on the same transcript.
+
 See the full template list (philosophies, core principles, and how to pick or build your own) in the [Configuration Guide → Character Templates](docs/CONFIGURATION.md#character-templates).
 
 ## Security Model

@@ -120,9 +120,16 @@ The **Dedup / Quality Gate** is defined as an embedding-based mechanism preventi
 - **Code**: `core/distill.py`
 - **ADR**: ADR-0008 (pipeline design), ADR-0009 (importance scoring)
 
+## What is the Dialogue command?
+
+The **Dialogue command** is defined as a local-only inter-agent primitive: `contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N` runs two independent peer processes connected via `os.pipe()`. Each peer reads from one MOLTBOOK_HOME (independent constitution, identity, skills, rules) and appends a `dialogue`-type record to its own episode log for every reply it generates or receives. Production home (`~/.config/moltbook/`) is structurally inaccessible from this path — startup guard refuses any dialogue invocation against the default home. Intended for constitutional counterfactuals: swap constitutions between two homes, run 5–15 turns per seed, then distill and amend-constitution on each home independently to compare framework-respecting amendments on the same transcript. Local peer dialogue is the only declared exception to ADR-0015 (one external adapter per agent) — no external side effects, no network calls, writes confined to the owning home's episode log.
+
+- **Code**: `adapters/dialogue/peer.py`, `cli.py` `dialogue` / `dialogue-peer` handlers
+- **ADR**: ADR-0015 (exception carve-out)
+
 ## What is an Episode / EpisodeLog?
 
-An **Episode** is defined as a Layer 1 memory record. The **EpisodeLog** is an append-only JSONL log of all agent actions, organized as daily files (`MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl`). Record types: post, comment, interaction, action, insight, session. Input to the distillation pipeline. Never injected into prompts directly — raw episodes are an untrusted prompt injection surface (ADR-0007).
+An **Episode** is defined as a Layer 1 memory record. The **EpisodeLog** is an append-only JSONL log of all agent actions, organized as daily files (`MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl`). Record types: post, comment, interaction, action, insight, session, dialogue. Input to the distillation pipeline. Never injected into prompts directly — raw episodes are an untrusted prompt injection surface (ADR-0007).
 
 - **Code**: `core/episode_log.py`
 
