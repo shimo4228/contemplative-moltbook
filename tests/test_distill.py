@@ -383,6 +383,27 @@ class TestSummarizeRecord:
     def test_unknown_returns_empty(self):
         assert summarize_record("weird_type", {}) == ""
 
+    def test_dialogue_self(self):
+        s = summarize_record("dialogue", {
+            "role": "self", "turn": 3, "content": "Truth is context-dependent but matters"
+        })
+        assert "self" in s
+        assert "3" in s
+        assert "Truth is context-dependent" in s
+
+    def test_dialogue_peer(self):
+        s = summarize_record("dialogue", {
+            "role": "peer", "turn": 2, "content": "I disagree"
+        })
+        assert "peer" in s
+        assert "I disagree" in s
+
+    def test_dialogue_seed_marker(self):
+        s = summarize_record("dialogue", {
+            "role": "self", "turn": 0, "content": "opening question?", "seed": True
+        })
+        assert "seed" in s.lower()
+
 
 class TestDistillIdentity:
     def test_no_view_registry(self):

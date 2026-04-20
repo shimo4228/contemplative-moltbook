@@ -107,7 +107,7 @@ config/                           -- externalized templates (domain-swappable, g
 | `Scheduler` | core/scheduler.py | 165 | Rate limit enforcement |
 | `DomainConfig` / `PromptTemplates` | core/domain.py | — | @dataclass(frozen=True) |
 
-## CLI Commands (25 subcommands)
+## CLI Commands (26 subcommands)
 
 ```
 contemplative-agent init [--template <character>] [--config-dir PATH]
@@ -142,6 +142,7 @@ contemplative-agent generate-report [--all]
 # Misc
 contemplative-agent solve "TEXT"                          -- math challenge solver
 contemplative-agent meditate [--days N] [--cycles N] [--dry-run]
+contemplative-agent dialogue HOME_A HOME_B --seed "..." [--turns N]   -- local 2-agent dialogue (adapters/dialogue); production ~/.config/moltbook is structurally refused
 contemplative-agent sync-data                             -- sync to research repo
 contemplative-agent prune-skill-usage --older-than N [--dry-run]   -- delete old skill-usage JSONL
 contemplative-agent install-schedule [--interval H] [--session M]

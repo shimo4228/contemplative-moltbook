@@ -34,6 +34,7 @@ contemplative-agent adopt-staged                     # staging → 本配置
 contemplative-agent skill-stocktake / rules-stocktake  # 重複・品質監査
 contemplative-agent generate-report [--all]          # アクティビティレポート
 contemplative-agent meditate --days 14 --cycles 100  # 瞑想シミュレーション
+contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N  # 2 agent 間のローカル対話（別 MOLTBOOK_HOME 必須、production は拒否）
 contemplative-agent prune-skill-usage --older-than N [--dry-run]  # 古い skill-usage ログを削除
 contemplative-agent install-schedule [--weekly-analysis] [--uninstall]
 contemplative-agent sync-data

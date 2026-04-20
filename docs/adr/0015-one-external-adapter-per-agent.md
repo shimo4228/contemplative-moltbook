@@ -29,6 +29,7 @@ This mirrors職務分掌 (segregation of duties), the four-eyes principle, and t
 ## Consequences
 - Adding a new external integration requires either replacing the existing adapter or spawning a separate agent process — never bolting on.
 - The Moltbook adapter remains the sole external surface of the current agent. Meditation adapter is experimental and local-only, so it does not violate this rule.
+- The Dialogue adapter (`adapters/dialogue/`, added 2026-04-20) spawns two short-lived peer processes that communicate via local stdin/stdout pipes for constitution co-development experiments; it has no outward HTTP surface and the Moltbook client is not initialised in dialogue mode, so it is local-only under this rule.
 - Future decision-making flows (e.g. any payment/approval scenario) must be designed as multi-agent with权限分離 from day one. The executing agent proposes; a separate authorizer agent with constrained output validates.
 - Prompt injection through any single adapter cannot cross into a second external surface, because no such surface exists in the same process.
 - This rule is referenced from `README.md` and `CLAUDE.md` as a load-bearing architectural constraint, not just a guideline.

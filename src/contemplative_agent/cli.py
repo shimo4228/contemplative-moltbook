@@ -22,6 +22,7 @@ from xml.sax.saxutils import escape as xml_escape
 from .adapters.moltbook.agent import Agent, AutonomyLevel
 from .adapters.moltbook.config import (
     CONSTITUTION_DIR,
+    DEFAULT_MOLTBOOK_HOME,
     EPISODE_EMBEDDINGS_PATH,
     EPISODE_LOG_DIR,
     IDENTITY_PATH,
@@ -1525,6 +1526,123 @@ def _handle_meditate(args: argparse.Namespace, _parser: argparse.ArgumentParser)
     print(output)
 
 
+_PRODUCTION_HOME = DEFAULT_MOLTBOOK_HOME.resolve()
+_SHUTDOWN_GRACE_SECONDS = 5
+
+
+def _exit_with(msg: str) -> None:
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def _spawn_dialogue_peer(
+    *,
+    home: Path,
+    turns: int,
+    stdin_fd: int,
+    stdout_fd: int,
+    seed: Optional[str] = None,
+) -> subprocess.Popen:
+    cmd = [
+        sys.executable, "-u", "-m", "contemplative_agent.cli",
+        "dialogue-peer", "--turns", str(turns), "--label", home.name,
+    ]
+    if seed is not None:
+        cmd += ["--seed", seed]
+    env = {**os.environ, "MOLTBOOK_HOME": str(home)}
+    return subprocess.Popen(
+        cmd, stdin=stdin_fd, stdout=stdout_fd, env=env, close_fds=True,
+    )
+
+
+def _stop_peer(proc: subprocess.Popen) -> int:
+    """Terminate a peer gracefully; escalate to SIGKILL if it ignores SIGTERM."""
+    proc.terminate()
+    try:
+        return proc.wait(timeout=_SHUTDOWN_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return proc.wait()
+
+
+def _handle_dialogue(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    """Spawn two peer subprocesses with bidirectional pipes and wait for them.
+
+    Each peer inherits a distinct MOLTBOOK_HOME so their episode logs stay
+    separate — production (~/.config/moltbook) is never touched.
+    """
+    if args.turns < 1:
+        _exit_with("--turns must be >= 1")
+    if not args.seed.strip():
+        _exit_with("--seed must be a non-empty string")
+
+    home_a = args.home_a.expanduser().resolve()
+    home_b = args.home_b.expanduser().resolve()
+    for home, label in [(home_a, "HOME_A"), (home_b, "HOME_B")]:
+        if home == _PRODUCTION_HOME or _PRODUCTION_HOME in home.parents:
+            _exit_with(
+                f"{label} ({home}) overlaps with production (~/.config/moltbook); "
+                "pick a different MOLTBOOK_HOME for the dialogue sandbox."
+            )
+        if not home.is_dir():
+            _exit_with(
+                f"{label} ({home}) does not exist — initialise first with "
+                f"'MOLTBOOK_HOME={home} contemplative-agent init'"
+            )
+        if not (home / "identity.md").is_file():
+            _exit_with(
+                f"{label} ({home}) has no identity.md — initialise with "
+                f"'MOLTBOOK_HOME={home} contemplative-agent init'"
+            )
+
+    a_to_b_r, a_to_b_w = os.pipe()
+    b_to_a_r, b_to_a_w = os.pipe()
+
+    proc_a = _spawn_dialogue_peer(
+        home=home_a, turns=args.turns,
+        stdin_fd=b_to_a_r, stdout_fd=a_to_b_w, seed=args.seed,
+    )
+    proc_b = _spawn_dialogue_peer(
+        home=home_b, turns=args.turns,
+        stdin_fd=a_to_b_r, stdout_fd=b_to_a_w, seed=None,
+    )
+    # Parent releases its pipe ends so EOF propagates when a peer exits.
+    for fd in (a_to_b_r, a_to_b_w, b_to_a_r, b_to_a_w):
+        os.close(fd)
+
+    try:
+        rc_a = proc_a.wait()
+        rc_b = proc_b.wait()
+    except KeyboardInterrupt:
+        rc_a = _stop_peer(proc_a)
+        rc_b = _stop_peer(proc_b)
+
+    if rc_a != 0 or rc_b != 0:
+        logger.warning("dialogue peers exited with codes a=%d b=%d", rc_a, rc_b)
+        sys.exit(1)
+
+
+def _handle_dialogue_peer(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
+    """Run one peer's dialogue loop against stdin/stdout.
+
+    LLM and domain are already configured by ``_configure_llm_and_domain``
+    (tier-2 dispatch). This handler only has to wire an EpisodeLog rooted at
+    the current MOLTBOOK_HOME and drive the loop.
+    """
+    from .adapters.dialogue.peer import run_peer_loop
+    from .core.episode_log import EpisodeLog
+
+    episode_log = EpisodeLog(log_dir=EPISODE_LOG_DIR)
+    run_peer_loop(
+        episode_log=episode_log,
+        peer_in=sys.stdin,
+        peer_out=sys.stdout,
+        max_turns=args.turns,
+        seed=args.seed,
+        label=args.label,
+    )
+
+
 # --- Tier 3: Agent instance needed ---
 
 
@@ -1778,6 +1896,49 @@ def main() -> None:
         help="Show results without writing to knowledge store",
     )
 
+    # dialogue — spawn two peer agents (each rooted at a different MOLTBOOK_HOME)
+    # and pipe them together for a local turn-based conversation.
+    dialogue_parser = subparsers.add_parser(
+        "dialogue",
+        help="Run a local dialogue between two agent instances (two MOLTBOOK_HOMEs)",
+    )
+    dialogue_parser.add_argument(
+        "home_a", type=Path,
+        help="MOLTBOOK_HOME for agent A (initiator). Must be pre-initialised.",
+    )
+    dialogue_parser.add_argument(
+        "home_b", type=Path,
+        help="MOLTBOOK_HOME for agent B (responder). Must be pre-initialised.",
+    )
+    dialogue_parser.add_argument(
+        "--seed", type=str, required=True,
+        help="Opening message from agent A that starts the dialogue",
+    )
+    dialogue_parser.add_argument(
+        "--turns", type=int, default=5,
+        help="Max reply turns per side (hard cap, default: 5)",
+    )
+
+    # dialogue-peer — internal entry for each peer subprocess. Reads JSON line
+    # messages from stdin, writes replies to stdout. Users should not invoke
+    # this directly; it is spawned by `dialogue`.
+    dialogue_peer_parser = subparsers.add_parser(
+        "dialogue-peer",
+        help="(internal) one side of a dialogue — spawned by 'dialogue'",
+    )
+    dialogue_peer_parser.add_argument(
+        "--turns", type=int, required=True,
+        help="Max reply turns this peer will generate",
+    )
+    dialogue_peer_parser.add_argument(
+        "--seed", type=str, default=None,
+        help="Opening message if this peer is the initiator",
+    )
+    dialogue_peer_parser.add_argument(
+        "--label", type=str, default="peer",
+        help="Short label for stderr traces",
+    )
+
     # skill-reflect
     skill_reflect_parser = subparsers.add_parser(
         "skill-reflect",
@@ -1938,6 +2099,7 @@ def main() -> None:
         "remove-skill": _handle_remove_skill,
         "migrate-patterns": _handle_migrate_patterns,
         "migrate-categories": _handle_migrate_categories,
+        "dialogue": _handle_dialogue,
     }
     handler = no_llm_handlers.get(args.command)
     if handler:
@@ -1960,6 +2122,7 @@ def main() -> None:
         "generate-report": _handle_generate_report,
         "meditate": _handle_meditate,
         "embed-backfill": _handle_embed_backfill,
+        "dialogue-peer": _handle_dialogue_peer,
     }
     handler = llm_handlers.get(args.command)
     if handler:

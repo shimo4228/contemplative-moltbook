@@ -12,9 +12,8 @@ BASE_URL = "https://www.moltbook.com/api/v1"
 ALLOWED_DOMAIN = "www.moltbook.com"
 
 # --- Data paths ---
-MOLTBOOK_DATA_DIR = Path(
-    os.environ.get("MOLTBOOK_HOME", str(Path.home() / ".config" / "moltbook"))
-)
+DEFAULT_MOLTBOOK_HOME = Path.home() / ".config" / "moltbook"
+MOLTBOOK_DATA_DIR = Path(os.environ.get("MOLTBOOK_HOME", str(DEFAULT_MOLTBOOK_HOME)))
 CREDENTIALS_PATH = MOLTBOOK_DATA_DIR / "credentials.json"
 RATE_STATE_PATH = MOLTBOOK_DATA_DIR / "rate_state.json"
 EPISODE_LOG_DIR = MOLTBOOK_DATA_DIR / "logs"

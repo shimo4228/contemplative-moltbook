@@ -853,4 +853,10 @@ def summarize_record(record_type: str, data: dict) -> str:
         action = data.get("action", "unknown")
         target = data.get("target_agent", data.get("post_id", ""))
         return f"{action} {target}".strip()
+    elif record_type == "dialogue":
+        role = data.get("role", "?")
+        turn = data.get("turn", "?")
+        content = data.get("content", "")[:80]
+        seed_marker = " [seed]" if data.get("seed") else ""
+        return f"{role} turn {turn}{seed_marker}: {content}"
     return ""

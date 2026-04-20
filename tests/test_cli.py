@@ -12,6 +12,7 @@ from contemplative_agent.cli import (
     main,
     _approve_delete,
     _handle_adopt_staged,
+    _handle_dialogue,
     _handle_distill_identity,
     _handle_prune_skill_usage,
     _handle_remove_skill,
@@ -1880,3 +1881,87 @@ class TestPruneSkillUsage:
                 _handle_prune_skill_usage(self._args(older_than=0), MagicMock())
         assert exc.value.code == 1
         assert "positive" in capsys.readouterr().err
+
+
+class TestDialogueCommand:
+    """Validation logic for the `dialogue` subcommand."""
+
+    @pytest.fixture
+    def patched_production(self, tmp_path):
+        """Point _PRODUCTION_HOME at an unused tmp path so tests never collide with real production."""
+        with patch("contemplative_agent.cli._PRODUCTION_HOME", tmp_path / "nowhere"):
+            yield
+
+    @staticmethod
+    def _init_home(path: Path) -> Path:
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "identity.md").write_text("test identity\n", encoding="utf-8")
+        return path
+
+    @staticmethod
+    def _args(home_a: Path, home_b: Path, *, turns: int = 3, seed: str = "hello"):
+        import argparse
+        return argparse.Namespace(home_a=home_a, home_b=home_b, turns=turns, seed=seed)
+
+    def test_rejects_production_home(self, tmp_path, capsys):
+        fake_prod = tmp_path / "fake-prod"
+        fake_prod.mkdir()
+        home_under_prod = fake_prod / "a"
+        self._init_home(home_under_prod)
+        home_b = self._init_home(tmp_path / "b")
+
+        with patch("contemplative_agent.cli._PRODUCTION_HOME", fake_prod.resolve()):
+            with pytest.raises(SystemExit):
+                _handle_dialogue(self._args(home_under_prod, home_b), MagicMock())
+        assert "overlaps with production" in capsys.readouterr().err
+
+    def test_rejects_missing_home(self, tmp_path, capsys, patched_production):
+        home_a = tmp_path / "does-not-exist"
+        home_b = self._init_home(tmp_path / "b")
+        with pytest.raises(SystemExit):
+            _handle_dialogue(self._args(home_a, home_b), MagicMock())
+        assert "does not exist" in capsys.readouterr().err
+
+    def test_rejects_home_without_identity(self, tmp_path, capsys, patched_production):
+        home_a = tmp_path / "a"
+        home_a.mkdir()
+        home_b = self._init_home(tmp_path / "b")
+        with pytest.raises(SystemExit):
+            _handle_dialogue(self._args(home_a, home_b), MagicMock())
+        assert "identity.md" in capsys.readouterr().err
+
+    def test_rejects_zero_turns(self, tmp_path, capsys, patched_production):
+        home_a = self._init_home(tmp_path / "a")
+        home_b = self._init_home(tmp_path / "b")
+        with pytest.raises(SystemExit):
+            _handle_dialogue(self._args(home_a, home_b, turns=0), MagicMock())
+        assert "--turns" in capsys.readouterr().err
+
+    def test_rejects_empty_seed(self, tmp_path, capsys, patched_production):
+        home_a = self._init_home(tmp_path / "a")
+        home_b = self._init_home(tmp_path / "b")
+        with pytest.raises(SystemExit):
+            _handle_dialogue(self._args(home_a, home_b, seed="   "), MagicMock())
+        assert "--seed" in capsys.readouterr().err
+
+    def test_spawns_two_peers_and_waits(self, tmp_path, patched_production):
+        home_a = self._init_home(tmp_path / "a")
+        home_b = self._init_home(tmp_path / "b")
+
+        fake_proc = MagicMock()
+        fake_proc.wait.return_value = 0
+        with patch("contemplative_agent.cli.subprocess.Popen", return_value=fake_proc) as popen, \
+             patch("contemplative_agent.cli.os.pipe", return_value=(1000, 1001)), \
+             patch("contemplative_agent.cli.os.close"):
+            _handle_dialogue(self._args(home_a, home_b), MagicMock())
+
+        assert popen.call_count == 2
+        env_a = popen.call_args_list[0].kwargs["env"]
+        env_b = popen.call_args_list[1].kwargs["env"]
+        assert env_a["MOLTBOOK_HOME"] == str(home_a.resolve())
+        assert env_b["MOLTBOOK_HOME"] == str(home_b.resolve())
+        # Initiator (A) carries the seed, responder (B) does not.
+        cmd_a = popen.call_args_list[0].args[0]
+        cmd_b = popen.call_args_list[1].args[0]
+        assert "--seed" in cmd_a
+        assert "--seed" not in cmd_b
