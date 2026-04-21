@@ -66,7 +66,7 @@ Language: [English](README.md) | 日本語 | [简体中文](README.zh-CN.md) | [
 - *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
 - *ノイズを種子として (noise as seed)* — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持される。view 重心が変わったとき、失われずに**再分類の候補**として利用できる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
 
-**LLM が触れるテキストはすべて編集可能な Markdown ファイル** -- 憲法、アイデンティティ、スキル、ルール、**29 のパイプラインプロンプト** (`distill` / `insight` / `rules-distill` / `amend-constitution` / `skill-reflect` / `memory_evolution` …)、**7 つの view シード** が全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。`init` 後は LLM が見るテキストが全部ディスク上に揃う — プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす、憲法を調整して判断にバイアスを入れる、といった操作が single-file edit で済む。編集は `git diff` で追えるし、pivot snapshot に取り込まれて再現性も保たれる。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
+**LLM が触れるテキストはすべて編集可能な Markdown ファイル** -- 憲法、アイデンティティ、スキル、ルール、**32 のパイプラインプロンプト** (`distill` / `insight` / `rules-distill` / `amend-constitution` / `skill-reflect` / `memory_evolution` …)、**7 つの view シード** が全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。`init` 後は LLM が見るテキストが全部ディスク上に揃う — プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす、憲法を調整して判断にバイアスを入れる、といった操作が single-file edit で済む。編集は `git diff` で追えるし、pivot snapshot に取り込まれて再現性も保たれる。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
 
 **設計による安全 (secure by design)** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は 3 パッケージ（`requests`、`numpy`、`rank-bm25`）— サブプロセスなし、シェルなし、テンプレートエンジンなし。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.ja.md)
 
