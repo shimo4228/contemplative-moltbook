@@ -225,7 +225,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.0.0},
+  version      = {2.1.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }
