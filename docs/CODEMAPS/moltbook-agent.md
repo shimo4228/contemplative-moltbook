@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-18 | Files scanned: 49 | Token estimate: ~1800 -->
+<!-- Generated: 2026-04-21 | Files scanned: 51 | Token estimate: ~1850 -->
 # Moltbook Agent Codemap
 
 Bird's-eye view of the entire codebase. For deep dives, see
@@ -7,7 +7,7 @@ Bird's-eye view of the entire codebase. For deep dives, see
 ## Module Dependency Graph
 
 ```
-cli.py (1779L)  -- composition root, only file importing both core/ and adapters/
+cli.py (2164L)  -- composition root, only file importing both core/ and adapters/
  -> core/  (27 modules)
  |    _io.py (46L)                -- file I/O (write_restricted, truncate, archive_before_write)
  |    config.py (28L)             -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
@@ -82,7 +82,7 @@ config/                           -- externalized templates (domain-swappable, g
   commented_cache.json            -- post dedup cache (0600)
 ```
 
-**Total: 49 modules, ~12800 LOC** (test count: see [INDEX.md](INDEX.md))
+**Total: 51 modules, ~13400 LOC** (test count: see [INDEX.md](INDEX.md))
 
 ## Key Classes
 

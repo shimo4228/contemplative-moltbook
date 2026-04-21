@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 16 adapter modules | Token estimate: ~1200 -->
+<!-- Generated: 2026-04-21 | Files scanned: 17 adapter modules | Token estimate: ~1300 -->
 # Adapters Codemap
 
 Platform-specific implementations. Dependency: adapters → core.
@@ -105,6 +105,27 @@ EpisodeLog (JSONL) → pomdp.build_matrices()
 **Theory**: Based on Laukkonen, Friston & Chandaria (2025) "A Beautiful Loop" — computational model of contemplative states via Active Inference.
 
 **Dependencies**: numpy (for matrix operations).
+
+---
+
+## Dialogue Adapter (1 module, ~140 LOC)
+
+| Module | LOC | Purpose |
+|--------|-----|---------|
+| `peer.py` | 140 | 2-agent peer-to-peer dialogue loop; LLM turn exchange over stdin/stdout between two independent agent processes |
+
+**Invocation**:
+```
+contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N
+```
+- Spawns two independent peer processes, one per `MOLTBOOK_HOME`. Production home is rejected (must be distinct experiment homes).
+- Each peer runs as its own agent — no parent orchestrator. The CLI only pipes stdin/stdout between them.
+
+**Wrapper CLI hook** (`cli._spawn_dialogue_peer`):
+- Env var `CONTEMPLATIVE_DIALOGUE_PEER_MODULE` (default: `contemplative_agent.cli`) lets an outer wrapper (e.g. a managed-LLM shim) route peers through its own entry module so the wrapper's setup — configured `LLMBackend`, credentials — runs in each peer process too.
+- Keeps the built-in path unchanged when unset.
+
+**Security**: Terminology note — the two peers are *independent processes*, not "child processes" or "orchestrator/worker". Production `MOLTBOOK_HOME` is blocked to avoid polluting real memory.
 
 ---
 

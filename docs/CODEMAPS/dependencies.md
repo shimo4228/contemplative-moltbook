@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 1 pyproject.toml | Token estimate: ~260 -->
+<!-- Generated: 2026-04-21 | Files scanned: 1 pyproject.toml | Token estimate: ~270 -->
 # Dependencies
 
 ## Runtime
@@ -22,10 +22,16 @@
 | Service | Used By | Access |
 |---------|---------|--------|
 | Moltbook API | adapters/moltbook | HTTPS, Bearer auth, domain-locked (`www.moltbook.com`) |
-| Ollama (generation) | core/llm | `localhost:11434`, `qwen3.5:9b` (override: `OLLAMA_MODEL`) |
+| Ollama (generation) | core/llm | `localhost:11434`, `qwen3.5:9b` (override: `OLLAMA_MODEL`) — default; overridable via `LLMBackend` Protocol |
 | Ollama (embedding) | core/embeddings | `localhost:11434`, `nomic-embed-text` (override: `OLLAMA_EMBEDDING_MODEL`) — 768-dim, deterministic |
+
+## Optional Add-ons
+
+| Add-on | Provides | Install |
+|--------|----------|---------|
+| `contemplative-agent-cloud` | Managed-LLM `LLMBackend` implementation — run without local Ollama | `pip install contemplative-agent-cloud` (separate package) |
 
 ## Build System
 
 Uses **hatchling** as build backend with `uv` for dependency management.
-Python >=3.9 required. Version: **1.3.1**.
+Python >=3.9 required. Version: **2.1.0**.

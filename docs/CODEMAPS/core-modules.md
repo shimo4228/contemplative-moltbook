@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-16 | Files scanned: 28 core modules | Token estimate: ~1350 -->
+<!-- Generated: 2026-04-21 | Files scanned: 28 core modules | Token estimate: ~1400 -->
 # Core Modules Codemap
 
 Platform-independent foundation (no Moltbook dependencies). All imports flow: adapters → core.
@@ -9,9 +9,10 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 |--------|-----|---------|
 | `_io.py` | 46 | `write_restricted(path, mode, content)`, `truncate(path)`, `archive_before_write(path, history_dir)` |
 | `config.py` | 28 | `FORBIDDEN_SUBSTRING_PATTERNS`, `VALID_ID_PATTERN`, `MAX_COMMENT_LENGTH` |
-| `domain.py` | 295 | `DomainConfig`, `PromptTemplates`, constitution loader |
+| `domain.py` | 295 | `DomainConfig`, `PromptTemplates` (reads `MOLTBOOK_HOME/prompts/` overrides with packaged fallback), constitution loader |
 | `prompts.py` | 65 | Lazy-load proxy to `config/prompts/*.md` + placeholder resolution |
-| `llm.py` | 413 | Ollama interface, circuit breaker, sanitization; `_build_system_prompt` reads identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
+| `llm.py` | 520 | Ollama interface + `LLMBackend` Protocol (pluggable generation), circuit breaker, sanitization; `_build_system_prompt` reads identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
+| `clustering.py` | 117 | Average-linkage cosine agglomerative clustering (ADR-0019 companion, numpy-only). Used by `insight` and `rules_distill` to bucket embedded corpus without a predefined view axis |
 | `embeddings.py` | 144 | Ollama `/api/embed` wrapper (nomic-embed-text), `cosine`, `embed_one`, `embed_texts` |
 | `episode_embeddings.py` | 174 | `EpisodeEmbeddingStore` — SQLite sidecar for episode vectors (ADR-0019) |
 | `episode_log.py` | 98 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
@@ -34,7 +35,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `report.py` | 256 | `generate_report()` JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
 
-**Total: ~7170 LOC (27 modules)**
+**Total: ~7400 LOC (28 modules)**
 
 ## Key Dataclasses
 
@@ -108,11 +109,23 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
 
 ## LLM Functions (core/llm.py)
 
-**Configuration**:
+**Configuration** via `configure(...)`:
 ```python
-llm = LLM(identity_path=..., ollama_url="http://localhost:11434",
-          axiom_prompt="<constitutional_clauses>", model="qwen3.5:9b")
+configure(identity_path=..., ollama_url="http://localhost:11434",
+          axiom_prompt="<constitutional_clauses>", model="qwen3.5:9b",
+          backend=None)        # default: built-in Ollama HTTP
 ```
+
+**Pluggable backend** (`LLMBackend` Protocol, `runtime_checkable`):
+```python
+class LLMBackend(Protocol):
+    def generate(self, prompt: str, system: str, num_predict: int,
+                 format: Optional[Dict], ...) -> str: ...
+```
+When `_backend` is set via `configure(backend=...)`, `generate()` delegates to
+the backend; sanitization, circuit breaker, and `wrap_untrusted_content` stay
+in this module and apply uniformly. Used by the
+`contemplative-agent-cloud` add-on to route generation through a managed LLM.
 
 **Circuit breaker**: 5 consecutive failures → open for 120s.
 
@@ -231,12 +244,12 @@ CLI: `contemplative-agent embed-backfill [--patterns-only] [--dry-run]`.
 
 ## Snapshot (core/snapshot.py, ADR-0020)
 
-`write_snapshot(command, views_dir, constitution_dir, snapshots_dir, view_registry, knowledge_store)`:
-- Writes `snapshots/{command}_{UTC-ts}/` containing `manifest.json`, `views/*.md`, `constitution/*.md`, `centroids.npz`.
+`write_snapshot(command, views_dir, constitution_dir, snapshots_dir, view_registry, knowledge_store, *, prompts_dir=None, skills_dir=None, rules_dir=None, identity_path=None)`:
+- Writes `snapshots/{command}_{UTC-ts}/` containing `manifest.json` plus a full copy of the runtime context: `views/*.md`, `constitution/*.md`, `prompts/*.md`, `skills/*.md`, `rules/*.md`, `identity.md`, and `centroids.npz`.
 - If `knowledge_store` is passed, also calls `KnowledgeStore.update_view_telemetry()` to stamp every pattern with `last_classified_at` + `last_view_matches` (read-only observational data).
 - Never raises — snapshots are observability.
 
-Called from `_handle_distill`, `_handle_distill_identity`, `_handle_insight`, `_handle_rules_distill`, `_handle_amend_constitution`. `--dry-run` skips snapshots.
+Called from `_handle_distill`, `_handle_distill_identity`, `_handle_insight`, `_handle_rules_distill`, `_handle_amend_constitution`. `--dry-run` skips snapshots. The full-context bundle makes every behaviour-producing run exactly replayable.
 
 ## Report Generation (core/report.py)
 
