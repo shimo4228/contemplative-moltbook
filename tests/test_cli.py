@@ -1965,3 +1965,28 @@ class TestDialogueCommand:
         cmd_b = popen.call_args_list[1].args[0]
         assert "--seed" in cmd_a
         assert "--seed" not in cmd_b
+        # Default peer module is the main CLI.
+        assert "contemplative_agent.cli" in cmd_a
+        assert "contemplative_agent.cli" in cmd_b
+
+    def test_peer_module_env_override(self, tmp_path, patched_production, monkeypatch):
+        """CONTEMPLATIVE_DIALOGUE_PEER_MODULE redirects peer spawn to a wrapper module."""
+        home_a = self._init_home(tmp_path / "a")
+        home_b = self._init_home(tmp_path / "b")
+
+        monkeypatch.setenv(
+            "CONTEMPLATIVE_DIALOGUE_PEER_MODULE",
+            "some_wrapper_pkg.cli",
+        )
+
+        fake_proc = MagicMock()
+        fake_proc.wait.return_value = 0
+        with patch("contemplative_agent.cli.subprocess.Popen", return_value=fake_proc) as popen, \
+             patch("contemplative_agent.cli.os.pipe", return_value=(1000, 1001)), \
+             patch("contemplative_agent.cli.os.close"):
+            _handle_dialogue(self._args(home_a, home_b), MagicMock())
+
+        for call in popen.call_args_list:
+            cmd = call.args[0]
+            assert "some_wrapper_pkg.cli" in cmd
+            assert "contemplative_agent.cli" not in cmd

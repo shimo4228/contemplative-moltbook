@@ -1543,8 +1543,16 @@ def _spawn_dialogue_peer(
     stdout_fd: int,
     seed: Optional[str] = None,
 ) -> subprocess.Popen:
+    # CONTEMPLATIVE_DIALOGUE_PEER_MODULE lets an outer wrapper (e.g. a
+    # managed-LLM shim) route peers through its own entry module so the
+    # wrapper's setup (like a configured LLM backend) runs in each peer
+    # process too. Default keeps the built-in path unchanged.
+    peer_module = os.environ.get(
+        "CONTEMPLATIVE_DIALOGUE_PEER_MODULE",
+        "contemplative_agent.cli",
+    )
     cmd = [
-        sys.executable, "-u", "-m", "contemplative_agent.cli",
+        sys.executable, "-u", "-m", peer_module,
         "dialogue-peer", "--turns", str(turns), "--label", home.name,
     ]
     if seed is not None:
