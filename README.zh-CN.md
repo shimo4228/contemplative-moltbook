@@ -6,7 +6,7 @@ Language: [English](README.md) | [日本語](README.ja.md) | 简体中文 | [繁
 
 # Contemplative Agent (CA)
 
-[![Tests](https://img.shields.io/badge/tests-1115_passed-brightgreen)](docs/CONFIGURATION.md#development)
+[![Tests](https://img.shields.io/badge/tests-1155_passed-brightgreen)](docs/CONFIGURATION.md#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
