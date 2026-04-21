@@ -8,7 +8,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Protocol, Tuple, runtime_checkable
 from urllib.parse import urlparse
 
 import requests
@@ -29,6 +29,34 @@ LOCALHOST_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 CIRCUIT_FAILURE_THRESHOLD = 5
 CIRCUIT_COOLDOWN_SECONDS = 120
 
+
+@runtime_checkable
+class LLMBackend(Protocol):
+    """Pluggable generation backend.
+
+    Default (``_backend = None``) uses the built-in Ollama HTTP path. An
+    external package (e.g. ``contemplative-agent-cloud``) can inject a
+    backend implementation via ``configure(backend=...)`` to route
+    generation through a different provider. Sanitization, circuit
+    breaker, and untrusted-content wrapping remain in this module and
+    apply uniformly regardless of backend.
+    """
+
+    def generate(
+        self,
+        prompt: str,
+        system: str,
+        num_predict: int,
+        format: Optional[Dict],
+    ) -> Optional[str]:
+        """Return raw model output, or None on failure.
+
+        Implementations must not apply sanitization — the caller handles
+        ``_sanitize_output`` uniformly across backends.
+        """
+        ...
+
+
 # Module-level settings — set by configure() from the adapter
 _identity_path: Optional[Path] = None
 _ollama_base_url: str = _DEFAULT_OLLAMA_URL
@@ -37,6 +65,7 @@ _default_system_prompt: Optional[str] = None
 _axiom_prompt: Optional[str] = None
 _skills_dir: Optional[Path] = None
 _rules_dir: Optional[Path] = None
+_backend: Optional[LLMBackend] = None
 
 # Cache for _load_md_files results, keyed by directory path.
 # Value is (mtime_key, concatenated_contents). Invalidated automatically
@@ -53,6 +82,7 @@ def configure(
     axiom_prompt: Optional[str] = None,
     skills_dir: Optional[Path] = None,
     rules_dir: Optional[Path] = None,
+    backend: Optional[LLMBackend] = None,
 ) -> None:
     """Configure LLM module with adapter-specific settings.
 
@@ -66,9 +96,15 @@ def configure(
             Skill contents are appended to the system prompt.
         rules_dir: Directory containing learned behavioral rule .md files.
             Rule contents are appended to the system prompt.
+        backend: Optional ``LLMBackend`` implementation. When set, all
+            ``generate()`` calls route through it instead of the built-in
+            Ollama HTTP path. Sanitization and circuit breaker continue
+            to apply. Main-repo default is ``None`` (local Ollama only);
+            external add-ons may inject a provider here.
     """
     global _identity_path, _ollama_base_url, _ollama_model
     global _default_system_prompt, _axiom_prompt, _skills_dir, _rules_dir
+    global _backend
     if identity_path is not None:
         _identity_path = identity_path
     if ollama_base_url is not None:
@@ -83,12 +119,15 @@ def configure(
         _skills_dir = skills_dir
     if rules_dir is not None:
         _rules_dir = rules_dir
+    if backend is not None:
+        _backend = backend
 
 
 def reset_llm_config() -> None:
     """Reset module-level LLM config and circuit breaker to defaults. Useful for testing."""
     global _identity_path, _ollama_base_url, _ollama_model
     global _default_system_prompt, _axiom_prompt, _skills_dir, _rules_dir
+    global _backend
     _identity_path = None
     _ollama_base_url = _DEFAULT_OLLAMA_URL
     _ollama_model = _DEFAULT_OLLAMA_MODEL
@@ -96,6 +135,7 @@ def reset_llm_config() -> None:
     _axiom_prompt = None
     _skills_dir = None
     _rules_dir = None
+    _backend = None
     _MD_CACHE.clear()
     _circuit.reset()
 
@@ -367,7 +407,7 @@ def generate(
     num_predict: Optional[int] = None,
     format: Optional[Dict] = None,
 ) -> Optional[str]:
-    """Generate text using Ollama.
+    """Generate text via the configured backend (default: local Ollama).
 
     Args:
         max_length: Char-level truncation applied to the sanitized output.
@@ -382,10 +422,32 @@ def generate(
                 When set, output is constrained at the token level.
 
     Returns sanitized output, or None on failure.
+
+    If an ``LLMBackend`` was injected via ``configure(backend=...)``, the
+    raw generation is delegated to it; otherwise the built-in Ollama HTTP
+    path runs. Sanitization, circuit breaker, and empty-response handling
+    apply uniformly across both paths.
     """
     if _circuit.is_open:
         logger.debug("Circuit breaker open — skipping LLM request")
         return None
+
+    system_prompt = system or _build_system_prompt()
+    effective_num_predict = num_predict if num_predict is not None else 8192
+
+    if _backend is not None:
+        try:
+            raw_text = _backend.generate(prompt, system_prompt, effective_num_predict, format)
+        except Exception as exc:  # backend may raise on unexpected failure
+            logger.error("Backend generate() raised: %s", exc)
+            _circuit.record_failure()
+            return None
+        if raw_text is None or not raw_text.strip():
+            logger.warning("Backend returned empty response")
+            _circuit.record_failure()
+            return None
+        _circuit.record_success()
+        return _sanitize_output(raw_text, max_length)
 
     try:
         base_url = _get_ollama_url()
@@ -398,13 +460,13 @@ def generate(
     payload = {
         "model": _get_model(),
         "prompt": prompt,
-        "system": system or _build_system_prompt(),
+        "system": system_prompt,
         "stream": False,
         "options": {
             "temperature": 1.0,
             "top_p": 0.95,
             "top_k": 20,
-            "num_predict": num_predict if num_predict is not None else 8192,
+            "num_predict": effective_num_predict,
             "num_ctx": 32768,
         },
         "think": False,
