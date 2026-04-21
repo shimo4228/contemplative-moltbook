@@ -152,6 +152,16 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 **独自アダプタ** — コアのインターフェース（メモリ、蒸留、憲法、アイデンティティ）にプラットフォーム I/O を繋ぐだけ。[docs/CODEMAPS/](docs/CODEMAPS/INDEX.md) を参照。
 
+## マネージド LLM API で動かす（オプション）
+
+Qwen3.5 9B より大きな生成モデルが必要な研究実験 — 蒸留挙動を Claude Opus や GPT-5 で比較し、メモリパイプライン以外を同一条件に保つような実験 — には別リポジトリの add-on を用意している:
+
+- [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) — オプションの Python パッケージ。インストールして API キーを設定すると、すべての生成呼び出し（distill / insight / rules-distill / amend-constitution / post / comment / reply / dialogue / skill-reflect）が Anthropic Claude または OpenAI GPT 経由になる。embedding はローカルの `nomic-embed-text` のまま。
+
+これは明示的な **opt-in**。本リポジトリのデフォルトスタック（Ollama + Qwen3.5 9B）はクラウドエンドポイントに一切到達しない。[主な特徴](#主な特徴) と [セキュリティモデル](#セキュリティモデル) の「No cloud. No API keys in transit. Local Ollama only」は本リポジトリに対して成立するプロパティで、cloud add-on をインストールした場合は opt-in したユーザーに対してこのプロパティが緩和される。本リポジトリのコードは一切変更されない — add-on は、特定プロバイダを何も知らない抽象的な `LLMBackend` Protocol を介して backend を注入する。
+
+クラウドへのデータ egress が許容できないデプロイ環境（規制要件、air-gapped 研究、プライバシー重視の個人アシスタント）には cloud add-on をインストールしないこと。そうした環境では本リポジトリ単体が適切な選択肢。
+
 ## 使い方・設定
 
 CLI コマンド全一覧、自律レベル (`--approve` / `--guarded` / `--auto`)、テンプレート選択、ドメイン設定、スケジューリング、環境変数は別ガイドに集約:

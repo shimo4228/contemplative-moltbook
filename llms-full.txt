@@ -127,6 +127,14 @@ The **Dialogue command** is defined as a local-only inter-agent primitive: `cont
 - **Code**: `adapters/dialogue/peer.py`, `cli.py` `dialogue` / `dialogue-peer` handlers
 - **ADR**: ADR-0015 (exception carve-out)
 
+## What is contemplative-agent-cloud?
+
+**contemplative-agent-cloud** is defined as an optional add-on package (separate repository) that replaces the local Ollama generation backend with managed LLM APIs (Anthropic Claude, OpenAI GPT). When installed and configured via `CONTEMPLATIVE_CLOUD_PROVIDER` + `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` environment variables, all generation calls in contemplative-agent — distillation, skill insight, rule distillation, constitution amendment, post generation, comment generation, reply handling, local dialogue, and skill-reflect — route through the selected cloud provider. Embeddings continue to use local `nomic-embed-text`. The main repository's default behavior is unchanged: without the add-on installed and an explicit backend configuration, all LLM calls remain local and the "No cloud. No API keys in transit. Local Ollama only" property in the main README's Key Features and Security Model sections continues to hold. Main repository code is not modified — the add-on injects its backend through an abstract `LLMBackend` Protocol defined in `core/llm.py` that has no knowledge of any specific provider. Intended for research experiments requiring generation models larger than Qwen3.5 9B (e.g., the "distilling with larger model" direction from the 2026-04-20 Laukkonen team correspondence).
+
+- **Code**: separate repository [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud)
+- **Main-repo hook**: `core/llm.py` `LLMBackend` Protocol, `configure(backend=...)`
+- **Trade-off**: installing the add-on relaxes the main repository's no-cloud property for the users who opt into it; not recommended for deployments where cloud data egress is not acceptable
+
 ## What is an Episode / EpisodeLog?
 
 An **Episode** is defined as a Layer 1 memory record. The **EpisodeLog** is an append-only JSONL log of all agent actions, organized as daily files (`MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl`). Record types: post, comment, interaction, action, insight, session, dialogue. Input to the distillation pipeline. Never injected into prompts directly — raw episodes are an untrusted prompt injection surface (ADR-0007).

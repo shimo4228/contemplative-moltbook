@@ -152,6 +152,16 @@ O núcleo é independente de plataforma. Adaptadores são wrappers finos em torn
 
 **O seu próprio** — Implementar um adaptador significa conectar o I/O da plataforma às interfaces do núcleo (memória, destilação, constituição, identidade). Veja [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
 
+## Rodar com APIs de LLM gerenciadas (opcional)
+
+Para experimentos de pesquisa que precisam de um modelo de geração maior do que o Qwen3.5 9B — por exemplo, comparar como a destilação se comporta com Claude Opus ou GPT-5 mantendo o restante do pipeline de memória idêntico — um repositório complementar fornece backends de LLM gerenciados:
+
+- [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) — Pacote Python opcional. Instalá-lo e configurar uma chave de API roteia toda chamada de geração (distill, insight, rules-distill, amend-constitution, post, comment, reply, dialogue, skill-reflect) pelo Anthropic Claude ou OpenAI GPT. Embeddings continuam usando o `nomic-embed-text` local.
+
+Isso é um **opt-in** explícito. O stack padrão deste repositório (Ollama + Qwen3.5 9B) não alcança nenhum endpoint em nuvem. A propriedade "No cloud. No API keys in transit. Local Ollama only" descrita em [Principais recursos](#principais-recursos) e [Modelo de segurança](#modelo-de-segurança) vale para este repositório; instalar o complemento de nuvem relaxa essa propriedade para os usuários que optarem por isso. O código do repositório principal não é modificado — o complemento injeta seu backend via um Protocol `LLMBackend` abstrato que não conhece nenhum provedor específico.
+
+Não instale o complemento de nuvem em implantações onde a saída de dados para a nuvem não é aceitável (restrições regulatórias, pesquisa em rede isolada, assistentes pessoais sensíveis a privacidade). O repositório principal continua sendo a escolha correta nesses casos.
+
 ## Uso e configuração
 
 A referência completa de CLI, níveis de autonomia (`--approve` / `--guarded` / `--auto`), seleção de templates, configurações de domínio, agendamento e variáveis de ambiente estão em um único guia:

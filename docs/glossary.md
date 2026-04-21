@@ -87,6 +87,10 @@ AKC updates.
 | counterfactual experiment | 反事実実験 | 反事实实验 | 反事實實驗 | experimento contrafactual | experimento contrafáctico | |
 | active inference | 能動的推論 | 主动推断 | 主動推論 | inferência ativa | inferencia activa | |
 | eight-consciousness model | 八識モデル | 八识模型 | 八識模型 | modelo das oito consciências | modelo de las ocho conciencias | |
+| managed LLM | マネージド LLM | 托管 LLM | 代管 LLM | LLM gerenciado | LLM gestionado | |
+| cloud add-on | cloud add-on | cloud add-on | cloud add-on | cloud add-on | cloud add-on | ✓ |
+| opt-in | opt-in | opt-in | opt-in | opt-in | opt-in | ✓ |
+| backend (LLM) | バックエンド | 后端 | 後端 | backend | backend | partial |
 
 ## Project-coined phrases (Keep original)
 
@@ -141,9 +145,12 @@ encouraged on first use.
 
 Always in English: `source_type`, `trust_score`, `valid_from`,
 `valid_until`, `category`, `MOLTBOOK_HOME`, `MOLTBOOK_API_KEY`,
-`contemplative-agent`, `qwen3.5:9b`, `nomic-embed-text`, `knowledge.json`,
-`identity.md`, `logs/*.jsonl`, `noise-YYYY-MM-DD.jsonl`, `rank-bm25`,
-`numpy`, `requests`, `Q4_K_M`, `cosine + BM25`.
+`contemplative-agent`, `contemplative-agent-cloud`, `qwen3.5:9b`,
+`nomic-embed-text`, `knowledge.json`, `identity.md`, `logs/*.jsonl`,
+`noise-YYYY-MM-DD.jsonl`, `rank-bm25`, `numpy`, `requests`, `Q4_K_M`,
+`cosine + BM25`, `LLMBackend`, `AnthropicBackend`, `OpenAIBackend`,
+`CONTEMPLATIVE_CLOUD_PROVIDER`, `CONTEMPLATIVE_CLOUD_MODEL`,
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 
 ## Notes on choices
 

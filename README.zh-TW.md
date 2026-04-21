@@ -152,6 +152,16 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 **自建介接器** —— 實作一個介接器，就是把平台 I/O 接到核心介面（記憶、蒸餾、章程、身份）。見 [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md)。
 
+## 使用代管 LLM API 執行（選用）
+
+需要比 Qwen3.5 9B 更大的生成模型的研究實驗 —— 例如在保持其餘記憶管線不變的情況下，比較蒸餾行為在 Claude Opus 或 GPT-5 下的差異 —— 可以使用一個獨立倉庫的 add-on:
+
+- [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) —— 選用的 Python 套件。安裝並設定 API 金鑰後，所有生成呼叫（distill / insight / rules-distill / amend-constitution / post / comment / reply / dialogue / skill-reflect）都會改走 Anthropic Claude 或 OpenAI GPT，而 embedding 仍使用本機的 `nomic-embed-text`。
+
+這是明確的 **opt-in**。主倉庫的預設堆疊（Ollama + Qwen3.5 9B）不會存取任何雲端端點。[主要特色](#主要特色) 與 [安全模型](#安全模型) 中的「No cloud. No API keys in transit. Local Ollama only」對本倉庫成立；只有使用者主動安裝 cloud add-on 時，該屬性才會在那些使用者端放寬。主倉庫的程式碼不會被修改 —— add-on 透過一個抽象的 `LLMBackend` Protocol（對任何特定 provider 一無所知）注入後端實作。
+
+在不允許雲端資料外送的部署（法規限制、氣隙研究、隱私敏感的個人助理）中，請勿安裝 cloud add-on。這些情境下，單獨使用主倉庫仍是合適的選擇。
+
 ## 使用與設定
 
 完整 CLI 參考、自主等級 (`--approve` / `--guarded` / `--auto`)、模板選擇、網域設定、排程、環境變數皆集中在單一指南：

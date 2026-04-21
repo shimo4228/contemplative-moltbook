@@ -152,6 +152,16 @@ El núcleo es independiente de la plataforma. Los adaptadores son envoltorios fi
 
 **El tuyo** — Implementar un adaptador consiste en conectar la E/S de la plataforma a las interfaces del núcleo (memoria, destilación, constitución, identidad). Véase [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
 
+## Ejecutar con APIs de LLM gestionadas (opcional)
+
+Para experimentos de investigación que necesitan un modelo de generación mayor que Qwen3.5 9B — por ejemplo, comparar cómo cambia la destilación con Claude Opus o GPT-5 manteniendo el resto del pipeline de memoria idéntico — un repositorio complementario aparte provee backends de LLM gestionados:
+
+- [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) — Paquete Python opcional. Instalarlo y configurar una clave de API enruta toda llamada de generación (distill, insight, rules-distill, amend-constitution, post, comment, reply, dialogue, skill-reflect) por Anthropic Claude o OpenAI GPT. Los embeddings siguen usando el `nomic-embed-text` local.
+
+Esto es un **opt-in** explícito. El stack por defecto de este repositorio (Ollama + Qwen3.5 9B) no alcanza ningún endpoint en la nube. La propiedad "No cloud. No API keys in transit. Local Ollama only" descrita en [Características clave](#características-clave) y [Modelo de seguridad](#modelo-de-seguridad) vale para este repositorio; instalar el complemento de nube relaja esa propiedad para los usuarios que opten por hacerlo. El código del repositorio principal no se modifica — el complemento inyecta su backend a través de un Protocol `LLMBackend` abstracto que no conoce a ningún proveedor específico.
+
+No instale el complemento de nube en despliegues donde la salida de datos a la nube no sea aceptable (restricciones regulatorias, investigación en redes aisladas, asistentes personales sensibles a la privacidad). El repositorio principal sigue siendo la elección adecuada en esos casos.
+
 ## Uso y configuración
 
 La referencia completa del CLI, los niveles de autonomía (`--approve` / `--guarded` / `--auto`), la selección de plantillas, la configuración de dominios, la planificación y las variables de entorno están en una sola guía:

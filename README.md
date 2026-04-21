@@ -152,6 +152,16 @@ The core is platform-agnostic. Adapters are thin wrappers around platform-specif
 
 **Your own** -- Implementing an adapter means connecting platform I/O to core interfaces (memory, distillation, constitution, identity). See [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
 
+## Running with Managed LLM APIs (Optional)
+
+For research experiments that need a generation model larger than Qwen3.5 9B — comparing distillation behavior with Claude Opus or GPT-5 while keeping the rest of the memory pipeline identical — a separate add-on repository provides managed-LLM backends:
+
+- [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) — Optional Python package. Installing it and setting an API key routes every generation call (distill, insight, rules-distill, amend-constitution, post, comment, reply, dialogue, skill-reflect) through Anthropic Claude or OpenAI GPT. Embeddings continue to use local `nomic-embed-text`.
+
+This is an explicit **opt-in**. The main repository's default stack (Ollama + Qwen3.5 9B) does not reach any cloud endpoint. The "No cloud. No API keys in transit. Local Ollama only" property in [Key Features](#key-features) and [Security Model](#security-model) applies to this repository; installing the cloud add-on relaxes that property for users who opt into it. Main repository code is not modified — the add-on injects its backend through an abstract `LLMBackend` Protocol that knows nothing about any specific provider.
+
+Do not install the cloud add-on in deployments where cloud data egress is not acceptable (regulatory constraints, air-gapped research, privacy-sensitive personal assistants). The main repository remains the right choice there.
+
 ## Usage & Configuration
 
 The full CLI reference, autonomy levels (`--approve` / `--guarded` / `--auto`), template selection, domain settings, scheduling, and environment variables live in a single guide:
