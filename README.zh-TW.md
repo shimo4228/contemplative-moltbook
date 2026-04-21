@@ -221,6 +221,16 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 </details>
 
+## 相關專案
+
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ——
+  姊妹研究儲存庫 (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014))。
+  以 harness-neutral 的形式將本專案的治理判斷（Security Boundary Model、
+  One External Adapter Per Agent、Human Approval Gate，以及隱含的 causal
+  traceability / scaffolding visibility 承諾）重新表述為八條 ADR ——
+  關於自主 AI 代理中問責分配的判斷。引用問責分配論點或 prohibition-strength
+  階層時請引用 AAP；引用運作實作時請引用本儲存庫。
+
 ## 參考文獻
 
 ### 理論基礎

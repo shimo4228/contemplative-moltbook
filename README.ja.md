@@ -221,6 +221,16 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 </details>
 
+## 関連プロジェクト
+
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) —
+  姉妹研究リポジトリ (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014))。
+  本プロジェクトのガバナンス判断 (Security Boundary Model、One External Adapter Per Agent、
+  Human Approval Gate、および暗黙の causal traceability / scaffolding visibility コミットメント)
+  を harness-neutral な形で 8 本の ADR として再表現している — 自律 AI エージェントにおける
+  アカウンタビリティの分配について。アカウンタビリティの分配テーゼや prohibition-strength の
+  階層を引用する際は AAP を、運用実装を引用する際は本リポジトリを cite すること。
+
 ## 参考文献
 
 ### 理論的基盤
