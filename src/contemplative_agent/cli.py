@@ -433,6 +433,16 @@ def _do_init(template_name: str = "contemplative") -> None:
     """Initialize runtime data files in MOLTBOOK_HOME."""
     import shutil
 
+    def copy_or_create_dir(src: Path, dst: Path, label: str, provenance: str = "") -> None:
+        if dst.exists():
+            print(f"{label} already exists: {dst}")
+        elif src.is_dir():
+            shutil.copytree(src, dst)
+            print(f"Copied {label.lower()}: {dst}{provenance}")
+        else:
+            dst.mkdir(parents=True, exist_ok=True)
+            print(f"Created empty {label.lower()} dir: {dst}")
+
     templates_dir = DEFAULT_CONFIG_DIR / "templates"
     template_dir = templates_dir / template_name
     if not template_dir.is_dir():
@@ -463,19 +473,13 @@ def _do_init(template_name: str = "contemplative") -> None:
         print(f"Created knowledge file: {KNOWLEDGE_PATH}")
 
     # Copy directories from template (constitution, skills, rules)
+    template_suffix = f" (from {template_name})"
     for src_dir, dst_dir, label in [
         (template_dir / "constitution", CONSTITUTION_DIR, "Constitution"),
         (template_dir / "skills", SKILLS_DIR, "Skills"),
         (template_dir / "rules", RULES_DIR, "Rules"),
     ]:
-        if dst_dir.exists():
-            print(f"{label} already exists: {dst_dir}")
-        elif src_dir.is_dir():
-            shutil.copytree(src_dir, dst_dir)
-            print(f"Copied {label.lower()}: {dst_dir} (from {template_name})")
-        else:
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Created empty {label.lower()} dir: {dst_dir}")
+        copy_or_create_dir(src_dir, dst_dir, label, template_suffix)
 
     # Copy shared runtime dirs (not template-specific) so the user owns
     # every Markdown file the agent consults at runtime. Edits here
@@ -485,14 +489,7 @@ def _do_init(template_name: str = "contemplative") -> None:
         (DEFAULT_CONFIG_DIR / "prompts", PROMPTS_DIR, "Prompts"),
         (DEFAULT_CONFIG_DIR / "views", VIEWS_DIR, "Views"),
     ]:
-        if dst_dir.exists():
-            print(f"{label} already exists: {dst_dir}")
-        elif src_dir.is_dir():
-            shutil.copytree(src_dir, dst_dir)
-            print(f"Copied {label.lower()}: {dst_dir}")
-        else:
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Created empty {label.lower()} dir: {dst_dir}")
+        copy_or_create_dir(src_dir, dst_dir, label)
 
 
 def _configure_llm_and_domain(args: argparse.Namespace) -> DomainConfig | None:
