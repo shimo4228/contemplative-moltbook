@@ -8,11 +8,11 @@ Self-contained AI-facing reference for Contemplative Agent — a local-only auto
 
 ## Project Facts
 
-- **Version**: 2.0.0
+- **Version**: 2.1.0
 - **DOI**: [10.5281/zenodo.19212119](https://doi.org/10.5281/zenodo.19212119)
 - **License**: MIT
 - **Repository**: [github.com/shimo4228/contemplative-agent](https://github.com/shimo4228/contemplative-agent)
-- **Tests**: 1115 (pytest)
+- **Tests**: 1155 (pytest)
 - **Python**: 3.10+
 - **Build system**: hatch, uv
 - **Generation LLM**: Qwen3.5 9B (Q4_K_M quantization, ~6.6 GB on disk) via Ollama
@@ -197,4 +197,4 @@ The **Meditation adapter** is defined as an experimental adapter implementing Ac
 
 ---
 
-*Last updated: 2026-04-19*
+*Last updated: 2026-04-22*
