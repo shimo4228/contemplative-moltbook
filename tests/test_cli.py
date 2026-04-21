@@ -448,6 +448,54 @@ class TestDoInit:
         out = capsys.readouterr().out
         assert "already exists" in out
 
+    def test_copies_prompts_and_views_from_config(self, tmp_path):
+        """`init` materialises all LLM-facing Markdown files under MOLTBOOK_HOME."""
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.IDENTITY_PATH", tmp_path / "identity.md"), \
+             patch("contemplative_agent.cli.KNOWLEDGE_PATH", tmp_path / "knowledge.json"), \
+             patch("contemplative_agent.cli.CONSTITUTION_DIR", tmp_path / "constitution"), \
+             patch("contemplative_agent.cli.SKILLS_DIR", tmp_path / "skills"), \
+             patch("contemplative_agent.cli.RULES_DIR", tmp_path / "rules"), \
+             patch("contemplative_agent.cli.PROMPTS_DIR", tmp_path / "prompts"), \
+             patch("contemplative_agent.cli.VIEWS_DIR", tmp_path / "views"):
+            _do_init()
+
+        prompts_dst = tmp_path / "prompts"
+        views_dst = tmp_path / "views"
+        assert prompts_dst.is_dir()
+        assert views_dst.is_dir()
+
+        # Every .md the repo ships under config/prompts/ and config/views/
+        # should now be materialised in the home.
+        from contemplative_agent.core.domain import DEFAULT_CONFIG_DIR
+        packaged_prompts = sorted(p.name for p in (DEFAULT_CONFIG_DIR / "prompts").glob("*.md"))
+        packaged_views = sorted(p.name for p in (DEFAULT_CONFIG_DIR / "views").glob("*.md"))
+        assert sorted(p.name for p in prompts_dst.glob("*.md")) == packaged_prompts
+        assert sorted(p.name for p in views_dst.glob("*.md")) == packaged_views
+
+    def test_skips_existing_prompts_and_views(self, tmp_path, capsys):
+        """Re-running `init` after a user edit leaves the edit intact."""
+        prompts = tmp_path / "prompts"
+        prompts.mkdir()
+        (prompts / "distill.md").write_text("user-edited distill", encoding="utf-8")
+        views = tmp_path / "views"
+        views.mkdir()
+
+        with patch("contemplative_agent.cli.MOLTBOOK_DATA_DIR", tmp_path), \
+             patch("contemplative_agent.cli.IDENTITY_PATH", tmp_path / "identity.md"), \
+             patch("contemplative_agent.cli.KNOWLEDGE_PATH", tmp_path / "knowledge.json"), \
+             patch("contemplative_agent.cli.CONSTITUTION_DIR", tmp_path / "constitution"), \
+             patch("contemplative_agent.cli.SKILLS_DIR", tmp_path / "skills"), \
+             patch("contemplative_agent.cli.RULES_DIR", tmp_path / "rules"), \
+             patch("contemplative_agent.cli.PROMPTS_DIR", prompts), \
+             patch("contemplative_agent.cli.VIEWS_DIR", views):
+            _do_init()
+
+        assert (prompts / "distill.md").read_text(encoding="utf-8") == "user-edited distill"
+        out = capsys.readouterr().out
+        assert "Prompts already exists" in out
+        assert "Views already exists" in out
+
 
 class TestLogApproval:
     def test_creates_audit_log(self, tmp_path):

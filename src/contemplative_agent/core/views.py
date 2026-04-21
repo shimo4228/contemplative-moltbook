@@ -215,8 +215,12 @@ class ViewRegistry:
 
         Returns the loaded views dict. Embedding of seed texts is
         deferred to first query (lazy) to avoid hitting Ollama during
-        cold imports.
+        cold imports. Seed content is validated against the same
+        forbidden-pattern list as identity.md — views are user-editable
+        after ``init`` copies them to ``$MOLTBOOK_HOME/views/``.
         """
+        from .llm import validate_identity_content
+
         self._views = {}
         self._centroids = {}
         self._loaded = True
@@ -227,6 +231,12 @@ class ViewRegistry:
                 view = _parse_seed_file(path, self._path_vars)
             except OSError as exc:
                 logger.warning("Failed to read view %s: %s", path, exc)
+                continue
+            if view.seed_text and not validate_identity_content(view.seed_text):
+                logger.warning(
+                    "View %s failed pattern validation; skipping",
+                    path.name,
+                )
                 continue
             self._views[view.name] = view
         return dict(self._views)

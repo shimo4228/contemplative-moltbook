@@ -82,9 +82,24 @@ def write_snapshot(
     views_dir: Path,
     constitution_dir: Path,
     snapshots_dir: Path,
+    prompts_dir: Optional[Path] = None,
+    skills_dir: Optional[Path] = None,
+    rules_dir: Optional[Path] = None,
+    identity_path: Optional[Path] = None,
     view_registry: Optional[ViewRegistry] = None,
 ) -> Optional[Path]:
     """Write a pivot snapshot for the given command.
+
+    Captures the full inference-time lens so a distill run can be
+    replayed later with bit-identical system-prompt content (LLM
+    stochasticity aside):
+
+    - Classification layer: views, constitution, thresholds, centroids
+    - Extraction layer: prompts, skills, rules, identity
+
+    ``prompts_dir`` / ``skills_dir`` / ``rules_dir`` / ``identity_path``
+    are optional for backward compatibility with older callers — a
+    missing path just skips that subdir in the snapshot.
 
     Returns the snapshot directory on success, ``None`` on any failure.
     Snapshots are observability — callers must not rely on snapshot
@@ -101,6 +116,14 @@ def write_snapshot(
     try:
         _copy_markdown_tree(views_dir, snap_dir / "views")
         _copy_markdown_tree(constitution_dir, snap_dir / "constitution")
+        if prompts_dir is not None:
+            _copy_markdown_tree(prompts_dir, snap_dir / "prompts")
+        if skills_dir is not None:
+            _copy_markdown_tree(skills_dir, snap_dir / "skills")
+        if rules_dir is not None:
+            _copy_markdown_tree(rules_dir, snap_dir / "rules")
+        if identity_path is not None and identity_path.is_file():
+            shutil.copy2(identity_path, snap_dir / "identity.md")
 
         centroids: Dict[str, np.ndarray] = {}
         view_names: List[str] = []
@@ -122,6 +145,10 @@ def write_snapshot(
             "views": view_names,
             "views_dir": str(views_dir),
             "constitution_dir": str(constitution_dir),
+            "prompts_dir": str(prompts_dir) if prompts_dir is not None else None,
+            "skills_dir": str(skills_dir) if skills_dir is not None else None,
+            "rules_dir": str(rules_dir) if rules_dir is not None else None,
+            "identity_path": str(identity_path) if identity_path is not None else None,
         }
         (snap_dir / "manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",

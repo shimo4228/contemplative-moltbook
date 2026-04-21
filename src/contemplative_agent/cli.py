@@ -29,6 +29,7 @@ from .adapters.moltbook.config import (
     KNOWLEDGE_PATH,
     MEDITATION_DIR,
     MOLTBOOK_DATA_DIR,
+    PROMPTS_DIR,
     REPORTS_DIR,
     RULES_DIR,
     SKILLS_DIR,
@@ -472,6 +473,23 @@ def _do_init(template_name: str = "contemplative") -> None:
         elif src_dir.is_dir():
             shutil.copytree(src_dir, dst_dir)
             print(f"Copied {label.lower()}: {dst_dir} (from {template_name})")
+        else:
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Created empty {label.lower()} dir: {dst_dir}")
+
+    # Copy shared runtime dirs (not template-specific) so the user owns
+    # every Markdown file the agent consults at runtime. Edits here
+    # surface via git-diff against config/ and are captured in pivot
+    # snapshots for replayability.
+    for src_dir, dst_dir, label in [
+        (DEFAULT_CONFIG_DIR / "prompts", PROMPTS_DIR, "Prompts"),
+        (DEFAULT_CONFIG_DIR / "views", VIEWS_DIR, "Views"),
+    ]:
+        if dst_dir.exists():
+            print(f"{label} already exists: {dst_dir}")
+        elif src_dir.is_dir():
+            shutil.copytree(src_dir, dst_dir)
+            print(f"Copied {label.lower()}: {dst_dir}")
         else:
             dst_dir.mkdir(parents=True, exist_ok=True)
             print(f"Created empty {label.lower()} dir: {dst_dir}")
@@ -1121,6 +1139,10 @@ def _take_snapshot(
         views_dir=_resolve_views_dir(),
         constitution_dir=getattr(args, "constitution_dir", None) or CONSTITUTION_DIR,
         snapshots_dir=SNAPSHOTS_DIR,
+        prompts_dir=PROMPTS_DIR if PROMPTS_DIR.is_dir() else None,
+        skills_dir=SKILLS_DIR if SKILLS_DIR.is_dir() else None,
+        rules_dir=RULES_DIR if RULES_DIR.is_dir() else None,
+        identity_path=IDENTITY_PATH if IDENTITY_PATH.is_file() else None,
         view_registry=view_registry,
     )
 

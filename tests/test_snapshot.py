@@ -179,6 +179,68 @@ class TestWriteSnapshot:
         manifest = json.loads((path / "manifest.json").read_text())
         assert manifest["views"] == []
 
+    def test_captures_extraction_layer(self, layout, view_registry, tmp_path):
+        """Snapshot includes prompts / skills / rules / identity so the
+        complete inference-time system prompt can be reconstructed."""
+        prompts_dir = tmp_path / "prompts"
+        prompts_dir.mkdir()
+        (prompts_dir / "distill.md").write_text("distill prompt content", encoding="utf-8")
+
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "inquiry.md").write_text("skill content", encoding="utf-8")
+
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        (rules_dir / "hold-lightly.md").write_text("rule content", encoding="utf-8")
+
+        identity_path = tmp_path / "identity.md"
+        identity_path.write_text("identity content", encoding="utf-8")
+
+        path = write_snapshot(
+            command="distill",
+            views_dir=layout["views"],
+            constitution_dir=layout["constitution"],
+            snapshots_dir=layout["snapshots"],
+            prompts_dir=prompts_dir,
+            skills_dir=skills_dir,
+            rules_dir=rules_dir,
+            identity_path=identity_path,
+            view_registry=view_registry,
+        )
+        assert path is not None
+        assert (path / "prompts" / "distill.md").read_text(encoding="utf-8") == "distill prompt content"
+        assert (path / "skills" / "inquiry.md").read_text(encoding="utf-8") == "skill content"
+        assert (path / "rules" / "hold-lightly.md").read_text(encoding="utf-8") == "rule content"
+        assert (path / "identity.md").read_text(encoding="utf-8") == "identity content"
+        manifest = json.loads((path / "manifest.json").read_text())
+        assert manifest["prompts_dir"] == str(prompts_dir)
+        assert manifest["skills_dir"] == str(skills_dir)
+        assert manifest["rules_dir"] == str(rules_dir)
+        assert manifest["identity_path"] == str(identity_path)
+
+    def test_extraction_layer_optional_for_backward_compat(self, layout, view_registry):
+        """Omitting the extraction-layer args leaves the snapshot exactly
+        as it was before this expansion — no skills/rules/prompts/identity
+        entries appear, manifest records None for each."""
+        path = write_snapshot(
+            command="distill",
+            views_dir=layout["views"],
+            constitution_dir=layout["constitution"],
+            snapshots_dir=layout["snapshots"],
+            view_registry=view_registry,
+        )
+        assert path is not None
+        assert not (path / "prompts").exists()
+        assert not (path / "skills").exists()
+        assert not (path / "rules").exists()
+        assert not (path / "identity.md").exists()
+        manifest = json.loads((path / "manifest.json").read_text())
+        assert manifest["prompts_dir"] is None
+        assert manifest["skills_dir"] is None
+        assert manifest["rules_dir"] is None
+        assert manifest["identity_path"] is None
+
     def test_continues_on_unwritable_snapshots_dir(self, tmp_path):
         unwritable = tmp_path / "ro" / "snapshots"
         unwritable.parent.mkdir()

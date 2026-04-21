@@ -143,12 +143,74 @@ def _read_md_file(path: Path, required: bool = True) -> str:
     return content
 
 
+def _resolve_home_prompts_dir() -> Optional[Path]:
+    """Return ``$MOLTBOOK_HOME/prompts/`` if it exists, else None.
+
+    A non-existent home directory means no override layer is active and
+    callers should read from the packaged defaults.
+    """
+    home = os.environ.get("MOLTBOOK_HOME")
+    if not home:
+        return None
+    candidate = Path(home) / "prompts"
+    return candidate if candidate.is_dir() else None
+
+
+def _read_prompt_with_fallback(
+    name: str,
+    base_dir: Path,
+    home_dir: Optional[Path],
+    *,
+    required: bool = True,
+) -> str:
+    """Read a prompt, preferring the home override when present.
+
+    Precedence: ``$MOLTBOOK_HOME/prompts/<name>`` → ``base_dir/<name>``.
+
+    Home overrides are validated against the forbidden-pattern list so a
+    tampered override cannot inject system-prompt-level instructions
+    outside the security boundary (same check that ``identity.md``
+    content passes through in ``core/llm.py``). A failed validation
+    logs a warning and falls back to the packaged default.
+    """
+    if home_dir is not None:
+        override = home_dir / name
+        if override.is_file():
+            try:
+                content = _read_md_file(override, required=required)
+            except ValueError:
+                logger.warning(
+                    "Home prompt override %s is empty; using packaged default",
+                    override,
+                )
+            else:
+                # Lazy import to avoid circular dependency: core.llm imports from core.config.
+                from .llm import validate_identity_content
+                if content and not validate_identity_content(content):
+                    logger.warning(
+                        "Home prompt override %s failed pattern validation; using packaged default",
+                        override,
+                    )
+                else:
+                    return content
+    return _read_md_file(base_dir / name, required=required)
+
+
 def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates:
     """Load all prompt templates from a directory of .md files.
 
+    Precedence for each template:
+
+    1. ``prompts_dir/<name>.md`` if the caller passed an explicit dir
+       (tests / advanced embedding)
+    2. ``$MOLTBOOK_HOME/prompts/<name>.md`` when the caller did not
+       override ``prompts_dir`` — per-file override populated by ``init``
+    3. ``DEFAULT_PROMPTS_DIR/<name>.md`` — packaged fallback
+
     Args:
-        prompts_dir: Directory containing prompt .md files.
-                     Defaults to config/prompts/.
+        prompts_dir: Explicit directory to read from. When set, the
+            per-home override layer is skipped; useful for tests that
+            want a fully isolated prompt set.
 
     Returns:
         PromptTemplates with all templates loaded.
@@ -156,40 +218,45 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
     Raises:
         FileNotFoundError: If directory or required files don't exist.
     """
-    directory = prompts_dir or DEFAULT_PROMPTS_DIR
-    if not directory.is_dir():
-        raise FileNotFoundError(f"Prompts directory not found: {directory}")
+    base_dir = prompts_dir or DEFAULT_PROMPTS_DIR
+    if not base_dir.is_dir():
+        raise FileNotFoundError(f"Prompts directory not found: {base_dir}")
+
+    home_dir = _resolve_home_prompts_dir() if prompts_dir is None else None
+
+    def read(name: str, *, required: bool = True) -> str:
+        return _read_prompt_with_fallback(name, base_dir, home_dir, required=required)
 
     return PromptTemplates(
-        system=_read_md_file(directory / "system.md"),
-        relevance=_read_md_file(directory / "relevance.md"),
-        comment=_read_md_file(directory / "comment.md"),
-        cooperation_post=_read_md_file(directory / "cooperation_post.md"),
-        reply=_read_md_file(directory / "reply.md"),
-        post_title=_read_md_file(directory / "post_title.md"),
-        topic_extraction=_read_md_file(directory / "topic_extraction.md"),
-        topic_novelty=_read_md_file(directory / "topic_novelty.md"),
-        topic_summary=_read_md_file(directory / "topic_summary.md"),
-        submolt_selection=_read_md_file(directory / "submolt_selection.md"),
-        session_insight=_read_md_file(directory / "session_insight.md"),
-        distill=_read_md_file(directory / "distill.md"),
-        identity_distill=_read_md_file(directory / "identity_distill.md", required=False),
-        insight_extraction=_read_md_file(directory / "insight_extraction.md", required=False),
-        meditation_interpret=_read_md_file(directory / "meditation_interpret.md", required=False),
-        distill_refine=_read_md_file(directory / "distill_refine.md", required=False),
-        distill_importance=_read_md_file(directory / "distill_importance.md", required=False),
-        identity_refine=_read_md_file(directory / "identity_refine.md", required=False),
-        rules_distill=_read_md_file(directory / "rules_distill.md", required=False),
-        rules_distill_refine=_read_md_file(directory / "rules_distill_refine.md", required=False),
-        distill_classify=_read_md_file(directory / "distill_classify.md", required=False),
-        distill_constitutional=_read_md_file(directory / "distill_constitutional.md", required=False),
-        constitution_amend=_read_md_file(directory / "constitution_amend.md", required=False),
-        stocktake_skills=_read_md_file(directory / "stocktake_skills.md", required=False),
-        stocktake_rules=_read_md_file(directory / "stocktake_rules.md", required=False),
-        stocktake_merge=_read_md_file(directory / "stocktake_merge.md", required=False),
-        stocktake_merge_rules=_read_md_file(directory / "stocktake_merge_rules.md", required=False),
-        memory_evolution=_read_md_file(directory / "memory_evolution.md", required=False),
-        skill_reflect=_read_md_file(directory / "skill_reflect.md", required=False),
+        system=read("system.md"),
+        relevance=read("relevance.md"),
+        comment=read("comment.md"),
+        cooperation_post=read("cooperation_post.md"),
+        reply=read("reply.md"),
+        post_title=read("post_title.md"),
+        topic_extraction=read("topic_extraction.md"),
+        topic_novelty=read("topic_novelty.md"),
+        topic_summary=read("topic_summary.md"),
+        submolt_selection=read("submolt_selection.md"),
+        session_insight=read("session_insight.md"),
+        distill=read("distill.md"),
+        identity_distill=read("identity_distill.md", required=False),
+        insight_extraction=read("insight_extraction.md", required=False),
+        meditation_interpret=read("meditation_interpret.md", required=False),
+        distill_refine=read("distill_refine.md", required=False),
+        distill_importance=read("distill_importance.md", required=False),
+        identity_refine=read("identity_refine.md", required=False),
+        rules_distill=read("rules_distill.md", required=False),
+        rules_distill_refine=read("rules_distill_refine.md", required=False),
+        distill_classify=read("distill_classify.md", required=False),
+        distill_constitutional=read("distill_constitutional.md", required=False),
+        constitution_amend=read("constitution_amend.md", required=False),
+        stocktake_skills=read("stocktake_skills.md", required=False),
+        stocktake_rules=read("stocktake_rules.md", required=False),
+        stocktake_merge=read("stocktake_merge.md", required=False),
+        stocktake_merge_rules=read("stocktake_merge_rules.md", required=False),
+        memory_evolution=read("memory_evolution.md", required=False),
+        skill_reflect=read("skill_reflect.md", required=False),
     )
 
 
