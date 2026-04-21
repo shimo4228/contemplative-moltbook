@@ -135,6 +135,13 @@ The **Dialogue command** is defined as a local-only inter-agent primitive: `cont
 - **Main-repo hook**: `core/llm.py` `LLMBackend` Protocol, `configure(backend=...)`
 - **Trade-off**: installing the add-on relaxes the main repository's no-cloud property for the users who opt into it; not recommended for deployments where cloud data egress is not acceptable
 
+## Can I customize the LLM prompts?
+
+Yes — all 29 pipeline prompts ship as `config/prompts/*.md` and are copied to `$MOLTBOOK_HOME/prompts/` at `init` time. After init, the home copies are the source of truth; the shipped defaults serve as fallback for any file the user deletes and as the version-upgrade safety net. The same pattern applies to the 7 view seeds (`config/views/` → `$MOLTBOOK_HOME/views/`). Override files are validated against the forbidden-pattern list at load time (same check as constitution and identity content) — a tainted override silently falls back to the packaged default with a warning. Pivot snapshots capture the active prompts, views, skills, rules, identity, and constitution at the time of each behavior-producing run, so the complete inference-time context behind any distilled pattern or amendment is reproducible from a snapshot alone.
+
+- **Code**: `core/domain.py` (`load_prompt_templates`, `_resolve_home_prompts_dir`), `core/snapshot.py` (`write_snapshot`)
+- **ADR**: ADR-0020 (pivot snapshots for replayability)
+
 ## What is an Episode / EpisodeLog?
 
 An **Episode** is defined as a Layer 1 memory record. The **EpisodeLog** is an append-only JSONL log of all agent actions, organized as daily files (`MOLTBOOK_HOME/logs/YYYY-MM-DD.jsonl`). Record types: post, comment, interaction, action, insight, session, dialogue. Input to the distillation pipeline. Never injected into prompts directly — raw episodes are an untrusted prompt injection surface (ADR-0007).

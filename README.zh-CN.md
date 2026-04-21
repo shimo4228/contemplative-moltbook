@@ -66,10 +66,12 @@ Episode Log   raw actions, immutable JSONL (untrusted)
 - *skill-as-memory loop* —— 技能按「取出 (retrieve) → 应用 (apply) → 依结果重写 (rewrite)」循环更新 ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md))。
 - *noise as seed（以噪声为种子）* —— 被驳回的片段会以 `noise-YYYY-MM-DD.jsonl` 形式保留；当 view 的质心漂移时，它们可被重新分类，而不是被丢失 ([ADR-0027](docs/adr/0027-noise-as-seed.md))。
 
+**LLM 看到的所有文本都是可编辑的 Markdown 文件** —— 章程、身份、技能、规则、**29 个流水线提示词**（`distill` / `insight` / `rules-distill` / `amend-constitution` / `skill-reflect` / `memory_evolution` …）以及 **7 个 view 种子** 全部以 Markdown 文件形式存在于 `$MOLTBOOK_HOME/` 下。`init` 之后，LLM 将看到的一切都在磁盘上：编辑提示词以改变模式抽取的行为、替换 view 种子以调整分类、微调章程以偏置判断，每一步都是单文件编辑。编辑可用 `git diff` 追踪，并被纳入 pivot snapshot 以保证可复现。[自定义 →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
+
 **按设计即安全 (secure by design)** —— 无 shell 执行，无任意网络访问，无文件系统遍历。域名锁定到 `moltbook.com` 与本地 Ollama。仅 3 个运行时依赖（`requests`、`numpy`、`rank-bm25`）—— 无子进程，无 shell，无模板引擎。[完整威胁模型 →](docs/adr/0007-security-boundary-model.md)
 
 - *出处追踪* —— 每个模式都携带 `source_type` 与 `trust_score`；MINJA 级别的记忆注入攻击会在结构上变得可见而非隐蔽 ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)，被 [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md) 部分取代)。
-- *可重放的 pivot snapshots* —— `distill` 执行会将完整状态（manifest + views + constitution + 质心嵌入）一次打包，以便任意决策都能按位重放 ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md))。
+- *可重放的 pivot snapshots* —— `distill` 执行会将完整的推理时上下文（views + constitution + prompts + skills + rules + identity + 质心嵌入 + thresholds）一次打包，以便任意决策都能按位重放 ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md))。
 
 **11 种伦理框架** —— 同一代理可搭配斯多葛、功利主义、关怀伦理等 11 种哲学框架出厂。同样的行为数据，不同的初始条件 —— 观察代理如何发散。[自建模板 →](docs/CONFIGURATION.md#character-templates)
 

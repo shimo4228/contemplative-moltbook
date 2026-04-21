@@ -66,10 +66,12 @@ Language: [English](README.md) | 日本語 | [简体中文](README.zh-CN.md) | [
 - *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
 - *ノイズを種子として (noise as seed)* — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持される。view 重心が変わったとき、失われずに**再分類の候補**として利用できる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
 
+**LLM が触れるテキストはすべて編集可能な Markdown ファイル** -- 憲法、アイデンティティ、スキル、ルール、**29 のパイプラインプロンプト** (`distill` / `insight` / `rules-distill` / `amend-constitution` / `skill-reflect` / `memory_evolution` …)、**7 つの view シード** が全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。`init` 後は LLM が見るテキストが全部ディスク上に揃う — プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす、憲法を調整して判断にバイアスを入れる、といった操作が single-file edit で済む。編集は `git diff` で追えるし、pivot snapshot に取り込まれて再現性も保たれる。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
+
 **設計による安全 (secure by design)** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は 3 パッケージ（`requests`、`numpy`、`rank-bm25`）— サブプロセスなし、シェルなし、テンプレートエンジンなし。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.ja.md)
 
 - *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、[ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.ja.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.ja.md) で partially superseded）。
-- *再現可能な基準点スナップショット (pivot snapshots)* — 蒸留の実行時に manifest + view + 憲法 + 重心埋め込みを一括保存し、任意の蒸留を bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)）。
+- *再現可能な基準点スナップショット (pivot snapshots)* — 蒸留の実行時に推論時の全コンテキスト（views + constitution + prompts + skills + rules + identity + centroid 埋め込み + thresholds）を一括保存し、任意の蒸留を bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)）。
 
 **11種の倫理フレームワーク** -- ストア哲学、功利主義、ケアの倫理など11種のテンプレート同梱。同じ行動データ、異なる初期条件 — エージェントがどう分岐するかを観察。[独自テンプレートの作成 →](docs/CONFIGURATION.ja.md#キャラクターテンプレート)
 

@@ -2,6 +2,8 @@
 
 Detailed configuration reference for the Contemplative Agent. For quick start and overview, see [README.md](../README.md).
 
+> Everything the LLM sees — constitution, identity, skills, rules, 29 pipeline prompts, 7 view seeds — lives as Markdown under `$MOLTBOOK_HOME/`, editable per run.
+
 ## Table of Contents
 
 - [CLI Commands](#cli-commands)
@@ -250,6 +252,72 @@ bash integrations/codex/install.sh         # Codex: appends to AGENTS.md
 ```
 
 See [integrations/README.md](../integrations/README.md) for the full workflow and security notes.
+
+---
+
+## Pipeline Prompts & View Seeds
+
+Every LLM interaction the agent makes is defined in a Markdown file. After `init`, `MOLTBOOK_HOME/` contains **every text the LLM will see** — the constitution, identity, skills, rules, 29 pipeline prompts, and 7 view seeds. Edit any file to change behavior; changes are visible to `git diff` against the shipped defaults and captured in pivot snapshots.
+
+### Pipeline prompts
+
+Location: `MOLTBOOK_HOME/prompts/*.md` (default: `~/.config/moltbook/prompts/`)
+
+29 files, one per pipeline stage. The main ones:
+
+| File | Drives |
+|------|--------|
+| `distill.md` | Pattern extraction from episode logs (2-stage with `distill_refine.md`) |
+| `distill_classify.md` | Noise / constitutional / uncategorized classification |
+| `distill_importance.md` | Importance score (0–1) per pattern |
+| `distill_constitutional.md` | Constitutional-pattern extraction on the constitutional stream |
+| `insight_extraction.md` | Skill extraction from uncategorized patterns |
+| `rules_distill.md` | Rule distillation from accumulated skills (2-stage with `rules_distill_refine.md`) |
+| `identity_distill.md` | Identity update from knowledge (2-stage with `identity_refine.md`) |
+| `constitution_amend.md` | Constitution amendment proposals |
+| `skill_reflect.md` | Skill revision based on outcome logs (ADR-0023) |
+| `memory_evolution.md` | Re-interpretation of topically-related older patterns (ADR-0022) |
+| `stocktake_skills.md` / `rules.md` / `merge.md` / `merge_rules.md` | Duplicate detection and merge for skills / rules |
+| `system.md` | Base system prompt (credentials-safety note — edit with care) |
+| `relevance.md` / `comment.md` / `reply.md` / `cooperation_post.md` / `post_title.md` / ... | Moltbook adapter actions (comment scoring, reply text, post generation) |
+
+**Editing model:** Copied from `config/prompts/` at `init`; after that your home copies are the source of truth. If you delete a file, the loader falls back to the packaged default — useful after a version upgrade introduces new prompts to an existing home. Edits pass the same forbidden-pattern validation that identity content does; a tainted override silently falls back to the packaged default with a warning.
+
+### View seeds
+
+Location: `MOLTBOOK_HOME/views/*.md` (default: `~/.config/moltbook/views/`)
+
+7 files, one per semantic category. Each view seed is a short block of text whose embedding becomes the centroid for that view. Episodes are classified by cosine similarity to these centroids.
+
+- **Default:** copied from `config/views/` at `init`
+- **Edit:** update the seed text; recomputed on next run (centroid is cached per process)
+- **Add your own:** drop a new `<name>.md` with frontmatter specifying `threshold`, `top_k`, `bm25_weight`, optional `seed_from`
+- **Remove:** delete a view file to retire its category; existing patterns tagged with that view are retained but new episodes will never be classified into it
+
+Frontmatter example:
+
+```markdown
+---
+threshold: 0.62
+top_k: 40
+bm25_weight: 0.3
+---
+Seed text describing the semantic centroid...
+```
+
+### Audit trail
+
+After any behavior-producing command (`distill`, `distill-identity`, `insight`, `rules-distill`, `amend-constitution`), a pivot snapshot is written to `MOLTBOOK_HOME/snapshots/<command>_<timestamp>/` containing:
+
+- `views/`, `constitution/`, `prompts/`, `skills/`, `rules/`, `identity.md` — full inference-time context
+- `centroids.npz` — view centroid embeddings at that moment
+- `manifest.json` — thresholds, embedding model, timestamp, source paths
+
+This means every pattern or amendment is reproducible from its snapshot alone. To audit what changed since a prior run:
+
+```bash
+diff -r MOLTBOOK_HOME/snapshots/distill_OLD/prompts/ MOLTBOOK_HOME/prompts/
+```
 
 ---
 

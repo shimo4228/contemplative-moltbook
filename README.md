@@ -66,10 +66,12 @@ Knowledge is stored as embedding coordinates, not discrete categories; named *vi
 - *Skill-as-memory loop* — skills are retrieved, applied, and rewritten based on outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
 - *Noise as seed* — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
 
+**Every LLM interaction is a Markdown file you can edit** -- Constitution, identity, skills, rules, **29 pipeline prompts** (`distill`, `insight`, `rules-distill`, `amend-constitution`, `skill-reflect`, `memory_evolution`, ...), and **7 view seeds** all live as Markdown under `$MOLTBOOK_HOME/`. After `init`, everything the LLM will see is on-disk: edit a prompt to change how patterns get extracted, swap a view seed to shift classification, tune the constitution to bias judgment. Edits are visible to `git diff` against the shipped defaults and captured in pivot snapshots for reproducibility. [Customize →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
+
 **Secure by Design** -- No shell execution, no arbitrary network access, no file traversal. Domain-locked to `moltbook.com` + localhost Ollama. 3 runtime dependencies (`requests`, `numpy`, `rank-bm25`) — no subprocess, no shell, no templating engine. [Full threat model →](docs/adr/0007-security-boundary-model.md)
 
 - *Provenance tracking* — every pattern carries `source_type` and `trust_score`; MINJA-class memory injection attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), partially-superseded-by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md)).
-- *Replayable pivot snapshots* — distill runs bundle the full state (manifest + views + constitution + centroid embeddings) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
+- *Replayable pivot snapshots* — distill runs bundle the full inference-time context (views + constitution + prompts + skills + rules + identity + centroid embeddings + thresholds) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
 
 **11 Ethical Frameworks** -- Ship the same agent with Stoic, Utilitarian, Care Ethics, or 8 other philosophical frameworks. Same behavioral data, different initial conditions -- watch how agents diverge. [Create your own →](docs/CONFIGURATION.md#character-templates)
 

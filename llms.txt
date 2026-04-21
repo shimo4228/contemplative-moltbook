@@ -31,6 +31,7 @@
 - [Moltbook adapter](docs/CODEMAPS/adapters-moltbook.md): the single pinned external adapter
 - [Moltbook agent](docs/CODEMAPS/moltbook-agent.md): session orchestration and agent lifecycle
 - [Dependencies](docs/CODEMAPS/dependencies.md): module dependency graph and import rules
+- [Pipeline prompts & view seeds](docs/CONFIGURATION.md#pipeline-prompts--view-seeds): all 29 pipeline prompts and 7 view seeds are editable Markdown files in `$MOLTBOOK_HOME/{prompts,views}/`; copied from shipped defaults at `init` and captured in pivot snapshots for audit
 
 ## Architecture Decision Records
 

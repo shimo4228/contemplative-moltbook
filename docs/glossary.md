@@ -91,6 +91,9 @@ AKC updates.
 | cloud add-on | cloud add-on | cloud add-on | cloud add-on | cloud add-on | cloud add-on | ✓ |
 | opt-in | opt-in | opt-in | opt-in | opt-in | opt-in | ✓ |
 | backend (LLM) | バックエンド | 后端 | 後端 | backend | backend | partial |
+| pipeline prompt | パイプラインプロンプト | 流水线提示词 | 管線提示詞 | prompt da pipeline | prompt del pipeline | |
+| view seed | view シード | view 种子 | view 種子 | seed de view | seed de view | partial |
+| pivot snapshot | pivot snapshot | pivot snapshot | pivot snapshot | pivot snapshot | pivot snapshot | ✓ |
 
 ## Project-coined phrases (Keep original)
 
@@ -150,7 +153,8 @@ Always in English: `source_type`, `trust_score`, `valid_from`,
 `noise-YYYY-MM-DD.jsonl`, `rank-bm25`, `numpy`, `requests`, `Q4_K_M`,
 `cosine + BM25`, `LLMBackend`, `AnthropicBackend`, `OpenAIBackend`,
 `CONTEMPLATIVE_CLOUD_PROVIDER`, `CONTEMPLATIVE_CLOUD_MODEL`,
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`$MOLTBOOK_HOME/prompts/`, `$MOLTBOOK_HOME/views/`, `snapshots/`.
 
 ## Notes on choices
 
