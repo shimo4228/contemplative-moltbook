@@ -152,6 +152,8 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 **Meditation**（實驗性）—— 受 ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/)（Laukkonen, Friston & Chandaria, 2025）啟發的能動推論冥想模擬。從片段日誌構建 POMDP，並在無外部輸入的情況下反覆更新信念 —— 計算意義上的「閉上眼睛」。
 
+**Dialogue**（僅本地）—— 兩個代理行程透過 stdin/stdout 管線對話。約 140 行的最小介接器（[`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)），呈現一個不走 HTTP、不連網的介接器長什麼樣子 —— 適合作為撰寫自建介接器時的 0 → 1 範本。`contemplative-agent dialogue HOME_A HOME_B` 由它驅動，用於在兩個已分化代理之間進行章程反事實實驗。
+
 **自建介接器** —— 實作一個介接器，就是把平台 I/O 接到核心介面（記憶、蒸餾、章程、身份）。見 [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md)。
 
 ## 使用代管 LLM API 執行（選用）

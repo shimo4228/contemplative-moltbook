@@ -152,6 +152,8 @@ El núcleo es independiente de la plataforma. Los adaptadores son envoltorios fi
 
 **Meditation** (experimental) — Simulación de meditación basada en inferencia activa, inspirada en ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/) (Laukkonen, Friston & Chandaria, 2025). Construye un POMDP a partir de los registros de episodios y actualiza creencias sin entrada externa — el equivalente computacional de cerrar los ojos.
 
+**Dialogue** (solo local) — Dos procesos de agente conversan a través de pipes stdin/stdout. Un adaptador mínimo de unas 140 líneas ([`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)) que muestra cómo es un adaptador sin HTTP ni red — útil como plantilla 0 → 1 al escribir el tuyo. Impulsa `contemplative-agent dialogue HOME_A HOME_B` para experimentos contrafactuales constitucionales entre dos agentes divergentes.
+
 **El tuyo** — Implementar un adaptador consiste en conectar la E/S de la plataforma a las interfaces del núcleo (memoria, destilación, constitución, identidad). Véase [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
 
 ## Ejecutar con APIs de LLM gestionadas (opcional)

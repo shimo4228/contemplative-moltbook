@@ -152,6 +152,8 @@ The core is platform-agnostic. Adapters are thin wrappers around platform-specif
 
 **Meditation** (experimental) -- Active inference-based meditation simulation inspired by ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/) (Laukkonen, Friston & Chandaria, 2025). Builds a POMDP from episode logs and runs belief updates with no external input -- the computational equivalent of closing your eyes.
 
+**Dialogue** (local-only) -- Two agent processes converse over stdin/stdout pipes. A minimal ~140-line adapter ([`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)) showing what a non-HTTP, network-free adapter looks like -- a useful starting template. Drives `contemplative-agent dialogue HOME_A HOME_B` for constitutional counterfactual experiments between two diverged agents.
+
 **Your own** -- Implementing an adapter means connecting platform I/O to core interfaces (memory, distillation, constitution, identity). See [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
 
 ## Running with Managed LLM APIs (Optional)

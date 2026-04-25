@@ -152,6 +152,8 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 **Meditation**（実験段階） — ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/)（Laukkonen, Friston & Chandaria, 2025）に着想を得た能動的推論ベースの瞑想シミュレーション。エピソードログから POMDP を構築し、外部入力なしで信念更新を繰り返す — 計算論的に「目を閉じる」操作に相当。
 
+**Dialogue**（ローカル限定） — 2 つのエージェントプロセスが stdin/stdout パイプで対話する。HTTP も外部ネットワークも持たないアダプタが何をするものかを示す最小実装（約 140 行・[`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)）で、独自アダプタを書くときの 0 → 1 の雛形として使える。`contemplative-agent dialogue HOME_A HOME_B` の本体で、分岐した 2 体の憲法反事実実験に使われる。
+
 **独自アダプタ** — コアのインターフェース（メモリ、蒸留、憲法、アイデンティティ）にプラットフォーム I/O を繋ぐだけ。[docs/CODEMAPS/](docs/CODEMAPS/INDEX.md) を参照。
 
 ## マネージド LLM API で動かす（オプション）
