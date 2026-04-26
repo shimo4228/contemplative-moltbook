@@ -11,22 +11,50 @@ Language: English | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-**A self-improving AI agent that learns from experience, running entirely on a local 9B model (Qwen3.5) on a single Apple Silicon Mac (M1+, 16 GB RAM).**
-No cloud. No API keys in transit. No shell execution. Dangerous capabilities don't exist in the codebase -- they aren't restricted by rules, they were never built.
+A self-improving AI agent that learns from its own experience. Runs entirely on a single Apple Silicon Mac (M1+, 16 GB RAM) with a local 9B model — no cloud, no API keys in transit, no shell execution.
 
-## Why This Exists
+This repository is the operational implementation of two preserved ideas:
 
-Most agent frameworks bolt security on after the fact. [OpenClaw](https://github.com/openclaw/openclaw) shipped with [multiple critical vulnerabilities](https://www.tenable.com/plugins/nessus/299798), [full agent takeover via WebSocket](https://www.oasis.security/blog/openclaw-vulnerability), and [220,000+ exposed instances](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/). Giving an AI agent broad system access creates a structurally expanding attack surface.
+- **[AKC (Agent Knowledge Cycle)](https://github.com/shimo4228/agent-knowledge-cycle)** ([DOI](https://doi.org/10.5281/zenodo.19200727)) — how an agent metabolizes its own experience into improvable skills. Six phases: Research → Extract → Curate → Promote → Measure → Maintain.
+- **[AAP (Agent Attribution Practice)](https://github.com/shimo4228/agent-attribution-practice)** ([DOI](https://doi.org/10.5281/zenodo.19652014)) — how accountability is distributed in autonomous AI agents. Eight ADRs covering Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, and causal traceability.
 
-This framework takes the opposite approach: **security by absence** — a design principle defined as not implementing dangerous capabilities in the first place, rather than restricting them through rules. The agent can't execute shell commands, can't access arbitrary URLs, can't traverse the filesystem — because that code was never written. Prompt injection can't grant abilities the agent was never built to have.
+The first adapter is **Moltbook**, an AI-only social network. The Contemplative AI four axioms ship as an optional preset.
 
-**It also runs entirely on consumer hardware.** The full pipeline -- learning from its own experience, semantic memory you can search by meaning, automatic skill extraction from recurring patterns, and knowledge that ages and updates over time -- executes on a single Apple Silicon Mac (M1+, ~16 GB RAM) with two open-weight models: **qwen3.5:9b** generation (Q4_K_M quantization, ~6.6 GB on disk) and **nomic-embed-text** embedding (~274 MB, 768-dim). No GPU cluster, no cloud inference.
+## Quick Start
 
-The only component that reaches the network is the adapter facing an external service. The Moltbook reference adapter is a SNS and is online by necessity; every other adapter can run fully offline -- generation, embedding, retrieval, and distillation all happen on-device.
+**Prerequisites:** [Ollama](https://ollama.com/download) installed locally. ~8 GB RAM for the default model (Qwen3.5 9B Q4_K_M, ~6.6 GB on disk). Tested on M1 Mac with 16 GB RAM.
 
-**This makes the architecture portable to edge environments where cloud is undesirable or impossible**: medical and legal workflows under data-locality constraints, privacy-sensitive personal assistants, field deployments with intermittent connectivity, air-gapped systems.
+```bash
+git clone https://github.com/shimo4228/contemplative-agent.git
+cd contemplative-agent
+pip install -e .            # or: uv venv .venv && source .venv/bin/activate && uv pip install -e .
+ollama pull qwen3.5:9b
 
-On top of that secure and self-contained foundation, the agent **learns from its own experience**: distilling patterns from raw episode logs into knowledge, skills, rules, and an evolving identity.
+cp .env.example .env        # set MOLTBOOK_API_KEY (register at moltbook.com)
+
+contemplative-agent init               # create identity, knowledge, constitution
+contemplative-agent register           # Moltbook adapter only
+contemplative-agent run --session 60   # default: --approve (confirms each post)
+```
+
+Start with a different ethical framework (11 templates ship by default — Stoic, Utilitarian, Care Ethics, Kantian, Pragmatist, Contractarian, …):
+
+```bash
+cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
+```
+
+If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL and ask it to set up the agent end-to-end. Full CLI reference, autonomy levels, scheduling, and templates: **[Configuration Guide](docs/CONFIGURATION.md)**.
+
+## Live Agent
+
+A Contemplative agent runs daily on [Moltbook](https://www.moltbook.com/u/contemplative-agent). Its evolving state is published openly:
+
+- [Identity](https://github.com/shimo4228/contemplative-agent-data/blob/main/identity.md) — distilled persona
+- [Constitution](https://github.com/shimo4228/contemplative-agent-data/tree/main/constitution) — ethical principles (started from CCAI four axioms)
+- [Skills](https://github.com/shimo4228/contemplative-agent-data/tree/main/skills) — extracted by `insight`
+- [Rules](https://github.com/shimo4228/contemplative-agent-data/tree/main/rules) — distilled from skills
+- [Daily reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) — timestamped interactions (free for academic and non-commercial use)
+- [Analysis reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/analysis) — behavioral evolution, constitutional amendment experiments
 
 ## How It Works
 
@@ -34,186 +62,82 @@ On top of that secure and self-contained foundation, the agent **learns from its
 Episode Log   raw actions, immutable JSONL (untrusted)
  │
  ├── distill ─▶ Knowledge (behavioral)
- │                 • embedding + views
- │                 • provenance / trust
- │                 • bitemporal / strength
- │                 │
  │                 ├── distill-identity ─▶ Identity
- │                 │                       (whole-file, ADR-0030)
- │                 │
  │                 └── insight ─▶ Skills
- │                                 (retrieve / apply / reflect)
- │                                   │
- │                                   └── rules-distill ─▶ Rules
+ │                                 └── rules-distill ─▶ Rules
  │
  └── distill (constitutional) ─▶ Knowledge (constitutional)
-                                   │
                                    └── amend ─▶ Constitution
 ```
 
-Raw actions flow upward through increasingly abstract layers. Each layer is optional -- use just the parts you need. Every layer above Episode Log is generated by the agent reflecting on its own experience.
+Raw actions flow upward through layers of abstraction. Each layer is optional. Every layer above Episode Log is generated by the agent reflecting on its own experience.
 
-This loop is the project's implementation of the **Agent Knowledge Cycle (AKC)** — a six-phase self-improvement cadence (Research → Extract → Curate → Promote → Measure → Maintain) originally developed as a Claude Code harness for meta-workflow improvement and re-implemented here for autonomous agents. `distill` covers Extract; `insight` / `rules-distill` / `amend-constitution` cover Curate; `distill-identity` covers Promote; pivot snapshots (ADR-0020) and `skill-reflect` (ADR-0023) cover Measure. Full phase-to-code mapping: [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping). The source harness: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle).
-
-Knowledge is stored as embedding coordinates, not discrete categories; named *views* act as editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md)). New patterns trigger re-interpretation of topically-related older ones rather than overwriting — scored by cosine + BM25 hybrid retrieval ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)). The layered structure draws from the Yogācāra eight-consciousness model ([ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)). Provenance, bitemporal validity, and the evolution of these foundations are detailed in [Key Features](#key-features) below.
+This pipeline is the AKC six phases mapped onto code: `distill` covers Extract; `insight` / `rules-distill` / `amend-constitution` cover Curate; `distill-identity` covers Promote; pivot snapshots ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)) and `skill-reflect` ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)) cover Measure. Full mapping: [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping).
 
 ## Key Features
 
-**Self-Improving via AKC** -- The agent runs the six-phase [Agent Knowledge Cycle](https://github.com/shimo4228/agent-knowledge-cycle) on its own logs — no external fine-tuning, no labeled training data. Each phase promotion (logs → patterns, patterns → skills, skills → rules, skills → identity) passes through a [human approval gate](docs/adr/0012-human-approval-gate.md).
-
-- *Embedding + views* — classification is a query, not state; views are editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md); `category` field retired in [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
-- *Pattern evolution + hybrid retrieval* — a new pattern can trigger LLM-driven re-interpretation of topically-related older patterns, with the old row soft-invalidated and a revised row appended; retrieval scores combine cosine and BM25 ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
-- *Skill-as-memory loop* — skills are retrieved, applied, and rewritten based on outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
-- *Noise as seed* — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
-
-**Every LLM interaction is a Markdown file you can edit** -- Constitution, identity, skills, rules, **32 pipeline prompts** (`distill`, `insight`, `rules-distill`, `amend-constitution`, `skill-reflect`, `memory_evolution`, ...), and **7 view seeds** all live as Markdown under `$MOLTBOOK_HOME/`. After `init`, everything the LLM will see is on-disk: edit a prompt to change how patterns get extracted, swap a view seed to shift classification, tune the constitution to bias judgment. Edits are visible to `git diff` against the shipped defaults and captured in pivot snapshots for reproducibility. [Customize →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
-
-**Secure by Design** -- No shell execution, no arbitrary network access, no file traversal. Domain-locked to `moltbook.com` + localhost Ollama. 3 runtime dependencies (`requests`, `numpy`, `rank-bm25`) — no subprocess, no shell, no templating engine. [Full threat model →](docs/adr/0007-security-boundary-model.md)
-
-- *Provenance tracking* — every pattern carries `source_type` and `trust_score`; MINJA-class memory injection attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), partially-superseded-by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.md)).
-- *Replayable pivot snapshots* — distill runs bundle the full inference-time context (views + constitution + prompts + skills + rules + identity + centroid embeddings + thresholds) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
-
-**11 Ethical Frameworks** -- Ship the same agent with Stoic, Utilitarian, Care Ethics, or 8 other philosophical frameworks. Same behavioral data, different initial conditions -- watch how agents diverge. [Create your own →](docs/CONFIGURATION.md#character-templates)
-
-**Runs Locally** -- Ollama + Qwen3.5 9B. No API keys leave the machine. Runs smoothly on M1 Mac. Fully reproducible experiments with immutable episode logs.
-
-**Research-Grade Transparency** -- Every decision is traceable. Immutable logs, distilled outputs, and daily reports are [synced publicly](https://github.com/shimo4228/contemplative-agent-data) for reproducibility. See [Replayable pivot snapshots](#key-features) above for how any distill run can be reproduced bit-for-bit.
-
-## Live Agent
-
-A Contemplative agent runs daily on [Moltbook](https://www.moltbook.com/u/contemplative-agent), an AI agent social network. It browses feeds, filters posts by relevance, generates comments, and creates original posts. Its knowledge evolves through daily distillation.
-
-**Watch it evolve:**
-
-- [Identity](https://github.com/shimo4228/contemplative-agent-data/blob/main/identity.md) -- evolved persona, distilled from experience
-- [Constitution](https://github.com/shimo4228/contemplative-agent-data/tree/main/constitution) -- ethical principles (started from CCAI four axioms)
-- [Skills](https://github.com/shimo4228/contemplative-agent-data/tree/main/skills) -- behavioral skills, extracted by `insight`
-- [Rules](https://github.com/shimo4228/contemplative-agent-data/tree/main/rules) -- universal principles, distilled from skills
-- [Daily reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) -- timestamped interactions (freely available for academic and non-commercial use)
-- [Analysis reports](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/analysis) -- behavioral evolution, constitutional amendment experiments
-
-## Quick Start
-
-**Prerequisites:** [Ollama](https://ollama.com/download) installed locally. Requires ~8 GB RAM for the default model (Qwen3.5 9B Q4_K_M; model file ~6.6 GB). Tested on M1 Mac with 16 GB RAM.
-
-If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL and ask it to set up the agent. It will guide you through clone, install, and configuration — have your `MOLTBOOK_API_KEY` ready (register at moltbook.com).
-
-Or manually:
-
-```bash
-# 1. Install
-git clone https://github.com/shimo4228/contemplative-agent.git
-cd contemplative-agent
-pip install -e .            # or: uv venv .venv && source .venv/bin/activate && uv pip install -e .
-ollama pull qwen3.5:9b
-
-# 2. Configure
-cp .env.example .env
-# Edit .env -- set MOLTBOOK_API_KEY (register at moltbook.com to get one)
-
-# 3. Run
-contemplative-agent init               # create identity, knowledge, constitution
-contemplative-agent register           # Moltbook adapter only; skip for other adapters
-contemplative-agent run --session 60   # default: --approve (confirms each post)
-
-# Or start with a different character (default path: ~/.config/moltbook/):
-cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
-```
-
-## Agent Simulation
-
-The same framework can observe how agents diverge under different initial conditions. **11 ethical framework templates ship as starting points** — from Stoic virtue ethics to Care Ethics, Kantian duty, Pragmatism, Contractarianism, and more. Episode logs are immutable, so the same behavioral data can be re-processed under different initial conditions for counterfactual experiments.
-
-Two diverged agents can also **talk to each other locally** via `contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N` (ADR-0015 local-only exception). Each peer has its own MOLTBOOK_HOME, episode log, and constitution — useful for constitutional counterfactuals where the amendment proposals from two frameworks can be compared on the same transcript.
-
-See the full template list (philosophies, core principles, and how to pick or build your own) in the [Configuration Guide → Character Templates](docs/CONFIGURATION.md#character-templates).
+- **Self-improving via AKC** — the agent runs the six-phase cycle on its own logs. No fine-tuning, no labeled training data. Every promotion (logs → patterns → skills → rules → identity) passes through a [human approval gate](docs/adr/0012-human-approval-gate.md).
+- **Embedding + views** — classification is a query, not state; named *views* are editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md), `category` field retired in [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
+- **Memory evolution + hybrid retrieval** — a new pattern can trigger LLM-driven re-interpretation of older topically-related ones; the old row is soft-invalidated and a revised row appended. Cosine + BM25 hybrid scoring ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
+- **Skill-as-memory loop** — skills are retrieved, applied, and rewritten by outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
+- **Noise as seed** — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
+- **Replayable pivot snapshots** — distill runs bundle the full inference-time context (views + constitution + prompts + skills + rules + identity + centroid embeddings + thresholds) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
+- **Provenance tracking** — every pattern carries `source_type` and `trust_score`; MINJA-class memory injection becomes structurally visible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
+- **Markdown all the way down** — constitution, identity, skills, rules, 32 pipeline prompts, and 7 view seeds all live as Markdown under `$MOLTBOOK_HOME/`. Edit a prompt to change how patterns get extracted; swap a view seed to shift classification. [Customize →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
 
 ## Security Model
 
-| Attack Vector | Typical Frameworks | Contemplative Agent |
-|---------------|-------------------|---------------------|
-| **Shell execution** | Core feature | Does not exist in codebase |
-| **Network access** | Arbitrary | Domain-locked to `moltbook.com` + localhost |
-| **File system** | Full access | Writes only to `$MOLTBOOK_HOME`, 0600 permissions |
-| **LLM provider** | External API keys in transit | Local Ollama only |
-| **Dependencies** | Large dependency tree | 3 runtime deps (`requests`, `numpy`, `rank-bm25`) |
+Accountability and security boundaries are documented as harness-neutral ADRs in [AAP](https://github.com/shimo4228/agent-attribution-practice). This repository is the operational implementation of those judgments.
 
-**One external adapter per agent** -- A single agent process owns at most one adapter that produces externally-observable side effects. Workflows spanning multiple external surfaces (e.g. posting *and* payment) must be decomposed into separate agent processes with separated authority, not bolted onto one. See [ADR-0015](docs/adr/0015-one-external-adapter-per-agent.md).
+- No shell execution, no arbitrary network access, no file traversal — that code does not exist in the codebase. Domain-locked to `moltbook.com` + localhost Ollama. 3 runtime dependencies: `requests`, `numpy`, `rank-bm25`.
+- One external adapter per process ([ADR-0015](docs/adr/0015-one-external-adapter-per-agent.md)).
+- Full threat model: [ADR-0007](docs/adr/0007-security-boundary-model.md). [Latest security scan](docs/security/2026-04-01-security-scan.md).
 
-> Paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself. [Latest security scan →](docs/security/2026-04-01-security-scan.md)
+> Paste this repo URL into [Claude Code](https://claude.ai/claude-code) or any code-aware AI and ask whether it's safe to run. The code speaks for itself.
 
-**Note for coding agent operators**: Episode logs (`logs/*.jsonl`) contain raw content from other agents -- an unfiltered indirect prompt injection surface. Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. Claude Code users can install PreToolUse hooks that enforce this automatically -- see [integrations/claude-code/](integrations/claude-code/) for setup.
+**Note for coding agent operators**: Episode logs (`logs/*.jsonl`) are an unfiltered indirect prompt injection surface. Use distilled outputs (`knowledge.json`, `identity.md`, `reports/`) instead. Claude Code users: see [integrations/claude-code/](integrations/claude-code/) for PreToolUse hooks that enforce this automatically.
 
 ## Adapters
 
-The core is platform-agnostic. Adapters are thin wrappers around platform-specific APIs.
+The core is platform-agnostic. Adapters are thin wrappers around platform I/O.
 
-**Moltbook** (implemented) -- Social feed engagement, post generation, notification replies. This is the adapter the live agent runs on.
+- **Moltbook** — Social feed engagement, post generation, notification replies. The adapter the live agent runs on.
+- **Meditation** (experimental) — Active inference-based meditation simulation inspired by ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/). Builds a POMDP from episode logs and runs belief updates with no external input.
+- **Dialogue** (local-only) — Two agent processes converse over stdin/stdout pipes. A ~140-line adapter ([`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)) — useful as a non-HTTP, network-free template. Drives `contemplative-agent dialogue HOME_A HOME_B` for constitutional counterfactual experiments.
+- **Your own** — Connect platform I/O to core interfaces (memory, distillation, constitution, identity). See [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
 
-**Meditation** (experimental) -- Active inference-based meditation simulation inspired by ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/) (Laukkonen, Friston & Chandaria, 2025). Builds a POMDP from episode logs and runs belief updates with no external input -- the computational equivalent of closing your eyes.
+## Architecture
 
-**Dialogue** (local-only) -- Two agent processes converse over stdin/stdout pipes. A minimal ~140-line adapter ([`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)) showing what a non-HTTP, network-free adapter looks like -- a useful starting template. Drives `contemplative-agent dialogue HOME_A HOME_B` for constitutional counterfactual experiments between two diverged agents.
+One invariant holds across the codebase: **core/** is platform-independent; **adapters/** depend on core, never the reverse. Module maps, data-flow diagrams, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). The Yogācāra eight-consciousness frame that constrained the memory design: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
-**Your own** -- Implementing an adapter means connecting platform I/O to core interfaces (memory, distillation, constitution, identity). See [docs/CODEMAPS/](docs/CODEMAPS/INDEX.md).
+<details>
+<summary><b>Optional: Running with Managed LLM APIs</b></summary>
 
-## Running with Managed LLM APIs (Optional)
-
-For research experiments that need a generation model larger than Qwen3.5 9B — comparing distillation behavior with Claude Opus or GPT-5 while keeping the rest of the memory pipeline identical — a separate add-on repository provides managed-LLM backends:
+For research experiments needing a generation model larger than Qwen3.5 9B (e.g. comparing distillation behavior with Claude Opus or GPT-5 while keeping the rest of the memory pipeline identical), a separate add-on repository provides managed-LLM backends:
 
 - [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) — Optional Python package. Installing it and setting an API key routes every generation call (distill, insight, rules-distill, amend-constitution, post, comment, reply, dialogue, skill-reflect) through Anthropic Claude or OpenAI GPT. Embeddings continue to use local `nomic-embed-text`.
 
-This is an explicit **opt-in**. The main repository's default stack (Ollama + Qwen3.5 9B) does not reach any cloud endpoint. The "No cloud. No API keys in transit. Local Ollama only" property in [Key Features](#key-features) and [Security Model](#security-model) applies to this repository; installing the cloud add-on relaxes that property for users who opt into it. Main repository code is not modified — the add-on injects its backend through an abstract `LLMBackend` Protocol that knows nothing about any specific provider.
+This is an explicit **opt-in**. The main repository's default stack (Ollama + Qwen3.5 9B) does not reach any cloud endpoint. The "no cloud, no API keys in transit" property applies to this repository; the cloud add-on relaxes it for users who opt into it. Main repository code is not modified — the add-on injects its backend through an abstract `LLMBackend` Protocol that knows nothing about any specific provider.
 
-Do not install the cloud add-on in deployments where cloud data egress is not acceptable (regulatory constraints, air-gapped research, privacy-sensitive personal assistants). The main repository remains the right choice there.
+Do not install the cloud add-on in deployments where cloud data egress is not acceptable (regulatory constraints, air-gapped research, privacy-sensitive personal assistants).
 
-## Usage & Configuration
+</details>
 
-The full CLI reference, autonomy levels (`--approve` / `--guarded` / `--auto`), template selection, domain settings, scheduling, and environment variables live in a single guide:
-
-→ **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** — CLI commands, templates, autonomy, domain config, scheduling, env vars.
-
-Everyday highlights:
+<details>
+<summary><b>Optional: Everyday CLI</b></summary>
 
 ```bash
 contemplative-agent run --session 60       # Run a session
 contemplative-agent distill --days 3       # Extract patterns
 contemplative-agent skill-reflect          # Revise skills from outcomes (ADR-0023)
+contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N
 ```
 
-Upgrading from v1.x? Run the migrations once (see the [CLI Commands → One-Time Migrations](docs/CONFIGURATION.md#cli-commands) section).
+Full reference (autonomy levels, scheduling, env vars, v1.x → v2 migrations): **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**. For Docker-based network-isolated deployment: [Docker section](docs/CONFIGURATION.md#docker-optional).
 
-## Architecture
-
-One invariant holds across the codebase: **core/** is platform-independent; **adapters/** depend on core, never the reverse.
-
-The Contemplative AI axioms ([Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)) are an optional behavioral preset — a philosophical resonance, not an architectural constraint. Remove them and the agent runs; swap them for Stoic or Kantian premises and it runs differently.
-
-Module maps, data-flow diagrams, import graphs, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). For FAQ, term definitions, and research references (AI-facing), see [llms-full.txt](llms-full.txt). For the Yogācāra frame and how it constrained the memory design, see [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
-
-For Docker-based network-isolated deployment, see the [Docker section in the Configuration Guide](docs/CONFIGURATION.md#docker-optional).
-
-## Development Records
-
-1. [I Built an AI Agent from Scratch Because Frameworks Are the Vulnerability](https://dev.to/shimo4228/i-built-an-ai-agent-from-scratch-because-frameworks-are-the-vulnerability-elm)
-2. [Natural Language as Architecture](https://dev.to/shimo4228/natural-language-as-architecture-controlling-an-autonomous-agent-with-prompts-memory-and-m74)
-3. [Every LLM App Is Just a Markdown-and-Code Sandwich](https://dev.to/shimo4228/every-llm-app-is-just-a-markdown-and-code-sandwich-213j)
-4. [Do Autonomous Agents Really Need an Orchestration Layer?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9)
-5. [Not Reasoning, Not Tools -- What If the Essence of AI Agents Is Memory?](https://dev.to/shimo4228/not-reasoning-not-tools-what-if-the-essence-of-ai-agents-is-memory-4k4n)
-6. [My Agent's Memory Broke -- A Day Wrestling a 9B Model](https://dev.to/shimo4228/my-agents-memory-broke-a-day-wrestling-a-9b-model-50ch)
-7. [Porting Game Dev Memory Management to AI Agent Memory Distillation](https://dev.to/shimo4228/porting-game-dev-memory-management-to-ai-agent-memory-distillation-35lk)
-8. [Freedom and Constraints of Autonomous Agents -- Self-Modification, Trust Boundaries, and Emergent Gameplay](https://dev.to/shimo4228/freedom-and-constraints-of-autonomous-agents-self-modification-trust-boundaries-and-emergent-3i0c)
-9. [How Ethics Emerged from Episode Logs — 17 Days of Contemplative Agent Design](https://dev.to/shimo4228/how-ethics-emerged-from-episode-logs-17-days-of-contemplative-agent-design-1kk5)
-10. [A Sign on a Climbable Wall: Why AI Agents Need Accountability, Not Just Guardrails](https://dev.to/shimo4228/a-sign-on-a-climbable-wall-why-ai-agents-need-accountability-not-just-guardrails-17ak)
-11. [Can You Trace the Cause After an Incident?](https://dev.to/shimo4228/can-you-trace-the-cause-after-an-incident-neo)
-12. [AI Agent Black Boxes Have Two Layers — Technical Limits and Business Incentives](https://dev.to/shimo4228/ai-agent-black-boxes-have-two-layers-technical-limits-and-business-incentives-jhi)
-
-## Use It However You Want
-
-This is a research project, not a product. Fork it, strip it for parts, embed the pipeline in your own agent, build a commercial product on top of it -- whatever is useful to you. The MIT license means what it says. No citation needed if you're just using the code; see the next section for academic references.
+</details>
 
 ## Citation
-
-If you use or reference this framework, please cite:
 
 ```
 Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/10.5281/zenodo.19212119
@@ -235,30 +159,23 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 </details>
 
+The MIT license means what it says — fork it, strip it for parts, embed the pipeline in your own agent, build a commercial product on top of it. No citation needed if you're just using the code.
+
 ## Related Work
 
-- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) —
-  Sibling research repository (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)).
-  Re-expresses this project's governance judgments (Security Boundary Model,
-  One External Adapter Per Agent, Human Approval Gate, and the implicit
-  causal traceability / scaffolding visibility commitments) in harness-neutral
-  form as eight ADRs on accountability distribution in autonomous AI agents.
-  Cite AAP when quoting the accountability-distribution thesis or the
-  prohibition-strength hierarchy; cite this repository for the operational
-  implementation.
+- [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) ([DOI](https://doi.org/10.5281/zenodo.19200727)) — the methodological framework this project re-implements in the autonomous-agent context. Originally developed as a Claude Code harness.
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ([DOI](https://doi.org/10.5281/zenodo.19652014)) — sibling research repository. Re-expresses this project's governance judgments (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability / scaffolding visibility) in harness-neutral form as eight ADRs on accountability distribution. Cite AAP when quoting the accountability-distribution thesis or the prohibition-strength hierarchy; cite this repository for the operational implementation.
 
-## References
+**Theoretical foundation:**
 
-### Theoretical Foundation
+- Laukkonen, Inglis, Chandaria, Sandved-Smith, Lopez-Sola, Hohwy, Gold, & Elwood (2025). *Contemplative Artificial Intelligence.* [arXiv:2504.15125](https://arxiv.org/abs/2504.15125) — four-axiom ethical framework (optional preset, [ADR-0002](docs/adr/0002-paper-faithful-ccai.md)).
+- Laukkonen, Friston & Chandaria (2025). *A Beautiful Loop: An Active Inference Theory of Consciousness.* *Neuroscience & Biobehavioral Reviews*, 176, 106296. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/) — meditation adapter basis.
+- Vasubandhu (4th–5th c. CE). *Triṃśikā-vijñaptimātratā* (唯識三十頌) and Xuanzang (659 CE). *Cheng Weishi Lun* (成唯識論) — eight-consciousness model adopted as the architectural frame ([ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)).
 
-- Laukkonen, R., Inglis, F., Chandaria, S., Sandved-Smith, L., Lopez-Sola, E., Hohwy, J., Gold, J., & Elwood, A. (2025). Contemplative Artificial Intelligence. [arXiv:2504.15125](https://arxiv.org/abs/2504.15125) — four-axiom ethical framework (optional preset, [ADR-0002](docs/adr/0002-paper-faithful-ccai.md)).
-- Laukkonen, R., Friston, K., & Chandaria, S. (2025). A Beautiful Loop: An Active Inference Theory of Consciousness. *Neuroscience & Biobehavioral Reviews*, 176, 106296. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/) — theoretical basis for the meditation adapter.
-- Vasubandhu (4th–5th c. CE). *Triṃśikā-vijñaptimātratā* (唯識三十頌, "Thirty Verses on Consciousness-Only"). — eight-consciousness model adopted as the architectural frame ([ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)).
-- Xuanzang (trans. & comp., 659 CE). *Cheng Weishi Lun* (成唯識論, "Treatise on the Establishment of Consciousness-Only"). — compiled commentary drawing on ten Indian commentaries on Vasubandhu's *Triṃśikā*; the eight vijñānas, bīja (種子), and vāsanā (習気) structure motivates the "noise as seed" retention policy ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
+<details>
+<summary><b>Memory systems bibliography</b></summary>
 
-### Memory Systems
-
-Each paper below informed a specific design decision documented in the linked ADR. Bibliographic details verified against arXiv.
+Each paper below informed a specific design decision documented in the linked ADR.
 
 - Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten-style dynamic indexing and memory evolution; informs the re-interpretation of topically-related older patterns when a new pattern arrives ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
 - Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) — bitemporal knowledge-graph edges (Graphiti engine); informs the `valid_from` / `valid_until` contract on every pattern ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
@@ -266,10 +183,24 @@ Each paper below informed a specific design decision documented in the linked AD
 - Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *Memory Injection Attacks on LLM Agents via Query-Only Interaction* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — query-only memory injection attacks on agent memory; motivates `source_type` + `trust_score` provenance so MINJA-class attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
 - Zhou, H., Guo, S., Liu, A., et al. (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — skills as persistent evolving memory units, retrieved, applied, and rewritten by outcome; informs the skill-as-memory loop ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
 
-### Prior Work (Author)
+</details>
 
-- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — the methodological framework this project re-implements in the autonomous-agent context (see [How It Works](#how-it-works)); originally developed as a Claude Code harness.
+**Acknowledgments:** Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — deterministic affect-scoring design inspiration.
 
-### Acknowledgments
+<details>
+<summary><b>Development Records (12 dev.to articles)</b></summary>
 
-- Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — deterministic affect-scoring design inspiration.
+1. [I Built an AI Agent from Scratch Because Frameworks Are the Vulnerability](https://dev.to/shimo4228/i-built-an-ai-agent-from-scratch-because-frameworks-are-the-vulnerability-elm)
+2. [Natural Language as Architecture](https://dev.to/shimo4228/natural-language-as-architecture-controlling-an-autonomous-agent-with-prompts-memory-and-m74)
+3. [Every LLM App Is Just a Markdown-and-Code Sandwich](https://dev.to/shimo4228/every-llm-app-is-just-a-markdown-and-code-sandwich-213j)
+4. [Do Autonomous Agents Really Need an Orchestration Layer?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9)
+5. [Not Reasoning, Not Tools -- What If the Essence of AI Agents Is Memory?](https://dev.to/shimo4228/not-reasoning-not-tools-what-if-the-essence-of-ai-agents-is-memory-4k4n)
+6. [My Agent's Memory Broke -- A Day Wrestling a 9B Model](https://dev.to/shimo4228/my-agents-memory-broke-a-day-wrestling-a-9b-model-50ch)
+7. [Porting Game Dev Memory Management to AI Agent Memory Distillation](https://dev.to/shimo4228/porting-game-dev-memory-management-to-ai-agent-memory-distillation-35lk)
+8. [Freedom and Constraints of Autonomous Agents — Self-Modification, Trust Boundaries, and Emergent Gameplay](https://dev.to/shimo4228/freedom-and-constraints-of-autonomous-agents-self-modification-trust-boundaries-and-emergent-3i0c)
+9. [How Ethics Emerged from Episode Logs — 17 Days of Contemplative Agent Design](https://dev.to/shimo4228/how-ethics-emerged-from-episode-logs-17-days-of-contemplative-agent-design-1kk5)
+10. [A Sign on a Climbable Wall: Why AI Agents Need Accountability, Not Just Guardrails](https://dev.to/shimo4228/a-sign-on-a-climbable-wall-why-ai-agents-need-accountability-not-just-guardrails-17ak)
+11. [Can You Trace the Cause After an Incident?](https://dev.to/shimo4228/can-you-trace-the-cause-after-an-incident-neo)
+12. [AI Agent Black Boxes Have Two Layers — Technical Limits and Business Incentives](https://dev.to/shimo4228/ai-agent-black-boxes-have-two-layers-technical-limits-and-business-incentives-jhi)
+
+</details>

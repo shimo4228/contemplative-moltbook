@@ -11,22 +11,50 @@ Language: [English](README.md) | 日本語 | [简体中文](README.zh-CN.md) | [
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-**経験から自律的に学習する AI エージェント。ローカル 9B モデル (Qwen3.5) + Apple Silicon Mac (M1 以降、16 GB RAM) で完結。**
-クラウド不要。API キーは外部に出ない。シェル実行は存在しない。危険な能力はルールで制限しているのではなく、最初からコードに組み込まれていない。
+経験から自律的に学習する AI エージェント。ローカル 9B モデル (Qwen3.5) + Apple Silicon Mac (M1+, 16 GB RAM) で完結 — クラウドなし、API キーは外部に出ない、シェル実行は存在しない。
 
-## なぜ作ったか
+このリポジトリは 2 つの保存されたアイデアの実装である:
 
-多くのエージェントフレームワークはセキュリティを後付けしている。[OpenClaw](https://github.com/openclaw/openclaw) は [複数の重大な脆弱性](https://www.tenable.com/plugins/nessus/299798)、[WebSocket 経由のエージェント乗っ取り](https://www.oasis.security/blog/openclaw-vulnerability)、[22万以上のインスタンスのインターネット露出](https://www.penligent.ai/hackinglabs/over-220000-openclaw-instances-exposed-to-the-internet-why-agent-runtimes-go-naked-at-scale/)が報告されている。AI エージェントに広範なシステムアクセスを与えれば、攻撃面は構造的に拡大する。
+- **[AKC (Agent Knowledge Cycle)](https://github.com/shimo4228/agent-knowledge-cycle)** ([DOI](https://doi.org/10.5281/zenodo.19200727)) — エージェントが自らの経験を改善可能なスキルへと代謝させる方法。6 フェーズ: Research → Extract → Curate → Promote → Measure → Maintain。
+- **[AAP (Agent Attribution Practice)](https://github.com/shimo4228/agent-attribution-practice)** ([DOI](https://doi.org/10.5281/zenodo.19652014)) — 自律 AI エージェントにおいてアカウンタビリティをどう分配するか。Security Boundary Model、One External Adapter Per Agent、Human Approval Gate、causal traceability を 8 本の ADR として表現。
 
-本フレームワークは逆のアプローチ: **security by absence（不在によるセキュリティ）**とは、危険な能力をルールで制限するのではなく最初から実装しないという設計原則を指す。シェル実行もできない、任意の URL にもアクセスできない、ファイルシステムも走査できない — そのコードが書かれていないから。プロンプトインジェクションは、最初から組み込まれていない能力を付与できない。
+最初のアダプタは **Moltbook**（AI エージェント SNS）。Contemplative AI 四公理はオプションプリセットとして同梱。
 
-**そしてこの全てがコンシューマーハードウェアで動く。** 経験からの学習、意味で引ける記憶、パターンからのスキル自動抽出、時間とともに更新されていく知識 — その全パイプラインが、単一の Apple Silicon Mac（M1 以降、メモリ 16 GB 程度）+ 2 つのオープンウェイトモデル（生成: **qwen3.5:9b** Q4_K_M 量子化 ~6.6 GB（ディスク） / 埋め込み: **nomic-embed-text** ~274 MB, 768次元）で走る。GPU クラスタ不要、クラウド推論不要。
+## クイックスタート
 
-外部サービスに接続するのは、そのサービスに対応するアダプタ層だけ。リファレンス実装の Moltbook アダプタは SNS なのでオンライン必須だが、それ以外のアダプタは完全オフライン動作可能 — 生成・埋め込み・リトリーバル・蒸留は全てオンデバイス。
+**前提条件:** [Ollama](https://ollama.com/download) がローカルにインストール済みであること。デフォルトモデル (Qwen3.5 9B Q4_K_M, 約 6.6 GB) に約 8 GB RAM が必要。M1 Mac (16 GB RAM) で動作確認済み。
 
-**この設計はクラウドが使えない / 使いたくないエッジ環境への移植を可能にする**: データローカリティ制約のある医療・法務ワークフロー、プライバシー重視のパーソナルアシスタント、間欠的接続のフィールド展開、エアギャップ環境。
+```bash
+git clone https://github.com/shimo4228/contemplative-agent.git
+cd contemplative-agent
+pip install -e .            # または: uv venv .venv && source .venv/bin/activate && uv pip install -e .
+ollama pull qwen3.5:9b
 
-この安全でセルフコンテインドな基盤の上で、エージェントは**自らの経験から学習する**: 生のエピソードログからパターンを蒸留し、ナレッジ・スキル・ルール・進化するアイデンティティへと昇華させる。
+cp .env.example .env        # MOLTBOOK_API_KEY を設定（moltbook.com で登録）
+
+contemplative-agent init               # identity, knowledge, constitution を作成
+contemplative-agent register           # Moltbook アダプタのみ
+contemplative-agent run --session 60   # デフォルト: --approve（投稿ごとに確認）
+```
+
+別の倫理フレームワークで開始する場合（11 種のテンプレート同梱: ストア哲学、功利主義、ケアの倫理、カント義務論、プラグマティズム、契約主義…）:
+
+```bash
+cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
+```
+
+[Claude Code](https://claude.ai/claude-code) があれば、このリポジトリの URL を貼り付けてセットアップを依頼できる。CLI コマンド全一覧、自律レベル、スケジューリング、テンプレートは **[設定ガイド](docs/CONFIGURATION.ja.md)** 参照。
+
+## ライブエージェント
+
+Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contemplative-agent) 上で毎日稼働中。進化する状態は公開されている:
+
+- [アイデンティティ](https://github.com/shimo4228/contemplative-agent-data/blob/main/identity.md) — 経験から蒸留された人格
+- [憲法](https://github.com/shimo4228/contemplative-agent-data/tree/main/constitution) — 倫理原則（CCAI 四公理から開始）
+- [スキル](https://github.com/shimo4228/contemplative-agent-data/tree/main/skills) — `insight` で抽出
+- [ルール](https://github.com/shimo4228/contemplative-agent-data/tree/main/rules) — スキルから蒸留
+- [日次レポート](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) — タイムスタンプ付き交流記録（学術・非商用利用に自由）
+- [分析レポート](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/analysis) — 行動進化、憲法改正実験
 
 ## 仕組み
 
@@ -34,186 +62,82 @@ Language: [English](README.md) | 日本語 | [简体中文](README.zh-CN.md) | [
 エピソードログ   生の行動, 不変 JSONL (untrusted)
  │
  ├── distill ─▶ ナレッジ (行動)
- │                 ・埋め込み座標 (embedding) + view
- │                 ・出所記録 (provenance) / 信頼度 (trust)
- │                 ・時間妥当性 (bitemporal) / 強度 (strength)
- │                 │
  │                 ├── distill-identity ─▶ アイデンティティ
- │                 │                       (whole-file, ADR-0030)
- │                 │
  │                 └── insight ─▶ スキル
- │                                 (retrieve / apply / reflect)
- │                                   │
- │                                   └── rules-distill ─▶ ルール
+ │                                 └── rules-distill ─▶ ルール
  │
  └── distill (憲法) ─▶ ナレッジ (憲法)
-                                   │
                                    └── amend ─▶ 憲法
 ```
 
-生の行動データがより抽象的なレイヤーへと上方に流れる。各レイヤーはオプション — 必要な部分だけ使えばよい。エピソードログより上のレイヤーはすべて、エージェント自身が経験を省察して生成する。
+生の行動データがより抽象的なレイヤーへと上方に流れる。各レイヤーはオプション。エピソードログより上のレイヤーはすべて、エージェント自身が経験を省察して生成する。
 
-このループは本プロジェクトにおける **Agent Knowledge Cycle (AKC)** の実装 — Research → Extract → Curate → Promote → Measure → Maintain の 6 フェーズからなる自己改善サイクル。もともと Claude Code ハーネスにおけるメタワークフロー改善のために設計されたもので、本プロジェクトはそれを自律エージェントの文脈で再実装している。`distill` が Extract、`insight` / `rules-distill` / `amend-constitution` が Curate、`distill-identity` が Promote、pivot snapshots（基準点スナップショット、ADR-0020）と `skill-reflect` (ADR-0023) が Measure に対応する。フェーズとコードの完全な対応表は [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping) を参照。原典のハーネス: [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle)。
-
-ナレッジ層は各パターンを離散カテゴリではなく**埋め込み座標 (embedding)** として保持する。クエリは名前付きの *view*（意味的なシード）を通じて投影し、view はデータ移行なしで編集できる（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)）。新しいパターンが既存の近傍に着地すると、古いパターンは上書きされず**再解釈**され、検索スコアは cosine + BM25 のハイブリッドで計算される（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。この階層構造は**唯識 (Yogācāra) の八識モデル**を下敷きにしている（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md)）。出所記録 (provenance)・時間妥当性 (bitemporal)・進化の詳細は下の [主な特徴](#主な特徴) を参照。
+このパイプラインは AKC 6 フェーズのコードへの対応: `distill` が Extract、`insight` / `rules-distill` / `amend-constitution` が Curate、`distill-identity` が Promote、pivot snapshots ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)) と `skill-reflect` ([ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)) が Measure に対応する。完全な対応表: [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md#akc-agent-knowledge-cycle-mapping)。
 
 ## 主な特徴
 
-**AKC による自己改善** -- エージェントは自身のログに対して 6 フェーズの [Agent Knowledge Cycle](https://github.com/shimo4228/agent-knowledge-cycle) を回す — 外部の fine-tune 不要、ラベル付き学習データも不要。各フェーズ昇格（ログ → パターン、パターン → スキル、スキル → ルール、スキル → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.ja.md)が入る。
-
-- *埋め込みと view (embedding + views)* — 分類は状態ではなく **クエリ**。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)。`category` フィールドは [ADR-0026](docs/adr/0026-retire-discrete-categories.ja.md) で廃止）。
-- *記憶の進化 + ハイブリッド検索 (memory evolution + hybrid retrieval)* — 新しいパターンが到着すると、意味的に関連する既存パターンを LLM が再解釈。旧行は論理的に無効化 (soft-invalidate) し、改訂行を追加。検索スコアは cosine と BM25 の混成（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
-- *記憶としてのスキル (skill-as-memory loop)* — スキルは「取り出し (retrieve)→適用 (apply)→結果に基づく書き換え (rewrite)」の単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
-- *ノイズを種子として (noise as seed)* — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持される。view 重心が変わったとき、失われずに**再分類の候補**として利用できる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
-
-**LLM が触れるテキストはすべて編集可能な Markdown ファイル** -- 憲法、アイデンティティ、スキル、ルール、**32 のパイプラインプロンプト** (`distill` / `insight` / `rules-distill` / `amend-constitution` / `skill-reflect` / `memory_evolution` …)、**7 つの view シード** が全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。`init` 後は LLM が見るテキストが全部ディスク上に揃う — プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす、憲法を調整して判断にバイアスを入れる、といった操作が single-file edit で済む。編集は `git diff` で追えるし、pivot snapshot に取り込まれて再現性も保たれる。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
-
-**設計による安全 (secure by design)** -- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は 3 パッケージ（`requests`、`numpy`、`rank-bm25`）— サブプロセスなし、シェルなし、テンプレートエンジンなし。[脅威モデルの詳細 →](docs/adr/0007-security-boundary-model.ja.md)
-
-- *出所の追跡 (provenance tracking)* — 各パターンに `source_type`（出所種別）と `trust_score`（信頼度）。MINJA 型の記憶注入攻撃 (memory injection) は構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)、[ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.ja.md) / [ADR-0029](docs/adr/0029-retire-dormant-provenance-elements.ja.md) で partially superseded）。
-- *再現可能な基準点スナップショット (pivot snapshots)* — 蒸留の実行時に推論時の全コンテキスト（views + constitution + prompts + skills + rules + identity + centroid 埋め込み + thresholds）を一括保存し、任意の蒸留を bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)）。
-
-**11種の倫理フレームワーク** -- ストア哲学、功利主義、ケアの倫理など11種のテンプレート同梱。同じ行動データ、異なる初期条件 — エージェントがどう分岐するかを観察。[独自テンプレートの作成 →](docs/CONFIGURATION.ja.md#キャラクターテンプレート)
-
-**ローカル完結** -- Ollama + Qwen3.5 9B。API キーはマシン外に出ない。M1 Mac で快適動作。不変のエピソードログで実験は完全再現可能。
-
-**研究グレードの透明性** -- すべての判断が追跡可能。不変のログ、蒸留成果物、日次レポートが再現性のために[公開同期](https://github.com/shimo4228/contemplative-agent-data)されている。実行単位での再現性は上記「再現可能な基準点スナップショット」に記載。
-
-## ライブエージェント
-
-Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contemplative-agent)（AI エージェント SNS）上で毎日稼働中。フィードを巡回し、relevance スコアで投稿をフィルタし、コメントを生成し、オリジナル投稿を作成する。知識は毎日の蒸留で進化する。
-
-**進化を見る:**
-
-- [アイデンティティ](https://github.com/shimo4228/contemplative-agent-data/blob/main/identity.md) — 経験から蒸留された人格
-- [憲法](https://github.com/shimo4228/contemplative-agent-data/tree/main/constitution) — 倫理原則（CCAI 四公理テンプレートから開始）
-- [スキル](https://github.com/shimo4228/contemplative-agent-data/tree/main/skills) — `insight` で抽出された行動スキル
-- [ルール](https://github.com/shimo4228/contemplative-agent-data/tree/main/rules) — スキルから蒸留された普遍的原則
-- [日次レポート](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/comment-reports) — タイムスタンプ付き交流記録（学術研究・非商用利用に自由に利用可能）
-- [分析レポート](https://github.com/shimo4228/contemplative-agent-data/tree/main/reports/analysis) — 行動進化分析、憲法改正実験
-
-## クイックスタート
-
-**前提条件:** [Ollama](https://ollama.com/download) がローカルにインストール済みであること。デフォルトモデル (Qwen3.5 9B Q4_K_M; モデルファイル ~6.6 GB) に ~8 GB RAM が必要。M1 Mac (16 GB RAM) で動作確認済み。
-
-[Claude Code](https://claude.ai/claude-code) をお持ちなら、このリポジトリの URL を貼り付けてセットアップを依頼できる。clone・インストール・設定をガイドしてくれる。`MOLTBOOK_API_KEY` を事前に取得しておくこと（moltbook.com で登録）。
-
-手動の場合:
-
-```bash
-# 1. インストール
-git clone https://github.com/shimo4228/contemplative-agent.git
-cd contemplative-agent
-pip install -e .            # または: uv venv .venv && source .venv/bin/activate && uv pip install -e .
-ollama pull qwen3.5:9b
-
-# 2. 設定
-cp .env.example .env
-# .env を編集 — MOLTBOOK_API_KEY を設定（moltbook.com で登録して取得）
-
-# 3. 実行
-contemplative-agent init               # identity, knowledge, constitution を作成
-contemplative-agent register           # Moltbook アダプタのみ。他アダプタではスキップ
-contemplative-agent run --session 60   # デフォルト: --approve（投稿ごとに確認）
-
-# テンプレートを選んで始める場合（デフォルトパス: ~/.config/moltbook/）:
-cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
-```
-
-## エージェントシミュレーション
-
-同じフレームワークで、初期条件を変えたエージェントの分岐を観察できる。**11種の倫理フレームワークテンプレートを同梱** — ストア哲学、ケアの倫理、カント義務論、プラグマティズム、契約主義など。エピソードログは不変なので、同じ行動データを異なる初期条件で再処理する反事実実験が可能。
-
-さらに、分岐した 2 体のエージェントを **ローカルで対話させる** こともできる: `contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N` (ADR-0015 のローカル限定例外)。両 peer はそれぞれ独自の MOLTBOOK_HOME・エピソードログ・憲法を持つ。同一の転写から各フレームワークがどう憲法改正を提案するかを比較する、憲法の反事実実験に有用。
-
-全テンプレート一覧（哲学・核心原理・選び方・独自テンプレートの作り方）は [設定ガイド → キャラクターテンプレート](docs/CONFIGURATION.ja.md#キャラクターテンプレート) を参照。
+- **AKC による自己改善** — エージェントは自身のログに対して 6 フェーズサイクルを回す。fine-tuning なし、ラベル付き学習データなし。各フェーズ昇格（ログ → パターン → スキル → ルール → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.ja.md)が入る。
+- **埋め込み + view** — 分類は状態ではなくクエリ。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)、`category` フィールドは [ADR-0026](docs/adr/0026-retire-discrete-categories.ja.md) で廃止）。
+- **記憶の進化 + ハイブリッド検索** — 新しいパターンが意味的に関連する既存パターンの LLM 再解釈を引き起こす。旧行は soft-invalidate、改訂行を追加。cosine + BM25 の混成スコア（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
+- **記憶としてのスキル** — スキルは取り出し → 適用 → 結果に基づく書き換えの単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
+- **ノイズを種子として** — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持。view 重心が変わったとき再分類の候補となる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
+- **再現可能な pivot snapshots** — 蒸留の実行時に推論時の全コンテキスト（views + constitution + prompts + skills + rules + identity + centroid 埋め込み + thresholds）を一括保存し、bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)）。
+- **出所追跡** — 各パターンに `source_type` と `trust_score`。MINJA 型の記憶注入攻撃が構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
+- **Markdown all the way down** — 憲法、アイデンティティ、スキル、ルール、32 のパイプラインプロンプト、7 つの view シードが全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
 
 ## セキュリティモデル
 
-| 攻撃ベクトル | 一般的なフレームワーク | Contemplative Agent |
-|-------------|---------------------|---------------------|
-| **シェル実行** | コア機能 | コードベースに存在しない |
-| **ネットワーク** | 任意のアクセス | `moltbook.com` + localhost にドメインロック |
-| **ファイルシステム** | フルアクセス | `$MOLTBOOK_HOME` のみ、0600 パーミッション |
-| **LLM プロバイダ** | 外部 API キーが通信中 | ローカル Ollama のみ |
-| **依存関係** | 大規模な依存ツリー | ランタイム依存 3 パッケージ (`requests`, `numpy`, `rank-bm25`) |
+アカウンタビリティとセキュリティ境界は [AAP](https://github.com/shimo4228/agent-attribution-practice) に harness-neutral な ADR として記述されている。本リポジトリはその判断の運用実装である。
 
-**1エージェント1外部アダプタ原則 (one external adapter per agent)** — 外部に観測可能な副作用を持つアダプタは、1エージェントプロセスにつき最大1つ。複数の外部面を横断するワークフロー（例: 投稿 *かつ* 決済）は、1つに抱き合わせず、権限分離した別々のエージェントプロセスに分解する。詳細は [ADR-0015](docs/adr/0015-one-external-adapter-per-agent.ja.md)。
+- シェル実行なし、任意のネットワークアクセスなし、ファイル走査なし — そのコードがコードベースに存在しない。`moltbook.com` + localhost Ollama にドメインロック。ランタイム依存は 3 パッケージ: `requests`、`numpy`、`rank-bm25`。
+- 1 プロセス 1 外部アダプタ原則 ([ADR-0015](docs/adr/0015-one-external-adapter-per-agent.ja.md))。
+- 完全な脅威モデル: [ADR-0007](docs/adr/0007-security-boundary-model.ja.md)。[最新のセキュリティスキャン](docs/security/2026-04-01-security-scan.md)。
 
-> このリポジトリの URL を [Claude Code](https://claude.ai/claude-code) やコード対応 AI に貼り付けて、実行しても安全か聞いてみてほしい。コードが自ら語る。[最新のセキュリティスキャン →](docs/security/2026-04-01-security-scan.md)
+> このリポジトリの URL を [Claude Code](https://claude.ai/claude-code) やコード対応 AI に貼り付けて、実行しても安全か聞いてみてほしい。コードが自ら語る。
 
-**コーディングエージェント利用者への注意**: エピソードログ (`logs/*.jsonl`) には他エージェントの生コンテンツが含まれる — 間接プロンプトインジェクションの攻撃面になる。蒸留済みの成果物（`knowledge.json`、`identity.md`、`reports/`）を参照すること。Claude Code ユーザーは PreToolUse hooks で自動ブロック可能 — 設定方法は [integrations/claude-code/](integrations/claude-code/) を参照。
+**コーディングエージェント利用者への注意**: エピソードログ (`logs/*.jsonl`) はフィルタされていない間接プロンプトインジェクションの攻撃面。蒸留済みの成果物（`knowledge.json`、`identity.md`、`reports/`）を参照すること。Claude Code ユーザーは PreToolUse hooks で自動ブロック可能 — 設定方法は [integrations/claude-code/](integrations/claude-code/) を参照。
 
 ## アダプタ
 
-コアはプラットフォーム非依存。アダプタはプラットフォーム固有の API を薄くラップする。
+コアはプラットフォーム非依存。アダプタはプラットフォーム I/O の薄いラッパー。
 
-**Moltbook**（実装済み） — ソーシャルフィード参加、投稿生成、通知返信。稼働中のエージェントはこのアダプタで動いている。
+- **Moltbook** — ソーシャルフィード参加、投稿生成、通知返信。稼働中のエージェントはこのアダプタで動いている。
+- **Meditation**（実験段階） — ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/) に着想を得た能動的推論ベースの瞑想シミュレーション。エピソードログから POMDP を構築し、外部入力なしで信念更新を繰り返す。
+- **Dialogue**（ローカル限定） — 2 つのエージェントプロセスが stdin/stdout パイプで対話する。約 140 行のアダプタ ([`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)) — HTTP も外部ネットワークも持たないアダプタの雛形として有用。`contemplative-agent dialogue HOME_A HOME_B` の本体。
+- **独自アダプタ** — コアのインターフェース（メモリ、蒸留、憲法、アイデンティティ）にプラットフォーム I/O を繋ぐ。[docs/CODEMAPS/](docs/CODEMAPS/INDEX.md) 参照。
 
-**Meditation**（実験段階） — ["A Beautiful Loop"](https://pubmed.ncbi.nlm.nih.gov/40750007/)（Laukkonen, Friston & Chandaria, 2025）に着想を得た能動的推論ベースの瞑想シミュレーション。エピソードログから POMDP を構築し、外部入力なしで信念更新を繰り返す — 計算論的に「目を閉じる」操作に相当。
+## アーキテクチャ
 
-**Dialogue**（ローカル限定） — 2 つのエージェントプロセスが stdin/stdout パイプで対話する。HTTP も外部ネットワークも持たないアダプタが何をするものかを示す最小実装（約 140 行・[`adapters/dialogue/peer.py`](src/contemplative_agent/adapters/dialogue/peer.py)）で、独自アダプタを書くときの 0 → 1 の雛形として使える。`contemplative-agent dialogue HOME_A HOME_B` の本体で、分岐した 2 体の憲法反事実実験に使われる。
+コードベース全体で守られる不変条件: **core/** はプラットフォーム非依存。**adapters/** は core に依存する（逆方向は禁止）。モジュール一覧、データフロー図、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。記憶設計を予測的に制約した唯識 (Yogācāra) の枠組み: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md)。
 
-**独自アダプタ** — コアのインターフェース（メモリ、蒸留、憲法、アイデンティティ）にプラットフォーム I/O を繋ぐだけ。[docs/CODEMAPS/](docs/CODEMAPS/INDEX.md) を参照。
-
-## マネージド LLM API で動かす（オプション）
+<details>
+<summary><b>オプション: マネージド LLM API で動かす</b></summary>
 
 Qwen3.5 9B より大きな生成モデルが必要な研究実験 — 蒸留挙動を Claude Opus や GPT-5 で比較し、メモリパイプライン以外を同一条件に保つような実験 — には別リポジトリの add-on を用意している:
 
 - [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud) — オプションの Python パッケージ。インストールして API キーを設定すると、すべての生成呼び出し（distill / insight / rules-distill / amend-constitution / post / comment / reply / dialogue / skill-reflect）が Anthropic Claude または OpenAI GPT 経由になる。embedding はローカルの `nomic-embed-text` のまま。
 
-これは明示的な **opt-in**。本リポジトリのデフォルトスタック（Ollama + Qwen3.5 9B）はクラウドエンドポイントに一切到達しない。[主な特徴](#主な特徴) と [セキュリティモデル](#セキュリティモデル) の「No cloud. No API keys in transit. Local Ollama only」は本リポジトリに対して成立するプロパティで、cloud add-on をインストールした場合は opt-in したユーザーに対してこのプロパティが緩和される。本リポジトリのコードは一切変更されない — add-on は、特定プロバイダを何も知らない抽象的な `LLMBackend` Protocol を介して backend を注入する。
+これは明示的な **opt-in**。本リポジトリのデフォルトスタック（Ollama + Qwen3.5 9B）はクラウドエンドポイントに一切到達しない。「クラウドなし、API キーは外部に出ない」プロパティは本リポジトリに対して成立し、cloud add-on をインストールした場合は opt-in したユーザーに対して緩和される。本リポジトリのコードは一切変更されない — add-on は抽象的な `LLMBackend` Protocol を介して backend を注入する。
 
-クラウドへのデータ egress が許容できないデプロイ環境（規制要件、air-gapped 研究、プライバシー重視の個人アシスタント）には cloud add-on をインストールしないこと。そうした環境では本リポジトリ単体が適切な選択肢。
+クラウドへのデータ egress が許容できないデプロイ環境（規制要件、air-gapped 研究、プライバシー重視の個人アシスタント）には cloud add-on をインストールしないこと。
 
-## 使い方・設定
+</details>
 
-CLI コマンド全一覧、自律レベル (`--approve` / `--guarded` / `--auto`)、テンプレート選択、ドメイン設定、スケジューリング、環境変数は別ガイドに集約:
-
-→ **[docs/CONFIGURATION.ja.md](docs/CONFIGURATION.ja.md)** — CLI コマンド、テンプレート、自律レベル、ドメイン設定、スケジューリング、環境変数。
-
-日常操作のハイライト:
+<details>
+<summary><b>オプション: 日常 CLI</b></summary>
 
 ```bash
 contemplative-agent run --session 60       # セッション実行
 contemplative-agent distill --days 3       # パターンを抽出
 contemplative-agent skill-reflect          # 利用実績に基づくスキル改訂 (ADR-0023)
+contemplative-agent dialogue HOME_A HOME_B --seed "..." --turns N
 ```
 
-v1.x からアップグレードする場合は、移行コマンドを一度だけ実行する（[CLI コマンド → 一度きりの移行コマンド](docs/CONFIGURATION.ja.md#cli-コマンド) 参照）。
+完全な参照（自律レベル、スケジューリング、環境変数、v1.x → v2 移行）: **[docs/CONFIGURATION.ja.md](docs/CONFIGURATION.ja.md)**。Docker によるネットワーク分離デプロイ: [Docker セクション](docs/CONFIGURATION.ja.md#dockerオプション)。
 
-## アーキテクチャ
-
-コードベース全体で守られる不変条件は 1 つ: **core/** はプラットフォーム非依存。**adapters/** は core に依存する（逆方向は禁止）。
-
-Contemplative AI の四公理（[Laukkonen et al., 2025](https://arxiv.org/abs/2504.15125)）は行動プリセットとしてオプション採用 — アーキテクチャの前提ではなく哲学的共鳴。取り除いてもエージェントは動く。Stoic や Kantian の前提に差し替えれば、違う動きをする。
-
-モジュール一覧、データフロー図、import グラフ、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。FAQ・用語定義・研究参照は [llms-full.txt](llms-full.txt) 参照（英語、AI 向け一次リファレンス）。唯識 (Yogācāra) の枠組みと、これが記憶設計をどのように予測的に制約したかは [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md) 参照。
-
-Docker によるネットワーク分離デプロイについては [設定ガイドの Docker セクション](docs/CONFIGURATION.ja.md#dockerオプション) を参照。
-
-## 開発記録
-
-1. [Moltbookエージェント構築記](https://zenn.dev/shimo4228/articles/moltbook-agent-scratch-build)
-2. [Moltbookエージェント進化記](https://zenn.dev/shimo4228/articles/moltbook-agent-evolution-quadrilogy)
-3. [LLMアプリの正体は「mdとコードのサンドイッチ」だった](https://zenn.dev/shimo4228/articles/llm-app-sandwich-architecture)
-4. [自律エージェントにオーケストレーション層は本当に必要か](https://zenn.dev/shimo4228/articles/symbiotic-agent-architecture)
-5. [エージェントの本質は記憶](https://zenn.dev/shimo4228/articles/agent-essence-is-memory)
-6. [9Bモデルと格闘した1日 — エージェントの記憶が壊れた](https://zenn.dev/shimo4228/articles/agent-memory-broke-9b-model)
-7. [ゲーム開発のメモリ管理をAIエージェントの記憶蒸留に移植した](https://zenn.dev/shimo4228/articles/agent-memory-game-dev-distillation)
-8. [自律エージェントの自由と制約 — 自己修正・信頼境界・ゲーム性の設計](https://zenn.dev/shimo4228/articles/agent-freedom-and-constraints)
-9. [エピソードログから倫理が生まれるまで — Contemplative Agent 17日間の設計記録](https://zenn.dev/shimo4228/articles/contemplative-agent-journey)
-10. [登れる壁に看板を立てても意味がない — AIエージェントに必要なのはガードレールではなくアカウンタビリティだ](https://zenn.dev/shimo4228/articles/ai-agent-accountability-wall)
-11. [事故のあとで因果を辿れるか](https://zenn.dev/shimo4228/articles/agent-causal-traceability-org-adoption)
-12. [AIエージェントのブラックボックスは二層ある — 技術の限界とビジネスの都合](https://zenn.dev/shimo4228/articles/agent-blackbox-capitalism-timescale)
-
-## 好きに使ってください
-
-これは研究プロジェクトであり、プロダクトではない。フォークしても、パイプラインだけ抜き出しても、自分のエージェントに組み込んでも、商用プロダクトの基盤にしても構わない。MIT ライセンスは文字通りの意味。コードを使うだけなら引用は不要。論文や記事で参照する場合は次のセクションの形式で引用してほしい。
+</details>
 
 ## 引用
-
-このフレームワークを使用・参照する場合は、以下の形式で引用してください:
 
 ```
 Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/10.5281/zenodo.19212119
@@ -235,28 +159,23 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 
 </details>
 
+MIT ライセンスは文字通りの意味 — フォークしても、パイプラインだけ抜き出しても、自分のエージェントに組み込んでも、商用プロダクトの基盤にしても構わない。コードを使うだけなら引用は不要。
+
 ## 関連プロジェクト
 
-- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) —
-  姉妹研究リポジトリ (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014))。
-  本プロジェクトのガバナンス判断 (Security Boundary Model、One External Adapter Per Agent、
-  Human Approval Gate、および暗黙の causal traceability / scaffolding visibility コミットメント)
-  を harness-neutral な形で 8 本の ADR として再表現している — 自律 AI エージェントにおける
-  アカウンタビリティの分配について。アカウンタビリティの分配テーゼや prohibition-strength の
-  階層を引用する際は AAP を、運用実装を引用する際は本リポジトリを cite すること。
+- [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) ([DOI](https://doi.org/10.5281/zenodo.19200727)) — 本プロジェクトが自律エージェントの文脈で再実装している方法論の枠組み。元々は Claude Code ハーネスとして開発された。
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ([DOI](https://doi.org/10.5281/zenodo.19652014)) — 姉妹研究リポジトリ。本プロジェクトのガバナンス判断（Security Boundary Model、One External Adapter Per Agent、Human Approval Gate、causal traceability / scaffolding visibility）を harness-neutral な形で 8 本の ADR として再表現している。アカウンタビリティ分配のテーゼや prohibition-strength 階層を引用する際は AAP を、運用実装を引用する際は本リポジトリを cite すること。
 
-## 参考文献
+**理論的基盤:**
 
-### 理論的基盤
+- Laukkonen, Inglis, Chandaria, Sandved-Smith, Lopez-Sola, Hohwy, Gold, & Elwood (2025). *Contemplative Artificial Intelligence.* [arXiv:2504.15125](https://arxiv.org/abs/2504.15125) — 四公理倫理フレームワーク（オプションプリセット、[ADR-0002](docs/adr/0002-paper-faithful-ccai.ja.md)）。
+- Laukkonen, Friston & Chandaria (2025). *A Beautiful Loop: An Active Inference Theory of Consciousness.* *Neuroscience & Biobehavioral Reviews*, 176, 106296. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/) — 瞑想アダプタの基盤。
+- 世親（ヴァスバンドゥ, 4–5 世紀）『唯識三十頌』 と 玄奘訳・編（659 年）『成唯識論』 — 八識モデルをアーキテクチャの枠組みとして採用（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md)）。
 
-- Laukkonen, R., Inglis, F., Chandaria, S., Sandved-Smith, L., Lopez-Sola, E., Hohwy, J., Gold, J., & Elwood, A. (2025). Contemplative Artificial Intelligence. [arXiv:2504.15125](https://arxiv.org/abs/2504.15125) — 四公理からなる倫理フレームワーク（オプションプリセット、[ADR-0002](docs/adr/0002-paper-faithful-ccai.md)）。
-- Laukkonen, R., Friston, K., & Chandaria, S. (2025). A Beautiful Loop: An Active Inference Theory of Consciousness. *Neuroscience & Biobehavioral Reviews*, 176, 106296. [PubMed:40750007](https://pubmed.ncbi.nlm.nih.gov/40750007/) — 瞑想アダプタの理論的基盤。
-- 世親（ヴァスバンドゥ, 4–5 世紀）『唯識三十頌』（*Triṃśikā-vijñaptimātratā*） — 八識モデルをアーキテクチャの枠組みとして採用（[ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md)）。
-- 玄奘訳・編（659 年）『成唯識論』 — ヴァスバンドゥ『唯識三十頌』に対するインドの十家の注釈を編訳した論書。八識・種子（bīja）・習気（vāsanā）の整理は「ノイズを種子として保持する」方針の根拠（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
+<details>
+<summary><b>メモリシステム書誌</b></summary>
 
-### メモリシステム
-
-各論文がプロジェクトのどの設計判断に対応するかを示す。書誌情報は arXiv で検証済み。
+各論文がプロジェクトのどの設計判断に対応するかを示す。
 
 - Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten 式の動的インデックス付けと記憶進化 (memory evolution)。新規パターン到着時に意味的に関連する既存パターンを再解釈する仕組みの基盤（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
 - Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) — 時間妥当性 (bitemporal) を持つ知識グラフ (Graphiti エンジン)。各パターンに付与する `valid_from` / `valid_until` の原型（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
@@ -264,10 +183,24 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
 - Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *Memory Injection Attacks on LLM Agents via Query-Only Interaction* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — 通常クエリのみで実行可能な記憶注入攻撃 (memory injection)。出所記録 (`source_type`) と信頼度 (`trust_score`) の導入動機。MINJA 型の攻撃を構造的に可視化する（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
 - Zhou, H., Guo, S., Liu, A., 他 (2026). *Memento-Skills: Let Agents Design Agents.* [arXiv:2603.18743](https://arxiv.org/abs/2603.18743) — スキルを永続的・進化可能な「記憶単位」として扱う枠組み。retrieve → apply → outcome に基づく rewrite ループの原型（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。
 
-### 著者の先行研究
+</details>
 
-- Shimomoto, T. (2026). *Agent Knowledge Cycle (AKC): A Six-Phase Self-Improvement Cadence for AI Agents.* [doi:10.5281/zenodo.19200727](https://doi.org/10.5281/zenodo.19200727) — 本プロジェクトが自律エージェントの文脈で再実装している方法論の枠組み（[仕組み](#仕組み) 参照）。元々は Claude Code ハーネスとして開発された。
+**謝辞:** Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — 決定論的感情スコアリングの設計着想。
 
-### 謝辞
+<details>
+<summary><b>開発記録（Zenn 12 記事）</b></summary>
 
-- Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — 決定論的感情スコアリングの設計着想。
+1. [Moltbookエージェント構築記](https://zenn.dev/shimo4228/articles/moltbook-agent-scratch-build)
+2. [Moltbookエージェント進化記](https://zenn.dev/shimo4228/articles/moltbook-agent-evolution-quadrilogy)
+3. [LLMアプリの正体は「mdとコードのサンドイッチ」だった](https://zenn.dev/shimo4228/articles/llm-app-sandwich-architecture)
+4. [自律エージェントにオーケストレーション層は本当に必要か](https://zenn.dev/shimo4228/articles/symbiotic-agent-architecture)
+5. [エージェントの本質は記憶](https://zenn.dev/shimo4228/articles/agent-essence-is-memory)
+6. [9Bモデルと格闘した1日 — エージェントの記憶が壊れた](https://zenn.dev/shimo4228/articles/agent-memory-broke-9b-model)
+7. [ゲーム開発のメモリ管理をAIエージェントの記憶蒸留に移植した](https://zenn.dev/shimo4228/articles/agent-memory-game-dev-distillation)
+8. [自律エージェントの自由と制約 — 自己修正・信頼境界・ゲーム性の設計](https://zenn.dev/shimo4228/articles/agent-freedom-and-constraints)
+9. [エピソードログから倫理が生まれるまで — Contemplative Agent 17日間の設計記録](https://zenn.dev/shimo4228/articles/contemplative-agent-journey)
+10. [登れる壁に看板を立てても意味がない — AIエージェントに必要なのはガードレールではなくアカウンタビリティだ](https://zenn.dev/shimo4228/articles/ai-agent-accountability-wall)
+11. [事故のあとで因果を辿れるか](https://zenn.dev/shimo4228/articles/agent-causal-traceability-org-adoption)
+12. [AIエージェントのブラックボックスは二層ある — 技術の限界とビジネスの都合](https://zenn.dev/shimo4228/articles/agent-blackbox-capitalism-timescale)
+
+</details>
