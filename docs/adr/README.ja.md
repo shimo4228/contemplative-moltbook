@@ -32,6 +32,10 @@
 | [0024](0024-identity-block-separation.ja.md) | Identity Block Separation — Frontmatter で addressing する persona ブロック | proposed | 2026-04-16 |
 | [0025](0025-identity-history-and-migrate-cli.ja.md) | Identity History ログ配線 + migrate-identity CLI | proposed | 2026-04-16 |
 | [0028](0028-retire-pattern-level-forgetting-feedback.ja.md) | pattern 層の forgetting と feedback を撤回 — 記憶動的層は skill 層にある | proposed | 2026-04-18 |
+| [0029](0029-retire-dormant-provenance-elements.ja.md) | dormant な provenance 要素を撤回 — `user_input` / `external_post` / `sanitized` | accepted | 2026-04-18 |
+| [0030](0030-withdraw-identity-blocks.ja.md) | Identity Block 分離と History 配線の撤回 — Single Responsibility | accepted — ADR-0024 と ADR-0025 を supersede | 2026-04-18 |
+| [0031](0031-classification-as-query.ja.md) | Classification as Query — 自己改善メモリの substrate 原則 | accepted | 2026-04-27 |
+| [0032](0032-runtime-agent-stance.ja.md) | Stance — Contemplative Agent はランタイムエージェントであり、コーディングエージェントではない | accepted | 2026-04-27 |
 
 ## ADR の種別
 
