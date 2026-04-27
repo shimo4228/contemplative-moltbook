@@ -52,7 +52,7 @@ The contribution of this ADR is **not** the mechanism (that mechanism has been r
 
 ## Promotion Candidate
 
-This principle is a candidate for promotion into the [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) repository's Design Principles section, alongside the existing Mechanism / Value Split principle. Promotion would re-frame this ADR as a contemplative-moltbook reference implementation of an AKC substrate principle, with AKC carrying the harness-neutral statement of the principle and contemplative-moltbook carrying the concrete realisation.
+This principle is a candidate for promotion into the [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) repository's Design Principles section, alongside the existing Mechanism / Value Split principle. Promotion would re-frame this ADR as the Contemplative Agent reference implementation of an AKC substrate principle, with AKC carrying the harness-neutral statement of the principle and Contemplative Agent carrying the concrete realisation.
 
 Promotion is to be evaluated separately by the AKC repository. This ADR records the principle here so that AKC has a referenceable articulation to evaluate.
 

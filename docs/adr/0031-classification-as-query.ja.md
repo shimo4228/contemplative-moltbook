@@ -52,7 +52,7 @@ accepted — ADR-0019、ADR-0022、ADR-0026 に既に実現されている原則
 
 ## Promotion Candidate
 
-本原則は、[Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) リポジトリの Design Principles section に、既存の Mechanism / Value Split と並ぶ原則として昇格させる候補。昇格すれば本 ADR は AKC substrate principle の contemplative-moltbook 参考実装として再フレーミングされる — AKC が原則の harness-neutral な記述を担い、contemplative-moltbook が具体実現を担う構造。
+本原則は、[Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) リポジトリの Design Principles section に、既存の Mechanism / Value Split と並ぶ原則として昇格させる候補。昇格すれば本 ADR は AKC substrate principle の Contemplative Agent 参考実装として再フレーミングされる — AKC が原則の harness-neutral な記述を担い、Contemplative Agent が具体実現を担う構造。
 
 昇格の判断は AKC リポジトリ側で別途行う。本 ADR は AKC が評価できる articulation をここに記録する。
 
