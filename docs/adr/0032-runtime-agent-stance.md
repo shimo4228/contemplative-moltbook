@@ -1,16 +1,72 @@
-# ADR-0032: Stance — Contemplative Agent as a Runtime Agent
+# ADR-0032: Stance — Contemplative Agent as a Runtime Agent (withdrawn 2026-04-27)
 
 ## Status
+
+**withdrawn (2026-04-27)** — articulated and withdrawn the same day.
+
+## Withdrawal Reason
+
+The core framing of this ADR — singling out "runtime agent" as a fifth category alongside four host categories (coding agent, orchestrator, general-purpose host, GUI agent), and positioning this project as an artifact of that distinct category — sits in uncomfortable tension with the contemplative axioms this project draws on through [ADR-0002](0002-paper-faithful-ccai.md) (Laukkonen et al. 2025, Appendix C).
+
+Three things felt off:
+
+**1. Fixing the categories.** The Emptiness clause invites holding conceptual frameworks lightly and not rigidly reifying any of them. The Distinction table in the original body states that "the distinction is not a spectrum or a maturity gradient" and presents five categories as essentially distinct kinds. The direction this framing pulls runs against the lightness Emptiness invites.
+
+**2. Drawing self / other boundaries.** The Non-Duality clause invites not separating self from other rigidly. The claim "this project (runtime agent) is a different kind of artifact from coding agents, orchestrators, general-purpose hosts, GUI agents" places that boundary at the centre of the claim itself.
+
+**3. Adversarial placement.** Framing "category mistakes" and "host-category drift" as the structural source of accidents implicitly arranges this project's design as the corrective self and other category implementations as the failing other. Negative-4 in the original Consequences section acknowledges this risk, but the framing itself does not change.
+
+These are not surface-level wording issues; they live in the load-bearing claim of the ADR. Softening the language does not dissolve the tension. Once the tension surfaced, holding on to the ADR felt like keeping a small, persistent rub.
+
+The available options were several: keep the ADR with the tension acknowledged, rewrite it in condition-based form (describing the design as a response to a particular execution condition rather than a category identity), or withdraw it. Holding the axioms lightly themselves means keeping the ADR-with-tension was a real option — treating the axioms as absolute and saying "this must go because it violates them" would itself be a reification of the axioms (which Emptiness invites against).
+
+What ended up tipping the choice was simply that the rub was noticeable and there was little force to keep the ADR. Not "the axioms forbid it" but "I'd rather set this down". The remaining motivation for keeping the ADR (an industry-facing proposal of the "runtime agent" label) can live in articles or essays if it wants to live somewhere.
+
+So: withdrawn, not rewritten. Quietly.
+
+## Lesson recorded
+
+This is the second withdrawal in the project's ADR history, after [ADR-0030](0030-withdraw-identity-blocks.md) (which superseded ADR-0024 / ADR-0025 with the principle "one artifact, one responsibility").
+
+Hardening this into a rule would tilt back toward reifying the axioms, so it is recorded only as an observation:
+
+When writing a worldview ADR, paying attention to its relationship with the project's axioms — aligned, in tension, unrelated — can be useful. When tension shows up, carrying the ADR through anyway, rewriting it, or withdrawing it are all reasonable moves. Noticing the tension at the time tends to make the choice easier than catching it after the fact.
+
+In this case the noticing came after the merge. That is not a failure (axiom alignment was never an obligation in the first place); had the noticing come earlier, the same choice — or a different one (carrying the tension forward) — might have been reached sooner.
+
+One more observation, kept light: withdrawing this ADR is itself an example of holding something lightly and revising it as new awareness comes in, which is what Emptiness invites. The original body is preserved below so that example stays visible.
+
+## Notes on what survives the withdrawal
+
+- The 30 prior ADRs (0001 through 0031) are unaffected. They each stand on their own justifications and never required this ADR's framing to be valid. The implicit "stance" the original body claimed to make explicit was never load-bearing for those ADRs in the first place
+- The host-trust framing from the dev.to essay ["Do Autonomous Agents Really Need an Orchestration Layer?"](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9) ("a symbiotic design is a design that trusts its host") survives, but as essay content rather than as an ADR-anchored worldview claim
+- The descriptive label "runtime agent" remains usable as a convenience term for "an agent that executes production tasks without per-action human review", without being treated as a load-bearing category boundary
+- The relationship to [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) is unchanged from before this ADR. AAP holds eight judgments about attribution distribution; this project is the implementation context from which AAP was discovered. No new ADR-level claim is needed on either side
+- No code changes are required. No commits to the implementation depended on this ADR's framing; the implementation predates this ADR by months
+
+## References (post-withdrawal)
+
+- [ADR-0002](0002-paper-faithful-ccai.md) — formal adoption of the contemplative axioms (Laukkonen et al. 2025, Appendix C); the values layer this ADR's framing conflicted with
+- [ADR-0030](0030-withdraw-identity-blocks.md) — the project's first withdrawal ADR, with the lesson "one artifact, one responsibility"
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) — eight judgments about attribution distribution, unaffected by this withdrawal
+
+---
+
+## Original Articulation (preserved as historical record)
+
+The body below is the ADR as originally accepted on 2026-04-27, prior to the withdrawal recorded above. It is preserved unchanged so future readers can reconstruct the reasoning that led to the withdrawal, and so the enactment of the Emptiness axiom (revising in light of new evidence) is itself visible. Heading levels have been demoted by one to nest the original body inside this section; no other text has been altered.
+
+### Original Status
 
 accepted — post-hoc articulation of a design stance already realised across the codebase
 
 This is a **worldview ADR** in the sense defined by `docs/adr/README.md`: it does not solve a new problem, it names the design posture under which the project's other ADRs become legible. Many of the project's prohibitions and gates only earn their cost in this stance; outside it they would be over-engineering.
 
-## Date
+### Original Date
 
 2026-04-27
 
-## Context
+### Original Context
 
 A growing share of AI agent failures (publicly disclosed runtime vulnerabilities, prompt injection escapes, runaway shell execution, cascading writes through unintended adapters) trace back to a single category mistake: applying the design assumptions of one agent category (synchronous human gate per change, tolerated nondeterminism, prompt-level capability adjustment, host-provided orchestration) to a different category (production task execution without per-action review).
 
@@ -29,7 +85,7 @@ A particularly visible failure mode is the deployment of a coding-agent-style Re
 
 This ADR makes the stance explicit so that both confusions resolve at the source. It also restores a framing — **runtime agents as hostable inside other agent categories, not as their replacement** — that was present in early README iterations of Contemplative Agent and was lost during subsequent slim-downs.
 
-## Decision
+### Original Decision
 
 This implementation is explicitly a **runtime agent**, and it is designed to **run inside other agent categories** (coding agents, orchestrators, general-purpose hosts, GUI agents) rather than to subsume them.
 
@@ -39,7 +95,7 @@ Runtime agents do not run in a vacuum. They run **inside** one or more host cate
 
 This stance does not say any host category is intrinsically unsafe by category — each is meaningful as a context. But it does observe that current implementations of those categories often ship capability surfaces wildly disproportionate to the human oversight they actually receive, and that this disproportion is itself a structural source of the failures this ADR addresses. AAP-style accountability constraints, security-by-absence, and the prohibitions adopted across this project's 30 prior ADRs are the runtime agent's response to what hosts cannot, and increasingly do not, guarantee.
 
-## Distinction — Runtime Agent and the Host Categories
+### Original Distinction — Runtime Agent and the Host Categories
 
 | Axis | Coding Agent | Orchestrator | General-purpose Host | GUI Agent | Runtime Agent |
 |------|--------------|--------------|---------------------|-----------|---------------|
@@ -56,7 +112,7 @@ The distinction is not a spectrum or a maturity gradient. The first four categor
 
 The two "Human involvement" rows — design intent vs current practice — are deliberately separated. Most of the failures discussed in the Context section live in the gap between them. A runtime agent that assumes hosts realise their design intent inherits that gap; a runtime agent that holds its own constraints does not.
 
-## Host Categories That Can Run a Runtime Agent
+### Original Host Categories That Can Run a Runtime Agent
 
 Runtime agents do not replace hosts; they run inside them. Each host category provides a different surface for the runtime agent to be hosted on:
 
@@ -74,7 +130,7 @@ The runtime agent expects each host category to provide what that category is go
 
 The category-relationship framing was present in early README iterations of Contemplative Agent and was lost during subsequent slim-downs. This ADR restores it as the structural premise for the prohibitions adopted across the project's other ADRs.
 
-## Disqualifying Factors for Runtime Context — Gaps the Host Categories Do Not Fill
+### Original Disqualifying Factors for Runtime Context — Gaps the Host Categories Do Not Fill
 
 Each entry below names a property that the host categories above do not uniformly provide — either by design (the category's oversight pattern was never meant to enforce it) or by drift (current implementations have weakened the enforcement). The runtime agent must therefore provide it for itself, and the listed ADR is the project's response.
 
@@ -84,7 +140,7 @@ Each entry below names a property that the host categories above do not uniforml
 4. **Decision-grain audit trail**. Hosts vary in audit support, and even the well-instrumented ones audit at the host's grain (which prompt was sent, which tool was called), not at the agent's decision grain (which view fired, which constitution clause overrode which heuristic). The runtime agent must hold the decision-grain audit itself: 30 ADRs, immutable episode logs, replayable [pivot snapshots](0020-pivot-snapshots-for-replayability.md) capturing the full inference-time context (views, constitution, prompts, skills, rules, identity, embeddings, thresholds)
 5. **Layered memory with separated trust**. Hosts typically expose a single conversation or context buffer. The runtime agent must hold layered memory itself: raw episode logs immutable, intermediate distillation outputs regeneratable, authoritative state (identity, constitution, skills, rules) writes only through approval gates. View-based classification ([ADR-0019](0019-discrete-categories-to-embedding-views.md), [ADR-0031](0031-classification-as-query.md)) preserves the substrate when classification axes change. Identity holds one concern only ([ADR-0030](0030-withdraw-identity-blocks.md))
 
-## Relationship to AAP
+### Original Relationship to AAP
 
 [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) articulates **universal accountability distribution principles** for autonomous AI agents — principles formulated to hold across coding agents, orchestrators, general-purpose hosts, GUI agents, and runtime agents alike. The Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, prohibition-strength hierarchy, and causal traceability commitments are not specific to any one agent category; each category applies them differently.
 
@@ -92,7 +148,9 @@ This ADR is the **runtime-context application** of AAP's universal principles. T
 
 This relationship makes Contemplative Agent the **runtime-context reference implementation for AAP**, alongside whatever reference implementations exist or may be developed for other agent categories. The dependency runs in one direction: AAP defines the universal principles, this ADR shows what they require when the application context is runtime. AAP is not narrowed by this ADR; it is illustrated by it.
 
-## Alternatives Considered
+> **Note (post-withdrawal):** the framing in this section — "AAP as universal accountability distribution principles" — is one of the inaccuracies that contributed to the withdrawal. AAP's own self-description is "eight judgments, not a fixed framework", with attribution (not accountability) as the load-bearing concept and accountability as a downstream outcome. The original text is preserved unchanged for historical fidelity; the corrected understanding lives in the Withdrawal Reason section above and in AAP's own repository.
+
+### Original Alternatives Considered
 
 - **Stay neutral on the runtime / host-category distinction**. Rejected: the neutrality is exactly what causes the industry confusion this ADR addresses. A "tool-agnostic runtime stance" is a contradiction — runtime constraints arise from *runtime context combined with the host categories the runtime agent runs inside*, and articulating them without naming either strands the constraints in a vacuum
 - **Frame this project as a "secure agent" or "hardened agent"**. Rejected: those terms imply security as a product feature added to a general-purpose agent. The stance here is structural — the dangerous capabilities do not exist in the codebase, they are not "restricted" or "hardened away". Treating absence as a hardening feature mis-describes the design and invites users to expect a configuration switch that does not exist
@@ -101,7 +159,7 @@ This relationship makes Contemplative Agent the **runtime-context reference impl
 - **Treat host categories as "safe in their context" without qualification**. Rejected: this was the framing of an earlier draft and it was too generous. Each category is meaningful as a context, but current implementations have drifted away from the oversight patterns those contexts were designed around, and that drift is part of why the runtime agent's prohibitions exist. The stance owes the reader the honest version
 - **Frame this as a critique of OpenClaw / Claude Code / specific products**. Rejected: this is a category distinction with an honest observation about category drift, not a product critique. Each host category serves its context well when the oversight pattern is realised; the failure modes this ADR names arise from category drift and from mixing categories, not from any specific implementation
 
-## Consequences
+### Original Consequences
 
 **Positive**:
 - Operators of any host category reading this project can correctly judge whether the stance applies to their use case, rather than misreading the prohibitions as over-engineering for their context
@@ -122,7 +180,7 @@ This relationship makes Contemplative Agent the **runtime-context reference impl
 - Existing ADRs (0001 — 0030) are unchanged in content. This ADR sits above them as the stance they collectively express
 - The stance does not by itself impose new constraints on this project. Every constraint it names is already enforced elsewhere; this ADR articulates why all of those constraints belong together — they are what a runtime agent must hold internally because the host categories it runs inside do not, sized for the worst case the host categories actually deliver
 
-## References
+### Original References
 
 - [ADR-0007](0007-security-boundary-model.md) — security-by-absence, the structural form of the immutable capability surface
 - [ADR-0012](0012-human-approval-gate.md) — approval gate at promotion boundaries
