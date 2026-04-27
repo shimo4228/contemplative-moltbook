@@ -84,11 +84,13 @@ Each entry below names a property that the host categories above do not uniforml
 4. **Decision-grain audit trail**. Hosts vary in audit support, and even the well-instrumented ones audit at the host's grain (which prompt was sent, which tool was called), not at the agent's decision grain (which view fired, which constitution clause overrode which heuristic). The runtime agent must hold the decision-grain audit itself: 30 ADRs, immutable episode logs, replayable [pivot snapshots](0020-pivot-snapshots-for-replayability.md) capturing the full inference-time context (views, constitution, prompts, skills, rules, identity, embeddings, thresholds)
 5. **Layered memory with separated trust**. Hosts typically expose a single conversation or context buffer. The runtime agent must hold layered memory itself: raw episode logs immutable, intermediate distillation outputs regeneratable, authoritative state (identity, constitution, skills, rules) writes only through approval gates. View-based classification ([ADR-0019](0019-discrete-categories-to-embedding-views.md), [ADR-0031](0031-classification-as-query.md)) preserves the substrate when classification axes change. Identity holds one concern only ([ADR-0030](0030-withdraw-identity-blocks.md))
 
-## Promotion Candidate
+## Relationship to AAP
 
-This stance is a candidate for promotion into the [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) repository as a foundational ADR (e.g. AAP ADR-0009) that re-frames the existing 8 ADRs as "accountability distribution **for runtime agents running inside other host categories**". AAP's existing thesis (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, prohibition-strength hierarchy, causal traceability) is implicitly conditional on the runtime stance and the host-category framing; promoting both to AAP would make those conditions explicit and would correctly scope which agent communities AAP applies to.
+[Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) articulates **universal accountability distribution principles** for autonomous AI agents — principles formulated to hold across coding agents, orchestrators, general-purpose hosts, GUI agents, and runtime agents alike. The Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, prohibition-strength hierarchy, and causal traceability commitments are not specific to any one agent category; each category applies them differently.
 
-Promotion is to be evaluated separately by the AAP repository. This ADR records the stance here so that AAP has a referenceable articulation to evaluate.
+This ADR is the **runtime-context application** of AAP's universal principles. The prohibitions adopted in this project (security-by-absence in code, fixed capability surface at process start, immutable episode logs, decision-grain audit, three-tier autonomy) are what AAP's universal principles look like when the agent is a runtime agent running inside other host categories. Coding agents would apply the same AAP principles through per-change developer accountability and reviewable diffs; orchestrators through framework-user-designed permission graphs; general-purpose hosts through user-curated tool registries; GUI agents through on-screen supervision and OS-level sandboxing. The principles are the same; the realisation is shaped by the agent's category.
+
+This relationship makes Contemplative Agent the **runtime-context reference implementation for AAP**, alongside whatever reference implementations exist or may be developed for other agent categories. The dependency runs in one direction: AAP defines the universal principles, this ADR shows what they require when the application context is runtime. AAP is not narrowed by this ADR; it is illustrated by it.
 
 ## Alternatives Considered
 
@@ -106,7 +108,7 @@ Promotion is to be evaluated separately by the AAP repository. This ADR records 
 - Runtime-agent operators recognise the design judgments as relevant immediately, without reverse-engineering the underlying premise
 - The implicit assumption underlying the prior 30 ADRs is now explicit and can be cited
 - Future ADRs can reference this stance instead of re-justifying runtime constraints case by case
-- The connection to AAP becomes structural: AAP's accountability distribution principles and this project's prohibitions express the same stance from two different angles
+- The connection to AAP becomes structural: AAP holds the universal accountability distribution principles, this project's prohibitions are what those principles require when the application context is runtime. Other agent categories (coding agents, orchestrators, general-purpose hosts, GUI agents) would apply the same AAP principles differently — and reference implementations for those categories can be added without renegotiating AAP itself
 - The host-category framing originally present in Contemplative Agent's early README iterations is restored, and made explicit as a structural choice rather than incidental phrasing
 - The two-row "design intent vs current practice" split in the distinction table makes the host-category drift visible without requiring a separate critique document
 
@@ -130,4 +132,4 @@ Promotion is to be evaluated separately by the AAP repository. This ADR records 
 - [ADR-0030](0030-withdraw-identity-blocks.md) — single-responsibility per artifact
 - [ADR-0031](0031-classification-as-query.md) — substrate principle for self-improving memory
 - [Do Autonomous Agents Really Need an Orchestration Layer?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9) — origin of the host-trust framing ("a symbiotic design is a design that trusts its host")
-- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) — promotion candidate destination, sibling articulation of accountability distribution under the runtime stance
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) — universal accountability distribution principles for autonomous AI agents; this ADR is their runtime-context application
