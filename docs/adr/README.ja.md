@@ -35,7 +35,7 @@
 | [0029](0029-retire-dormant-provenance-elements.ja.md) | dormant な provenance 要素を撤回 — `user_input` / `external_post` / `sanitized` | accepted | 2026-04-18 |
 | [0030](0030-withdraw-identity-blocks.ja.md) | Identity Block 分離と History 配線の撤回 — Single Responsibility | accepted — ADR-0024 と ADR-0025 を supersede | 2026-04-18 |
 | [0031](0031-classification-as-query.ja.md) | Classification as Query — 自己改善メモリの substrate 原則 | accepted | 2026-04-27 |
-| [0032](0032-runtime-agent-stance.ja.md) | Stance — Contemplative Agent はランタイムエージェントであり、コーディングエージェントではない | accepted | 2026-04-27 |
+| [0032](0032-runtime-agent-stance.ja.md) | Stance — Contemplative Agent はランタイムエージェントであり、ホストと共生する | accepted | 2026-04-27 |
 
 ## ADR の種別
 

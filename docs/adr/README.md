@@ -37,7 +37,7 @@ Records of key design decisions for this project.
 | [0029](0029-retire-dormant-provenance-elements.md) | Retire Dormant Provenance Elements — `user_input` / `external_post` / `sanitized` | accepted | 2026-04-18 |
 | [0030](0030-withdraw-identity-blocks.md) | Withdraw Identity Block Separation and History Wiring — Single Responsibility | accepted — supersedes 0024 and 0025 | 2026-04-18 |
 | [0031](0031-classification-as-query.md) | Classification as Query — Substrate Principle for Self-Improving Memory | accepted | 2026-04-27 |
-| [0032](0032-runtime-agent-stance.md) | Stance — Contemplative Agent as a Runtime Agent, Not a Coding Agent | accepted | 2026-04-27 |
+| [0032](0032-runtime-agent-stance.md) | Stance — Contemplative Agent as a Runtime Agent, Symbiotic with Its Hosts | accepted | 2026-04-27 |
 
 ## ADR Types
 
