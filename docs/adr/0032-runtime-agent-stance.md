@@ -1,4 +1,4 @@
-# ADR-0032: Stance — Contemplative Agent as a Runtime Agent, Symbiotic with Its Hosts
+# ADR-0032: Stance — Contemplative Agent as a Runtime Agent
 
 ## Status
 
@@ -25,11 +25,13 @@ Until now this stance has been **implicit**. The 30 prior ADRs each justify thei
 1. **External readers** evaluating Contemplative Agent against the conventions of one of the host categories (developer ergonomics of coding agents, capability breadth of general-purpose hosts, framework flexibility of orchestrators) judge it too restrictive — without seeing that the restrictions exist precisely because the host-side guarantees are absent in the runtime context, and increasingly absent in non-runtime contexts as well
 2. **Internal reasoning** about whether to add a new capability defaults to host-category intuitions ("the agent should be able to…") instead of runtime-agent intuitions ("under what gate, with what audit trail, with what failure semantics, given that no host is reliably providing these?")
 
-This ADR makes the stance explicit so that both confusions resolve at the source. It also restores a framing that was present in early README iterations of Contemplative Agent — **symbiosis with hosts** — and that was lost during subsequent slim-downs.
+A particularly visible failure mode is the deployment of a coding-agent-style ReAct loop (broad tool surface, prompt-driven reasoning, autonomous tool invocation) into a runtime context. The loop's design assumes per-iteration developer judgment; the deployment removes it. The result inherits the broad capability surface of a general-purpose host, the autonomous decision loop of a coding agent, and the unattended deployment of a runtime agent — without inheriting any of the safety guarantees those categories were designed around. Each category's oversight pattern (per-change developer review, per-tool user curation, per-decision institutional accountability) is bypassed by virtue of the others being assumed to compensate, when none of them actually does.
+
+This ADR makes the stance explicit so that both confusions resolve at the source. It also restores a framing — **runtime agents as hostable inside other agent categories, not as their replacement** — that was present in early README iterations of Contemplative Agent and was lost during subsequent slim-downs.
 
 ## Decision
 
-This implementation is explicitly a **runtime agent**, and it is designed to be **symbiotic with its hosts** rather than self-sufficient.
+This implementation is explicitly a **runtime agent**, and it is designed to **run inside other agent categories** (coding agents, orchestrators, general-purpose hosts, GUI agents) rather than to subsume them.
 
 A **runtime agent** is an agent that executes tasks in production without per-action human review. Examples: autonomous SNS engagement (this project's first adapter), monitoring and alerting agents, scheduled automation jobs, autonomous trading agents, agents embedded in clinical or legal workflows. Human involvement takes the form of approval gates at promotion boundaries, exception logs for review after the fact, and episodic audit — not synchronous human approval of every action.
 
@@ -54,25 +56,25 @@ The distinction is not a spectrum or a maturity gradient. The first four categor
 
 The two "Human involvement" rows — design intent vs current practice — are deliberately separated. Most of the failures discussed in the Context section live in the gap between them. A runtime agent that assumes hosts realise their design intent inherits that gap; a runtime agent that holds its own constraints does not.
 
-## Symbiosis with Hosts
+## Host Categories That Can Run a Runtime Agent
 
-Runtime agents do not replace hosts; they live inside them. Each host category provides a different surface for the runtime agent to inhabit:
+Runtime agents do not replace hosts; they run inside them. Each host category provides a different surface for the runtime agent to be hosted on:
 
 - **Coding agent as host** (Claude Code, Cursor, Aider) — develops, modifies, and reviews the runtime agent's code. The runtime agent treats the coding agent as a developer-facing surface, while not assuming any specific level of review actually occurs
 - **Orchestrator as host** (LangChain, LangGraph, AutoGen) — composes the runtime agent with other agents or steps. The runtime agent appears as a node in a larger graph, while not assuming the framework user has tuned the surrounding nodes' permissions
 - **General-purpose host** (OpenClaw, MCP host, Open WebUI) — provides the LLM, the tool registry, and the execution loop. The runtime agent is one tool or capability among many, while not assuming the host operator has curated the rest of the tool registry
 - **GUI agent as host** (Computer Use, Operator) — drives the runtime agent through its surface (CLI, web UI, file edits) the same way it drives other software, while not assuming continuous on-screen supervision
 
-The framing for this comes from an early dev.to articulation of Contemplative Agent's design:
+The framing originates from an early dev.to articulation of Contemplative Agent's design:
 
 > "A symbiotic design is a design that trusts its host."
 > — *Do Autonomous Agents Really Need an Orchestration Layer?*
 
-A symbiotic runtime agent expects each host to provide what that host's category is good at, *trusts* the host to do its part, and provides itself only what hosts cannot. The trust is in the category, not in any specific host implementation — which is why the runtime agent's prohibitions are written for the worst-case host within each category, not the best-case one. This is the inverse of the more common pattern where an "autonomous agent" attempts to subsume its own development environment, its own orchestration, its own host runtime, and its own UI — which is what produces the framework bloat critiqued in the linked article.
+The runtime agent expects each host category to provide what that category is good at, and provides itself only what hosts cannot. The expectation is in the *category*, not in any specific host implementation — which is why the runtime agent's prohibitions are written for the worst-case host within each category, not the best-case one. This is the inverse of the more common pattern where an "autonomous agent" attempts to subsume its own development environment, its own orchestration, its own host runtime, and its own UI — which is the bloat critiqued in the linked article.
 
-This framing was present in early README iterations of Contemplative Agent ("a symbiotic agent that trusts its host") and was lost during subsequent slim-downs. This ADR restores it as the structural premise for the prohibitions adopted across the project's other ADRs.
+The category-relationship framing was present in early README iterations of Contemplative Agent and was lost during subsequent slim-downs. This ADR restores it as the structural premise for the prohibitions adopted across the project's other ADRs.
 
-## Disqualifying Factors for Runtime Context — Rephrased as Host-Symbiosis Gaps
+## Disqualifying Factors for Runtime Context — Gaps the Host Categories Do Not Fill
 
 Each entry below names a property that the host categories above do not uniformly provide — either by design (the category's oversight pattern was never meant to enforce it) or by drift (current implementations have weakened the enforcement). The runtime agent must therefore provide it for itself, and the listed ADR is the project's response.
 
@@ -84,15 +86,15 @@ Each entry below names a property that the host categories above do not uniforml
 
 ## Promotion Candidate
 
-This stance is a candidate for promotion into the [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) repository as a foundational ADR (e.g. AAP ADR-0009) that re-frames the existing 8 ADRs as "accountability distribution **for runtime agents symbiotic with their hosts**". AAP's existing thesis (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, prohibition-strength hierarchy, causal traceability) is implicitly conditional on the runtime stance and the host-symbiosis framing; promoting both to AAP would make those conditions explicit and would correctly scope which agent communities AAP applies to.
+This stance is a candidate for promotion into the [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) repository as a foundational ADR (e.g. AAP ADR-0009) that re-frames the existing 8 ADRs as "accountability distribution **for runtime agents running inside other host categories**". AAP's existing thesis (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, prohibition-strength hierarchy, causal traceability) is implicitly conditional on the runtime stance and the host-category framing; promoting both to AAP would make those conditions explicit and would correctly scope which agent communities AAP applies to.
 
 Promotion is to be evaluated separately by the AAP repository. This ADR records the stance here so that AAP has a referenceable articulation to evaluate.
 
 ## Alternatives Considered
 
-- **Stay neutral on the runtime / host-category distinction**. Rejected: the neutrality is exactly what causes the industry confusion this ADR addresses. A "tool-agnostic runtime stance" is a contradiction — runtime constraints arise from *runtime context combined with host-symbiosis context*, and articulating them without naming either strands the constraints in a vacuum
+- **Stay neutral on the runtime / host-category distinction**. Rejected: the neutrality is exactly what causes the industry confusion this ADR addresses. A "tool-agnostic runtime stance" is a contradiction — runtime constraints arise from *runtime context combined with the host categories the runtime agent runs inside*, and articulating them without naming either strands the constraints in a vacuum
 - **Frame this project as a "secure agent" or "hardened agent"**. Rejected: those terms imply security as a product feature added to a general-purpose agent. The stance here is structural — the dangerous capabilities do not exist in the codebase, they are not "restricted" or "hardened away". Treating absence as a hardening feature mis-describes the design and invites users to expect a configuration switch that does not exist
-- **Frame this project as self-sufficient (subsume orchestration, hosting, UI)**. Rejected: this is exactly the pattern critiqued in the linked dev.to article. Self-sufficient agents reproduce the bloat they are meant to escape. Symbiosis with existing hosts is the structural alternative
+- **Frame this project as self-sufficient (subsume orchestration, hosting, UI)**. Rejected: this is exactly the pattern critiqued in the linked dev.to article. Self-sufficient agents reproduce the bloat they are meant to escape. Running inside existing host categories is the structural alternative
 - **Frame the contrast as a binary (runtime vs coding only)**. Rejected: this collapses orchestrators, general-purpose hosts, and GUI agents into "not coding", which is incorrect — each is a distinct host category with its own oversight pattern and its own gap between intent and practice. The earlier draft of this ADR made this mistake; this revision corrects it
 - **Treat host categories as "safe in their context" without qualification**. Rejected: this was the framing of an earlier draft and it was too generous. Each category is meaningful as a context, but current implementations have drifted away from the oversight patterns those contexts were designed around, and that drift is part of why the runtime agent's prohibitions exist. The stance owes the reader the honest version
 - **Frame this as a critique of OpenClaw / Claude Code / specific products**. Rejected: this is a category distinction with an honest observation about category drift, not a product critique. Each host category serves its context well when the oversight pattern is realised; the failure modes this ADR names arise from category drift and from mixing categories, not from any specific implementation
@@ -105,18 +107,18 @@ Promotion is to be evaluated separately by the AAP repository. This ADR records 
 - The implicit assumption underlying the prior 30 ADRs is now explicit and can be cited
 - Future ADRs can reference this stance instead of re-justifying runtime constraints case by case
 - The connection to AAP becomes structural: AAP's accountability distribution principles and this project's prohibitions express the same stance from two different angles
-- The symbiotic framing originally present in Contemplative Agent's early README iterations is restored, and made explicit as a structural choice rather than incidental phrasing
+- The host-category framing originally present in Contemplative Agent's early README iterations is restored, and made explicit as a structural choice rather than incidental phrasing
 - The two-row "design intent vs current practice" split in the distinction table makes the host-category drift visible without requiring a separate critique document
 
 **Negative**:
 - The term "runtime agent" overlaps with existing industry usage of "runtime" (e.g. LangChain runtime, OpenAI runtime, agent execution runtimes). Readers may initially conflate the stance with a specific execution framework. The Distinction table separates them
 - Once articulated, the stance can be cited against capability proposals that would fit a host-category design but not a runtime-agent design. This is the intended consequence, but it raises the bar for future feature additions
-- The host-symbiosis framing relies on hosts continuing to provide what their categories are designed to provide. The "design intent vs current practice" split makes the drift visible but does not eliminate the coupling — a runtime agent inheriting from a degraded host inherits the degradation, only now the degradation has a name
+- The host-category framing relies on hosts continuing to provide what their categories are designed to provide. The "design intent vs current practice" split makes the drift visible but does not eliminate the coupling — a runtime agent inheriting from a degraded host inherits the degradation, only now the degradation has a name
 - The stance, once articulated, also functions as an implicit critique of host-category implementations whose capability surface has outgrown the oversight pattern they were designed for. Coding agents that no longer enforce per-change review, general-purpose hosts that ship with broad default tools, and orchestrators with permissive node configurations all become legible as drift away from the contexts they originated in. This is not a critique of any specific product, but reading the stance against current shipping defaults will expose tensions
 
 **Neutral**:
 - Existing ADRs (0001 — 0030) are unchanged in content. This ADR sits above them as the stance they collectively express
-- The stance does not by itself impose new constraints on this project. Every constraint it names is already enforced elsewhere; this ADR articulates why all of those constraints belong together — they are the runtime agent's side of a symbiotic contract with its hosts, sized for the worst case the host categories actually deliver
+- The stance does not by itself impose new constraints on this project. Every constraint it names is already enforced elsewhere; this ADR articulates why all of those constraints belong together — they are what a runtime agent must hold internally because the host categories it runs inside do not, sized for the worst case the host categories actually deliver
 
 ## References
 
@@ -127,5 +129,5 @@ Promotion is to be evaluated separately by the AAP repository. This ADR records 
 - [ADR-0020](0020-pivot-snapshots-for-replayability.md) — replayable audit at decision granularity
 - [ADR-0030](0030-withdraw-identity-blocks.md) — single-responsibility per artifact
 - [ADR-0031](0031-classification-as-query.md) — substrate principle for self-improving memory
-- [Do Autonomous Agents Really Need an Orchestration Layer?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9) — origin of the symbiotic-design framing ("a symbiotic design is a design that trusts its host")
+- [Do Autonomous Agents Really Need an Orchestration Layer?](https://dev.to/shimo4228/do-autonomous-agents-really-need-an-orchestration-layer-33j9) — origin of the host-trust framing ("a symbiotic design is a design that trusts its host")
 - [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) — promotion candidate destination, sibling articulation of accountability distribution under the runtime stance
