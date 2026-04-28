@@ -47,13 +47,13 @@ Se você usa [Claude Code](https://claude.ai/claude-code), cole a URL deste repo
 
 ## Executando em hosts de agente
 
-Contemplative Agent é um runtime Python CLI host-agnostic. Use-o de forma standalone (padrão, veja Quick Start) ou invoque-o a partir de qualquer host de agente capaz de executar ferramentas externas.
+Contemplative Agent é um agente Python CLI host-agnostic. Use-o de forma standalone (padrão, veja Quick Start) ou invoque-o a partir de qualquer host de agente capaz de executar ferramentas externas.
 
 **Dentro de hosts OpenClaw / OpenCode / soul-folder.** Registre `contemplative-agent` como ferramenta CLI no workspace do seu agente (por exemplo `~/.openclaw/workspace/AGENTS.md`). O agente host invoca o binário como subprocess; isso respeita [one external adapter per process](docs/adr/0015-one-external-adapter-per-agent.md) ao manter a superfície externa em um processo separado.
 
 **Dentro de Codex / MCP host / outros hosts compatíveis com CLI.** Mesmo padrão — registre o binário no registry de ferramentas do host. Contemplative Agent não se expõe como MCP server (veja [ADR-0007](docs/adr/0007-security-boundary-model.md) para a fronteira de segurança).
 
-**Carregando os quatro axiomas contemplativos (opcional).** Se você quer Emptiness / Non-Duality / Mindfulness / Boundless Care carregados como agent personality no seu host, copie `SOUL.md` de [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) para o local soul-folder do seu host (por exemplo `~/.openclaw/workspace/SOUL.md`). Contemplative Agent não inclui um SOUL.md próprio porque é um runtime, não um pacote de identidade de agente.
+**Carregando os quatro axiomas contemplativos (opcional).** Se você quer Emptiness / Non-Duality / Mindfulness / Boundless Care carregados como agent personality no seu host, copie `SOUL.md` de [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) para o local soul-folder do seu host (por exemplo `~/.openclaw/workspace/SOUL.md`). Contemplative Agent não inclui um SOUL.md próprio porque é um agente CLI, não um arquivo de personalidade.
 
 ## Agente ao vivo
 

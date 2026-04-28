@@ -47,13 +47,13 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 ## 在代理宿主中執行
 
-Contemplative Agent 是與宿主無關的 Python CLI 執行階段。可作為獨立程式使用（詳見快速開始），也可被任何能呼叫外部工具的代理宿主呼叫。
+Contemplative Agent 是與宿主無關的 Python CLI 代理。可作為獨立程式使用（詳見快速開始），也可被任何能呼叫外部工具的代理宿主呼叫。
 
 **於 OpenClaw / OpenCode / soul-folder 宿主內執行**: 在代理 workspace（例如 `~/.openclaw/workspace/AGENTS.md`）中將 `contemplative-agent` 註冊為 CLI 工具。宿主代理透過 subprocess 呼叫該二進位，將外部 surface 保留在獨立 process 中，符合 [one external adapter per process 原則](docs/adr/0015-one-external-adapter-per-agent.md)。
 
 **於 Codex / MCP host / 其他 CLI 相容宿主內執行**: 同樣模式 — 在宿主的工具註冊表中註冊該二進位。Contemplative Agent 不會將自身作為 MCP server 對外暴露（安全邊界詳見 [ADR-0007](docs/adr/0007-security-boundary-model.md)）。
 
-**載入四公理（Emptiness / Non-Duality / Mindfulness / Boundless Care，可選）**: 若希望將四公理作為 agent personality 在宿主內 load，請將 [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) 的 `SOUL.md` 複製到宿主的 soul-folder 位置（例如 `~/.openclaw/workspace/SOUL.md`）。Contemplative Agent 本身不隨附 SOUL.md — 因為它是 runtime，而非 agent identity 套件。
+**載入四公理（Emptiness / Non-Duality / Mindfulness / Boundless Care，可選）**: 若希望將四公理作為 agent personality 在宿主內 load，請將 [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) 的 `SOUL.md` 複製到宿主的 soul-folder 位置（例如 `~/.openclaw/workspace/SOUL.md`）。Contemplative Agent 本身不隨附 SOUL.md — 因為它是 CLI 代理，而非 personality 檔案。
 
 ## 即時代理
 

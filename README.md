@@ -47,13 +47,13 @@ If you have [Claude Code](https://claude.ai/claude-code), paste this repo URL an
 
 ## Running in agent hosts
 
-Contemplative Agent is a host-agnostic Python CLI runtime. Use it standalone (default, see Quick Start) or invoke it from any agent host that can run external tools.
+Contemplative Agent is a host-agnostic Python CLI agent. Use it standalone (default, see Quick Start) or invoke it from any agent host that can run external tools.
 
 **Inside OpenClaw / OpenCode / soul-folder hosts.** Register `contemplative-agent` as a CLI tool in your agent's workspace (e.g. `~/.openclaw/workspace/AGENTS.md`). The host agent invokes the binary as a subprocess; this respects [one external adapter per process](docs/adr/0015-one-external-adapter-per-agent.md) by keeping the external surface in a separate process.
 
 **Inside Codex / MCP host / other CLI-aware hosts.** Same pattern — register the binary in the host's tool registry. Contemplative Agent does not expose itself as an MCP server (see [ADR-0007](docs/adr/0007-security-boundary-model.md) for the security boundary).
 
-**Loading the four contemplative axioms (optional).** If you want Emptiness / Non-Duality / Mindfulness / Boundless Care loaded as agent personality in your host, copy `SOUL.md` from [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) to your host's soul-folder location (e.g. `~/.openclaw/workspace/SOUL.md`). Contemplative Agent itself does not ship a SOUL.md because it is a runtime, not an agent identity package.
+**Loading the four contemplative axioms (optional).** If you want Emptiness / Non-Duality / Mindfulness / Boundless Care loaded as agent personality in your host, copy `SOUL.md` from [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) to your host's soul-folder location (e.g. `~/.openclaw/workspace/SOUL.md`). Contemplative Agent itself does not ship a SOUL.md because it is a CLI agent, not a personality file.
 
 ## Live Agent
 
