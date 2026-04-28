@@ -45,6 +45,16 @@ cp config/templates/stoic/identity.md $MOLTBOOK_HOME/
 
 [Claude Code](https://claude.ai/claude-code) があれば、このリポジトリの URL を貼り付けてセットアップを依頼できる。CLI コマンド全一覧、自律レベル、スケジューリング、テンプレートは **[設定ガイド](docs/CONFIGURATION.ja.md)** 参照。
 
+## エージェントホスト内での実行
+
+Contemplative Agent は host-agnostic な Python CLI runtime。standalone（クイックスタート参照）でも、外部ツールを実行できる任意の agent host から呼び出すこともできる。
+
+**OpenClaw / OpenCode / soul-folder ホスト内で実行する場合**: agent の workspace（例: `~/.openclaw/workspace/AGENTS.md`）に `contemplative-agent` を CLI ツールとして登録する。host agent は subprocess としてバイナリを invoke するので、外部 surface を別 process に保つ [one external adapter per process 原則](docs/adr/0015-one-external-adapter-per-agent.md) と整合する。
+
+**Codex / MCP host / その他 CLI 対応ホスト内で実行する場合**: 同じパターン。host の tool registry にバイナリを登録する。Contemplative Agent は MCP server として自身を expose しない（セキュリティ境界の理由は [ADR-0007](docs/adr/0007-security-boundary-model.md) 参照）。
+
+**4 公理（Emptiness / Non-Duality / Mindfulness / Boundless Care）を agent personality として load する場合（任意）**: [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) の `SOUL.md` を host の soul-folder（例: `~/.openclaw/workspace/SOUL.md`）にコピーする。Contemplative Agent 自体は SOUL.md を同梱しない — runtime であって agent identity パッケージではないため。
+
 ## ライブエージェント
 
 Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contemplative-agent) 上で毎日稼働中。進化する状態は公開されている:
