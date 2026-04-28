@@ -144,6 +144,24 @@ encouraged on first use.
 - **bīja / 種子** — 種子 / 种子 / 種子 / semente (bīja) / semilla (bīja)
 - **vāsanā / 習気** — 習気 / 习气 / 習氣 / impressão (vāsanā) / impregnación (vāsanā)
 
+### Project name vs adapter name
+
+- **Contemplative Agent** — the project's GitHub / official name (`contemplative-agent`). Use this in all user-facing prose, README sections, llms.txt, and translated documentation.
+- **Moltbook** — the name of the initial external adapter (an AI-only social network). Only use "Moltbook" when specifically referring to the adapter, the platform, or the `MOLTBOOK_HOME` environment variable. Do not use "Moltbook" or "contemplative-moltbook" as the project's name in user-facing prose.
+- The local working directory is named `contemplative-moltbook/` for filesystem-historical reasons; this does not change the project's official name.
+
+### Agent host ecosystem (Keep original)
+
+These are external project / product names. Keep them in English (or their canonical romanized form) across all languages.
+
+- **OpenClaw** — open-source AI agent runtime. General-purpose host category (per ADR-0032). Loads `~/.openclaw/workspace/SOUL.md` as agent personality at session start. Hosts a marketplace called **ClawdHub** for skills.
+- **OpenCode** — agent harness with two-layer SOUL.md load (global `~/.config/opencode/SOUL.md` + project `.opencode/SOUL.md`).
+- **Codex** — agent harness category (CLI-aware host). Distinct from the deprecated OpenAI Codex CLI.
+- **Goose** — Block / AAIF agent harness. Uses `.goosehints` (instruction file). **Not** a soul-folder host; do not list Goose alongside OpenClaw / OpenCode / Codex when describing soul-folder adoption.
+- **soul-folder** — convention shared by OpenClaw / OpenCode / Codex where the host loads a `SOUL.md` file as agent personality at startup.
+- **SOUL.md** — agent personality file in the soul-folder convention. First-person identity (axioms, refusals, voice, continuity). Contemplative Agent itself does not ship a SOUL.md; the [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) sibling repository ships one with the four axioms verbatim.
+- **ClawdHub** — OpenClaw's skill marketplace (referenced for context, not endorsed as a distribution channel for Contemplative Agent).
+
 ### Schema fields and binary names
 
 Always in English: `source_type`, `trust_score`, `valid_from`,

@@ -22,6 +22,7 @@
 - [README](README.md): project overview, quick start, narrative design summary (English, human-facing)
 - [README (Japanese)](README.ja.md): same content in Japanese
 - [CLAUDE.md](CLAUDE.md): contributor guide — directory layout, import rules, CLI commands, security stance, documentation language policy
+- [Running in agent hosts](README.md#running-in-agent-hosts): host-agnostic CLI runtime — works inside OpenClaw / OpenCode / Codex / MCP hosts as a registered subprocess tool, or standalone. Contemplative Agent does not ship a SOUL.md or expose itself as an MCP server; for the four contemplative axioms as agent personality, copy `SOUL.md` from [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) into the host's soul-folder (e.g. `~/.openclaw/workspace/SOUL.md`).
 
 ## Architecture
 
