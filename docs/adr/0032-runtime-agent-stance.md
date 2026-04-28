@@ -44,6 +44,10 @@ One more observation, kept light: withdrawing this ADR is itself an example of h
 - The relationship to [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) is unchanged from before this ADR. AAP holds eight judgments about attribution distribution; this project is the implementation context from which AAP was discovered. No new ADR-level claim is needed on either side
 - No code changes are required. No commits to the implementation depended on this ADR's framing; the implementation predates this ADR by months
 
+## Framing chosen since (post-withdrawal)
+
+The implementation is shipped as a **Python CLI agent** (`pip install contemplative-agent`, `contemplative-agent ...`) — deliberately not a "runtime" in any execution-environment sense. The CLI form imposes no constraint on usage: standalone, inside a coding agent (Claude Code, Cursor, Aider), inside a general-purpose host (OpenClaw, OpenCode, MCP host), composed by an orchestrator, piped through Unix tooling, or driven by a GUI agent — all are equally welcome. "CLI agent" conveys the executable-action sense without inheriting the host-category-boundary baggage the withdrawn label was carrying, and it aligns with the industry convergence on CLI as the lowest-friction integration surface (Claude Code, Gemini CLI, GitHub Copilot CLI, Aider). This is also why README / llms.txt describe Contemplative Agent as a "host-agnostic Python CLI agent" rather than reintroducing the withdrawn "runtime" label there.
+
 ## References (post-withdrawal)
 
 - [ADR-0002](0002-paper-faithful-ccai.md) — formal adoption of the contemplative axioms (Laukkonen et al. 2025, Appendix C); the values layer this ADR's framing conflicted with
