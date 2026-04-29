@@ -11,7 +11,7 @@ Language: [English](README.md) | [日本語](README.ja.md) | [简体中文](READ
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-Un agente de IA autoaprendiente que aprende de su propia experiencia. Corre por completo en un único Mac con Apple Silicon (M1+, 16 GB RAM) con un modelo local de 9B — sin nube, sin claves de API en tránsito, sin ejecución de shell.
+Un agente CLI que ejecuta un ciclo de conocimiento de seis fases (AKC) sobre sus propios logs — cada promoción de logs → patrones → habilidades → reglas pasa por una puerta de aprobación humana. Corre por completo en un único Mac con Apple Silicon (M1+, 16 GB RAM) con un modelo local de 9B — sin nube, sin claves de API en tránsito, sin ejecución de shell.
 
 Este repositorio es la implementación operativa de dos ideas preservadas:
 
@@ -86,7 +86,7 @@ Esta pipeline es el mapeo de las seis fases AKC al código: `distill` cubre Extr
 
 ## Características clave
 
-- **Autoaprendizaje vía AKC** — el agente corre el ciclo de seis fases sobre sus propios logs. Sin fine-tuning, sin datos de entrenamiento etiquetados. Cada promoción (logs → patrones → habilidades → reglas → identidad) pasa por una [puerta de aprobación humana](docs/adr/0012-human-approval-gate.md).
+- **Ciclo de conocimiento (AKC) sobre sus propios logs** — el agente corre el ciclo de seis fases sobre sus propios logs. Sin fine-tuning, sin datos de entrenamiento etiquetados. Cada promoción (logs → patrones → habilidades → reglas → identidad) pasa por una [puerta de aprobación humana](docs/adr/0012-human-approval-gate.md).
 - **Embedding + views** — la clasificación es una query, no un estado; las views son semillas semánticas editables ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md); el campo `category` fue retirado en [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
 - **Evolución de memoria + retrieval híbrido** — un patrón nuevo puede disparar la reinterpretación por LLM de patrones antiguos relacionados temáticamente; la fila vieja queda soft-invalidada y una fila revisada se anexa. Score híbrido cosine + BM25 ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
 - **Skill-as-memory loop** — las habilidades se recuperan, se aplican y se reescriben según el resultado ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).

@@ -11,7 +11,7 @@ Language: English | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-A self-improving AI agent that learns from its own experience. Runs entirely on a single Apple Silicon Mac (M1+, 16 GB RAM) with a local 9B model — no cloud, no API keys in transit, no shell execution.
+A CLI agent that runs a six-phase knowledge cycle (AKC) over its own logs — every promotion from logs → patterns → skills → rules passes through a human approval gate. Runs entirely on a single Apple Silicon Mac (M1+, 16 GB RAM) with a local 9B model — no cloud, no API keys in transit, no shell execution.
 
 This repository is the operational implementation of two preserved ideas:
 
@@ -86,7 +86,7 @@ This pipeline is the AKC six phases mapped onto code: `distill` covers Extract; 
 
 ## Key Features
 
-- **Self-improving via AKC** — the agent runs the six-phase cycle on its own logs. No fine-tuning, no labeled training data. Every promotion (logs → patterns → skills → rules → identity) passes through a [human approval gate](docs/adr/0012-human-approval-gate.md).
+- **Knowledge cycle (AKC) over its own logs** — the agent runs the six-phase cycle on its own logs. No fine-tuning, no labeled training data. Every promotion (logs → patterns → skills → rules → identity) passes through a [human approval gate](docs/adr/0012-human-approval-gate.md).
 - **Embedding + views** — classification is a query, not state; named *views* are editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md), `category` field retired in [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
 - **Memory evolution + hybrid retrieval** — a new pattern can trigger LLM-driven re-interpretation of older topically-related ones; the old row is soft-invalidated and a revised row appended. Cosine + BM25 hybrid scoring ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
 - **Skill-as-memory loop** — skills are retrieved, applied, and rewritten by outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).

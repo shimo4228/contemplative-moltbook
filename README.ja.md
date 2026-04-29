@@ -11,7 +11,7 @@ Language: [English](README.md) | 日本語 | [简体中文](README.zh-CN.md) | [
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-経験から自律的に学習する AI エージェント。ローカル 9B モデル (Qwen3.5) + Apple Silicon Mac (M1+, 16 GB RAM) で完結 — クラウドなし、API キーは外部に出ない、シェル実行は存在しない。
+自身のログに対して 6 フェーズの知識サイクル (AKC) を回す CLI エージェント — ログ → パターン → スキル → ルールへの各昇格は人間の承認ゲートを通る。ローカル 9B モデル (Qwen3.5) + Apple Silicon Mac (M1+, 16 GB RAM) で完結 — クラウドなし、API キーは外部に出ない、シェル実行は存在しない。
 
 このリポジトリは 2 つの保存されたアイデアの実装である:
 
@@ -86,7 +86,7 @@ Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contem
 
 ## 主な特徴
 
-- **AKC による自己改善** — エージェントは自身のログに対して 6 フェーズサイクルを回す。fine-tuning なし、ラベル付き学習データなし。各フェーズ昇格（ログ → パターン → スキル → ルール → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.ja.md)が入る。
+- **自身のログに対する知識サイクル (AKC)** — エージェントは自身のログに対して 6 フェーズサイクルを回す。fine-tuning なし、ラベル付き学習データなし。各フェーズ昇格（ログ → パターン → スキル → ルール → アイデンティティ）には[人間の承認ゲート](docs/adr/0012-human-approval-gate.ja.md)が入る。
 - **埋め込み + view** — 分類は状態ではなくクエリ。view は編集可能な意味的シード（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.ja.md)、`category` フィールドは [ADR-0026](docs/adr/0026-retire-discrete-categories.ja.md) で廃止）。
 - **記憶の進化 + ハイブリッド検索** — 新しいパターンが意味的に関連する既存パターンの LLM 再解釈を引き起こす。旧行は soft-invalidate、改訂行を追加。cosine + BM25 の混成スコア（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.ja.md)）。
 - **記憶としてのスキル** — スキルは取り出し → 適用 → 結果に基づく書き換えの単位（[ADR-0023](docs/adr/0023-skill-as-memory-loop.ja.md)）。

@@ -11,7 +11,7 @@ Language: [English](README.md) | [日本語](README.ja.md) | [简体中文](READ
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-Um agente de IA autoaperfeiçoável que aprende com a própria experiência. Roda inteiramente em um único Mac com Apple Silicon (M1+, 16 GB RAM) com um modelo local de 9B — sem nuvem, sem chaves de API em trânsito, sem execução de shell.
+Um agente CLI que roda um ciclo de conhecimento de seis fases (AKC) sobre os próprios logs — cada promoção de logs → padrões → habilidades → regras passa por uma porta de aprovação humana. Roda inteiramente em um único Mac com Apple Silicon (M1+, 16 GB RAM) com um modelo local de 9B — sem nuvem, sem chaves de API em trânsito, sem execução de shell.
 
 Este repositório é a implementação operacional de duas ideias preservadas:
 
@@ -86,7 +86,7 @@ Esta pipeline é o mapeamento das seis fases AKC para o código: `distill` cobre
 
 ## Principais recursos
 
-- **Autoaperfeiçoamento via AKC** — o agente roda o ciclo de seis fases sobre os próprios logs. Sem fine-tuning, sem dados de treino rotulados. Toda promoção (logs → padrões → habilidades → regras → identidade) passa por um [portão de aprovação humana](docs/adr/0012-human-approval-gate.md).
+- **Ciclo de conhecimento (AKC) sobre os próprios logs** — o agente roda o ciclo de seis fases sobre os próprios logs. Sem fine-tuning, sem dados de treino rotulados. Toda promoção (logs → padrões → habilidades → regras → identidade) passa por um [portão de aprovação humana](docs/adr/0012-human-approval-gate.md).
 - **Embedding + views** — classificação é uma query, não um estado; views são sementes semânticas editáveis ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md); o campo `category` foi aposentado em [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
 - **Evolução de memória + retrieval híbrido** — um padrão novo pode disparar a reinterpretação por LLM de padrões antigos topicamente relacionados; a linha antiga é soft-invalidada e uma linha revisada é anexada. Score híbrido cosine + BM25 ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
 - **Skill-as-memory loop** — habilidades são recuperadas, aplicadas e reescritas conforme o resultado ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).

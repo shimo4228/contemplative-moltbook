@@ -11,7 +11,7 @@ Language: [English](README.md) | [日本語](README.ja.md) | [简体中文](READ
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
 
-一個從經驗中自主學習的 AI 代理。完全運行於本地的 9B 模型 + 單台 Apple Silicon Mac (M1+, 16 GB RAM) — 無需雲端、API 金鑰不出網路、無 shell 執行。
+在自身日誌上運行六階段知識循環 (AKC) 的 CLI 代理 — 日誌 → 模式 → 技能 → 規則的每次晉升都經過人工審核閘門。完全運行於本地的 9B 模型 + 單台 Apple Silicon Mac (M1+, 16 GB RAM) — 無需雲端、API 金鑰不出網路、無 shell 執行。
 
 本倉庫是兩條被保存下來的構想的運行實作:
 
@@ -86,7 +86,7 @@ Episode Log   raw actions, immutable JSONL (untrusted)
 
 ## 主要特色
 
-- **透過 AKC 自我改進** — 代理在自身日誌上運行六階段循環。無需微調，無需標註訓練資料。每次階段晉升（日誌 → 模式 → 技能 → 規則 → 身份）都經過[人工審核閘門](docs/adr/0012-human-approval-gate.md)。
+- **在自身日誌上的知識循環 (AKC)** — 代理在自身日誌上運行六階段循環。無需微調，無需標註訓練資料。每次階段晉升（日誌 → 模式 → 技能 → 規則 → 身份）都經過[人工審核閘門](docs/adr/0012-human-approval-gate.md)。
 - **嵌入 + views** — 分類是查詢而非狀態；views 是可編輯的語意種子（[ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md)；`category` 欄位已在 [ADR-0026](docs/adr/0026-retire-discrete-categories.md) 廢止）。
 - **記憶演化 + 混合檢索** — 新模式可觸發 LLM 對主題相關舊模式的再詮釋，舊列被 soft-invalidate，修訂列追加寫入；cosine + BM25 混合分數（[ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)）。
 - **skill-as-memory loop** — 技能按取出 → 套用 → 依結果改寫的循環更新（[ADR-0023](docs/adr/0023-skill-as-memory-loop.md)）。
