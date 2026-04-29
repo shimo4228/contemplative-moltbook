@@ -198,7 +198,7 @@ Each paper below informed a specific design decision documented in the linked AD
 **Acknowledgments:** Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — deterministic affect-scoring design inspiration.
 
 <details>
-<summary><b>Development Records (13 dev.to articles)</b></summary>
+<summary><b>Development Records (14 dev.to articles)</b></summary>
 
 1. [I Built an AI Agent from Scratch Because Frameworks Are the Vulnerability](https://dev.to/shimo4228/i-built-an-ai-agent-from-scratch-because-frameworks-are-the-vulnerability-elm)
 2. [Natural Language as Architecture](https://dev.to/shimo4228/natural-language-as-architecture-controlling-an-autonomous-agent-with-prompts-memory-and-m74)
@@ -213,5 +213,6 @@ Each paper below informed a specific design decision documented in the linked AD
 11. [Can You Trace the Cause After an Incident?](https://dev.to/shimo4228/can-you-trace-the-cause-after-an-incident-neo)
 12. [AI Agent Black Boxes Have Two Layers — Technical Limits and Business Incentives](https://dev.to/shimo4228/ai-agent-black-boxes-have-two-layers-technical-limits-and-business-incentives-jhi)
 13. [Where ReAct Agents Are Actually Needed in Business](https://dev.to/shimo4228/where-react-agents-are-actually-needed-in-business-33do)
+14. [The LLM Workflow Quadrant Is Missing from Our Vocabulary](https://dev.to/shimo4228/3-the-llm-workflow-quadrant-is-missing-from-our-vocabulary-n18)
 
 </details>
