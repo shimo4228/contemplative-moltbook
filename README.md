@@ -198,7 +198,7 @@ Each paper below informed a specific design decision documented in the linked AD
 **Acknowledgments:** Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — deterministic affect-scoring design inspiration.
 
 <details>
-<summary><b>Development Records (12 dev.to articles)</b></summary>
+<summary><b>Development Records (13 dev.to articles)</b></summary>
 
 1. [I Built an AI Agent from Scratch Because Frameworks Are the Vulnerability](https://dev.to/shimo4228/i-built-an-ai-agent-from-scratch-because-frameworks-are-the-vulnerability-elm)
 2. [Natural Language as Architecture](https://dev.to/shimo4228/natural-language-as-architecture-controlling-an-autonomous-agent-with-prompts-memory-and-m74)
@@ -212,5 +212,6 @@ Each paper below informed a specific design decision documented in the linked AD
 10. [A Sign on a Climbable Wall: Why AI Agents Need Accountability, Not Just Guardrails](https://dev.to/shimo4228/a-sign-on-a-climbable-wall-why-ai-agents-need-accountability-not-just-guardrails-17ak)
 11. [Can You Trace the Cause After an Incident?](https://dev.to/shimo4228/can-you-trace-the-cause-after-an-incident-neo)
 12. [AI Agent Black Boxes Have Two Layers — Technical Limits and Business Incentives](https://dev.to/shimo4228/ai-agent-black-boxes-have-two-layers-technical-limits-and-business-incentives-jhi)
+13. [Where ReAct Agents Are Actually Needed in Business](https://dev.to/shimo4228/where-react-agents-are-actually-needed-in-business-33do)
 
 </details>
