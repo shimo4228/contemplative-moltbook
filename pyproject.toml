@@ -1,7 +1,7 @@
 [project]
 name = "contemplative-agent"
-version = "2.1.0"
-description = "A general-purpose agent framework that self-updates skills, rules, ethics, and identity from experience"
+version = "2.2.0"
+description = "A Python CLI agent that self-updates skills, rules, ethics, and identity from experience"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
@@ -10,7 +10,7 @@ authors = [
 keywords = [
     "ai-agent", "autonomous-agent", "self-improving", "local-llm",
     "ollama", "memory-distillation", "contemplative-ai",
-    "agent-framework", "ai-safety", "secure-by-design",
+    "cli-agent", "ai-safety", "secure-by-design",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

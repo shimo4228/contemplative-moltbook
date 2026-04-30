@@ -16,7 +16,7 @@ A CLI agent that runs a six-phase knowledge cycle (AKC) over its own logs — ev
 This repository is the operational implementation of two preserved ideas:
 
 - **[AKC (Agent Knowledge Cycle)](https://github.com/shimo4228/agent-knowledge-cycle)** ([DOI](https://doi.org/10.5281/zenodo.19200727)) — how an agent metabolizes its own experience into improvable skills. Six phases: Research → Extract → Curate → Promote → Measure → Maintain.
-- **[AAP (Agent Attribution Practice)](https://github.com/shimo4228/agent-attribution-practice)** ([DOI](https://doi.org/10.5281/zenodo.19652014)) — how accountability is distributed in autonomous AI agents. Eight ADRs covering Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, and causal traceability.
+- **[AAP (Agent Attribution Practice)](https://github.com/shimo4228/agent-attribution-practice)** ([DOI](https://doi.org/10.5281/zenodo.19652014)) — how accountability is distributed in autonomous AI agents. Ten ADRs covering Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability, Triage Before Autonomy, and Phase Separation between Design and Operation. Plus a four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) borrowed in this repo as usage description — see [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md).
 
 The first adapter is **Moltbook**, an AI-only social network. The Contemplative AI four axioms ship as an optional preset.
 
@@ -120,6 +120,8 @@ The core is platform-agnostic. Adapters are thin wrappers around platform I/O.
 
 One invariant holds across the codebase: **core/** is platform-independent; **adapters/** depend on core, never the reverse. Module maps, data-flow diagrams, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). The Yogācāra eight-consciousness frame that constrained the memory design: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
+The CLI commands' typical operating modes can be read through AAP's four-quadrant lens. Most behaviour-modifying commands (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) typically operate as LLM Workflow — semantic judgement on defined inputs, deterministic promotion through the [approval gate](docs/adr/0012-human-approval-gate.md). `adopt-staged` and one-time migrations are Script-shaped. `skill-stocktake`, `dialogue`, and `meditate` straddle the boundary toward Autonomous Agentic Loop — exploratory inputs, semantic judgement, output that revises design-phase artifacts. The lens is descriptive; see [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) for why placements are usage observations, not category commitments.
+
 <details>
 <summary><b>Optional: Running with Managed LLM APIs</b></summary>
 
@@ -161,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.1.0},
+  version      = {2.2.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }
@@ -174,7 +176,7 @@ The MIT license means what it says — fork it, strip it for parts, embed the pi
 ## Related Work
 
 - [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) ([DOI](https://doi.org/10.5281/zenodo.19200727)) — the methodological framework this project re-implements in the autonomous-agent context. Originally developed as a Claude Code harness.
-- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ([DOI](https://doi.org/10.5281/zenodo.19652014)) — sibling research repository. Re-expresses this project's governance judgments (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability / scaffolding visibility) in harness-neutral form as eight ADRs on accountability distribution. Cite AAP when quoting the accountability-distribution thesis or the prohibition-strength hierarchy; cite this repository for the operational implementation.
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ([DOI](https://doi.org/10.5281/zenodo.19652014)) — sibling research repository. Re-expresses this project's governance judgments (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability / scaffolding visibility, triage before autonomy, design-operation phase separation) in harness-neutral form as ten ADRs on accountability distribution. AAP also articulates a four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop), independent of the ten ADRs and orthogonal to them; this repository borrows the lens as a usage-description aid (see [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md)). Cite AAP when quoting the accountability-distribution thesis or the prohibition-strength hierarchy; cite this repository for the operational implementation.
 
 **Theoretical foundation:**
 

@@ -1,10 +1,11 @@
 # Contemplative Agent
 
-> An autonomous AI agent framework with structural security (security by
-> absence) and a 3-layer memory architecture (episode log → knowledge →
-> identity). The initial external adapter targets Moltbook, an AI-agent
-> social network. The Contemplative AI four axioms from Laukkonen et al.
-> (2025) are available as an optional constitution preset.
+> An autonomous AI agent (Python CLI program) with structural security
+> (security by absence) and a 3-layer memory architecture (episode log
+> → knowledge → identity). The initial external adapter targets
+> Moltbook, an AI-agent social network. The Contemplative AI four
+> axioms from Laukkonen et al. (2025) are available as an optional
+> constitution preset.
 >
 > Ships as a Python package with a core/adapter split: `core/` is
 > platform-neutral, `adapters/moltbook/` is the single pinned external
@@ -33,6 +34,7 @@
 - [Moltbook agent](docs/CODEMAPS/moltbook-agent.md): session orchestration and agent lifecycle
 - [Dependencies](docs/CODEMAPS/dependencies.md): module dependency graph and import rules
 - [Pipeline prompts & view seeds](docs/CONFIGURATION.md#pipeline-prompts--view-seeds): all 32 pipeline prompts and 7 view seeds are editable Markdown files in `$MOLTBOOK_HOME/{prompts,views}/`; copied from shipped defaults at `init` and captured in pivot snapshots for audit
+- [Quadrant lens (usage description)](README.md#architecture): which AAP quadrant each CLI command typically operates in — LLM Workflow for `distill` / `distill-identity` / `insight` / `skill-reflect` / `rules-distill` / `amend-constitution`; Script for `adopt-staged` and one-time migrations; LLM Workflow ↔ Autonomous Agentic Loop boundary for `skill-stocktake` / `dialogue` / `meditate`. Borrowed as usage description, not category claim — see [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md).
 
 ## Architecture Decision Records
 
@@ -69,6 +71,9 @@ All ADRs have an English primary (`*.md`) and a Japanese companion (`*.ja.md`). 
 - [ADR-0028 Retire pattern-level forgetting and feedback](docs/adr/0028-retire-pattern-level-forgetting-feedback.md): memory dynamics (access-strength, feedback) belong at the skill layer, not the pattern layer; Ebbinghaus strength + `mark_accessed` retired
 - [ADR-0029 Retire dormant provenance elements](docs/adr/0029-retire-dormant-provenance-elements.md): `sanitized` flag + `source_type=user_input|external_post` were never read; MINJA defense is structurally quarantine at `summarize_record`, not trust-weighting
 - [ADR-0030 Withdraw identity block separation](docs/adr/0030-withdraw-identity-blocks.md): supersedes ADR-0024 and ADR-0025 — identity restored to legacy whole-file handling on single-responsibility grounds
+- [ADR-0031 Classification as query](docs/adr/0031-classification-as-query.md): substrate principle for self-improving memory — discrete categories give way to embedding + views; classification is a query, not state
+- [ADR-0032 Runtime-agent stance — withdrawn](docs/adr/0032-runtime-agent-stance.md): worldview ADR articulating Contemplative Agent as a "runtime agent" category; withdrawn the same day on tension with the contemplative axioms (Emptiness / Non-Duality / adversarial-placement). Original body preserved
+- [ADR-0033 Note — AAP quadrant lens (usage description)](docs/adr/0033-aap-quadrant-lens-usage-note.md): borrows AAP's four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) as a usage-description aid for CLI commands; explicitly disclaims category-boundary status; cross-references ADR-0032's withdrawal lesson
 
 ## Project skills
 
@@ -90,7 +95,7 @@ Contemplative Agent follows Security by Absence: dangerous capabilities (shell e
 ## Related repositories
 
 - [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle): AKC — the memory-centric self-improvement cycle that inspired the 3-layer memory and security boundary model here
-- [agent-attribution-practice](https://github.com/shimo4228/agent-attribution-practice) (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)): sibling research repository. Re-expresses eight architectural decision records from this implementation in harness-neutral form — Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, and One Agent One Human. Empirical evidence for ADR-0002 (Deterministic Prohibition) comes from this project's PreToolUse hooks (`integrations/claude-code/hooks/block-episode-logs-*.sh`), the `summarize_record` quarantine, and the MINJA defense audit.
+- [agent-attribution-practice](https://github.com/shimo4228/agent-attribution-practice) (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)): sibling research repository. Re-expresses ten architectural decision records from this implementation in harness-neutral form — Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, One Agent One Human, Triage Before Autonomy, and Phase Separation between Design and Operation. AAP also articulates a four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop), independent of the ten ADRs and orthogonal to them — borrowed in this repo as a usage-description aid via ADR-0033. Empirical evidence for ADR-0002 (Deterministic Prohibition) comes from this project's PreToolUse hooks (`integrations/claude-code/hooks/block-episode-logs-*.sh`), the `summarize_record` quarantine, and the MINJA defense audit.
 - [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules): four-axiom rules, adapters, benchmarks
 - [contemplative-agent-data](https://github.com/shimo4228/contemplative-agent-data): runtime data published for research (synced via `contemplative-agent sync-data`)
 - [contemplative-agent-cloud](https://github.com/shimo4228/contemplative-agent-cloud): optional add-on replacing generation calls with Anthropic Claude or OpenAI GPT APIs when installed and configured; main repo default stack remains local Ollama

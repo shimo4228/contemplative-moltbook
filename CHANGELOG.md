@@ -8,7 +8,34 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
-Tracking post-v2.0.0 follow-ups (ADR-0022 through ADR-0030). Details live in ADRs.
+Tracking post-v2.2.0 follow-ups. Details live in ADRs.
+
+---
+
+## v2.2.0 — AAP Four-Quadrant Lens (2026-05-01)
+
+Documentation-only release. No code changes; behaviour and dependencies are identical to v2.1.0.
+
+### Added
+
+- **[ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md): Note — Borrowing AAP's Four-Quadrant Lens as a Usage-Description Aid.** Note-type ADR with narrow scope: borrows AAP's four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) as a usage-description aid for CLI commands. Explicitly disclaims category-boundary status; carries an axioms self-check section against ADR-0032's three withdrawal reasons; preserves a withdrawal clause for cheap rollback if quadrant talk hardens into category talk.
+- **`docs/glossary.md`**: new "AAP four-quadrant lens (Keep original)" subsection — Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop / Phase-crossing observation / quadrant lens.
+- **`llms-full.txt`**: two new Q&As — "Which AAP quadrant does Contemplative Agent operate in?" and "What is the difference between AAP's ten ADRs and the four-quadrant lens?"
+- **`README.md` / `README.ja.md`** + the four other localized READMEs (`README.zh-CN.md`, `README.zh-TW.md`, `README.pt-BR.md`, `README.es.md`): one short Quadrant-lens paragraph after the Architecture section; AAP entry in `Related Work` mentions the lens.
+
+### Changed
+
+- **AAP ADR count corrected from "eight" to "ten"** across all facing docs (`README.md` + 5 localized variants, `llms.txt`, `llms-full.txt`, ADR-0033). Triage Before Autonomy and Phase Separation between Design and Operation are now part of AAP.
+- **`llms.txt` lead paragraph**: "autonomous AI agent framework" → "autonomous AI agent (Python CLI program)" — aligns with the post-ADR-0032 "host-agnostic Python CLI agent" framing.
+- **`CITATION.cff` abstract**: same edit — "autonomous agent framework" → "autonomous AI agent (Python CLI program)".
+- **`llms.txt` ADR list**: ADR-0031 / ADR-0032 entries added (had been missing from the list since ADR-0030).
+- **All six localized READMEs**: Development Records section bumped from 14 to 15 articles (zenn article 15 "Is ReAct Needed in Production?" added across `README.zh-CN.md` / `README.zh-TW.md` / `README.pt-BR.md` / `README.es.md`; was already present in EN / JA).
+- **Version**: pyproject.toml + CITATION.cff + llms-full.txt + 6 README BibTeX blocks bumped to 2.2.0.
+
+### Notes
+
+- No code, no migration, no behavioural change. Existing v2.1.0 deployments need no action.
+- ADR-0032's withdrawal commitment ("no new ADR is needed for the AAP-attribution-ADRs / runtime-context relation") is preserved — the four-quadrant lens is a different layer (post-dating ADR-0032 and orthogonal to the attribution ADRs), so ADR-0033 does not contradict that prior judgement.
 
 ---
 

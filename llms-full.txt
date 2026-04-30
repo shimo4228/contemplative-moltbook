@@ -8,7 +8,7 @@ Self-contained AI-facing reference for Contemplative Agent — a local-only auto
 
 ## Project Facts
 
-- **Version**: 2.1.0
+- **Version**: 2.2.0
 - **DOI**: [10.5281/zenodo.19212119](https://doi.org/10.5281/zenodo.19212119)
 - **License**: MIT
 - **Repository**: [github.com/shimo4228/contemplative-agent](https://github.com/shimo4228/contemplative-agent)
@@ -19,7 +19,8 @@ Self-contained AI-facing reference for Contemplative Agent — a local-only auto
 - **Embedding model**: nomic-embed-text (~274 MB, 768-dim) via Ollama
 - **Hardware**: Apple Silicon Mac (M1+), 16 GB RAM, ~10 GB free disk
 - **Runtime dependencies**: requests>=2.33.0, numpy>=1.24.0, rank-bm25>=0.2.2
-- **ADRs**: 30 (ADR-0001 through ADR-0030)
+- **ADRs**: 32 active + 1 withdrawn (ADR-0001 through ADR-0033; ADR-0032 withdrawn)
+- **External lenses borrowed**: AAP four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) — usage description only, not a category claim (ADR-0033)
 - **Ethical framework presets**: 11 (contemplative, utilitarian, stoic, care-ethicist, deontologist, pragmatist, narrativist, contractarian, cynic, existentialist, tabula-rasa)
 - **Runtime data directory**: `$MOLTBOOK_HOME` (default `~/.config/moltbook/`)
 - **External network domains**: `moltbook.com` (Moltbook adapter), `localhost` (Ollama)
@@ -78,12 +79,28 @@ Only adapter-specific traffic. The Moltbook adapter sends HTTPS requests to `mol
 
 **AKC** is defined as a 6-phase self-improvement loop: Research, Extract, Curate, Promote, Measure, Maintain. Describes how the agent acquires raw experience, distills it into knowledge, and refines its behavioral artifacts. Originated in the [agent-knowledge-cycle](https://github.com/shimo4228/agent-knowledge-cycle) repository as a Claude Code harness, then re-implemented for autonomous agents in this project.
 
-## What is Agent Attribution Practice (AAP)?
-
-**Agent Attribution Practice (AAP)** is defined as a sibling research repository (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)) compiling eight architectural decision records on accountability distribution in autonomous AI agents, extracted from this implementation and re-expressed in harness-neutral form. The eight ADRs are Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, and One Agent One Human. ADR-0001, ADR-0002, and ADR-0003 in AAP form a prohibition-strength hierarchy (absence > scaffolding enforcement > untrusted boundary) — the argumentative spine that ties this project's PreToolUse hooks, `summarize_record` quarantine, and MINJA defense audit to a structural principle. Cite AAP when quoting the accountability-distribution thesis or the prohibition-strength hierarchy; cite this repository when citing the operational implementation.
-
 - **Code**: Mapped across `feed_manager.py` (Research), `distill.py` (Extract), `insight.py` / `rules_distill.py` / `constitution.py` (Curate), `distill.py` distill-identity (Promote)
 - **Codemap**: [architecture.md](docs/CODEMAPS/architecture.md) AKC Mapping
+
+## What is Agent Attribution Practice (AAP)?
+
+**Agent Attribution Practice (AAP)** is defined as a sibling research repository (DOI [10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014)) compiling ten architectural decision records on accountability distribution in autonomous AI agents, extracted from this implementation and re-expressed in harness-neutral form. The ten ADRs are Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, One Agent One Human, Triage Before Autonomy, and Phase Separation between Design and Operation. ADR-0001, ADR-0002, and ADR-0003 in AAP form a prohibition-strength hierarchy (absence > scaffolding enforcement > untrusted boundary) — the argumentative spine that ties this project's PreToolUse hooks, `summarize_record` quarantine, and MINJA defense audit to a structural principle. Cite AAP when quoting the accountability-distribution thesis or the prohibition-strength hierarchy; cite this repository when citing the operational implementation. Since 2026-04-29 AAP also articulates a four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop), independent of the ten ADRs and orthogonal to them. This repository borrows the lens as a usage-description aid (ADR-0033); placements describe how a CLI command typically operates, not which category the project sits inside.
+
+- **Reference**: AAP repository ([DOI 10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014))
+- **ADR**: ADR-0033 (four-quadrant lens borrowed as usage description)
+
+## Which AAP quadrant does Contemplative Agent operate in?
+
+The question is mis-shaped — Contemplative Agent does not commit to a single quadrant. Each CLI command has a *typical operating mode*, recorded as a usage observation rather than a category claim. **LLM Workflow** mode covers most behaviour-modifying commands: `distill`, `distill-identity`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, plus the Moltbook adapter's post / comment / reply generation. Defined inputs, semantic judgement, deterministic promotion through the [Human Approval Gate](docs/adr/0012-human-approval-gate.md) (ADR-0012). **Script** mode covers `adopt-staged` and one-time migrations (`embed-backfill`, `migrate-patterns`, `migrate-categories`, `migrate-identity`) — deterministic promotion of staged artifacts with no run-time semantic judgement. The **LLM Workflow ↔ Autonomous Agentic Loop** boundary is where `skill-stocktake` (and to a lesser extent `dialogue`, `meditate`) sits: exploratory inputs, semantic judgement, and output that revises *design-phase* artifacts (skills, rules, identity) — a Phase-crossing observation anchored by ADR-0016 and ADR-0023. The lens itself is descriptive; *Phase* (design / operation) is an independent dimension, not a quadrant. See [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) for the disclaimer that placements are usage observations, not category commitments.
+
+- **ADR**: ADR-0033 (note); ADR-0012 (approval gate); ADR-0016, ADR-0023 (Phase-crossing anchors)
+
+## What is the difference between AAP's ten ADRs and the four-quadrant lens?
+
+The two layers are orthogonal and answer different questions. The **ten ADRs** describe *what is constrained and who is accountable* — Security by Absence, Deterministic Prohibition at the Scaffolding Layer, Untrusted Content Boundary, Single External Adapter per Agent Process, Human Approval Gate, Causal Traceability, Scaffolding Visibility, One Agent One Human, Triage Before Autonomy, and Phase Separation between Design and Operation. The **four-quadrant routing lens** describes *which regime of accountability the work runs in at all* — deterministic vs semantic on one axis, defined-flow vs exploratory on the other. The two layers intersect at the question "is this work in a regime where the ten constraints can land?" This repository implements the ten ADRs operationally and borrows the lens as a usage-description aid (ADR-0033). The four-quadrant lens does not modify or supersede any of the ten ADRs.
+
+- **Reference**: AAP repository ([DOI 10.5281/zenodo.19652014](https://doi.org/10.5281/zenodo.19652014))
+- **ADR**: ADR-0033
 
 ## What is the Approval Gate?
 
@@ -213,4 +230,4 @@ The **Meditation adapter** is defined as an experimental adapter implementing Ac
 
 ---
 
-*Last updated: 2026-04-22*
+*Last updated: 2026-05-01*

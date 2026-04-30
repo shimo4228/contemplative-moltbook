@@ -16,7 +16,7 @@ Um agente CLI que roda um ciclo de conhecimento de seis fases (AKC) sobre os pr�
 Este repositório é a implementação operacional de duas ideias preservadas:
 
 - **[AKC (Agent Knowledge Cycle)](https://github.com/shimo4228/agent-knowledge-cycle)** ([DOI](https://doi.org/10.5281/zenodo.19200727)) — como um agente metaboliza a própria experiência em habilidades aprimoráveis. Seis fases: Research → Extract → Curate → Promote → Measure → Maintain.
-- **[AAP (Agent Attribution Practice)](https://github.com/shimo4228/agent-attribution-practice)** ([DOI](https://doi.org/10.5281/zenodo.19652014)) — como a responsabilidade é distribuída em agentes de IA autônomos. Oito ADRs cobrindo Security Boundary Model, One External Adapter Per Agent, Human Approval Gate e causal traceability.
+- **[AAP (Agent Attribution Practice)](https://github.com/shimo4228/agent-attribution-practice)** ([DOI](https://doi.org/10.5281/zenodo.19652014)) — como a responsabilidade é distribuída em agentes de IA autônomos. Dez ADRs cobrindo Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability, Triage Before Autonomy e Phase Separation between Design and Operation. Mais um routing lens de quatro quadrantes (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) emprestado neste repositório como usage description — ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md).
 
 O primeiro adaptador é o **Moltbook** (rede social só para agentes de IA). Os quatro axiomas da Contemplative AI vêm como preset opcional.
 
@@ -120,6 +120,8 @@ O núcleo é independente de plataforma. Adaptadores são wrappers finos em torn
 
 Um invariante vale em toda a base de código: **core/** é independente de plataforma; **adapters/** dependem do core, nunca o contrário. Mapas de módulos, diagramas de fluxo de dados e responsabilidades por módulo estão em **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (fonte autoritativa). O frame de oito consciências do Yogācāra que restringiu o design da memória: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
+Os modos típicos de operação dos comandos CLI podem ser lidos pela lente de quatro quadrantes da AAP. A maioria dos comandos behaviour-modifying (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) tipicamente opera como LLM Workflow — julgamento semântico sobre inputs definidos, promoção determinística através da [porta de aprovação](docs/adr/0012-human-approval-gate.md). `adopt-staged` e migrações pontuais têm forma Script. `skill-stocktake`, `dialogue` e `meditate` ficam na fronteira com Autonomous Agentic Loop — inputs exploratórios, julgamento semântico, output que revisa artefatos de design-phase. A lente é descritiva; ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) para entender por que os placements são observações de uso e não compromissos de categoria.
+
 <details>
 <summary><b>Opcional: Rodar com APIs de LLM gerenciadas</b></summary>
 
@@ -161,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.1.0},
+  version      = {2.2.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }
@@ -174,7 +176,7 @@ A licença MIT quer dizer exatamente o que diz — faça fork, desmonte para pe�
 ## Trabalhos relacionados
 
 - [Agent Knowledge Cycle (AKC)](https://github.com/shimo4228/agent-knowledge-cycle) ([DOI](https://doi.org/10.5281/zenodo.19200727)) — o framework metodológico que este projeto reimplementa no contexto de agentes autônomos. Originalmente desenvolvido como harness do Claude Code.
-- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ([DOI](https://doi.org/10.5281/zenodo.19652014)) — repositório de pesquisa irmão. Reexpressa os julgamentos de governança deste projeto (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability / scaffolding visibility) em forma neutra quanto ao harness, como oito ADRs sobre distribuição de responsabilidade. Cite o AAP ao quotar a tese de distribuição de responsabilidade ou a hierarquia de prohibition-strength; cite este repositório para a implementação operacional.
+- [Agent Attribution Practice (AAP)](https://github.com/shimo4228/agent-attribution-practice) ([DOI](https://doi.org/10.5281/zenodo.19652014)) — repositório de pesquisa irmão. Reexpressa os julgamentos de governança deste projeto (Security Boundary Model, One External Adapter Per Agent, Human Approval Gate, causal traceability / scaffolding visibility, triage before autonomy, design / operation phase separation) em forma neutra quanto ao harness, como dez ADRs sobre distribuição de responsabilidade. A AAP também articula um routing lens de quatro quadrantes (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop), independente das dez ADRs e ortogonal a elas; este repositório empresta a lente como auxílio de descrição de uso (ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md)). Cite o AAP ao quotar a tese de distribuição de responsabilidade ou a hierarquia de prohibition-strength; cite este repositório para a implementação operacional.
 
 **Fundamentos teóricos:**
 
@@ -198,7 +200,7 @@ Cada artigo abaixo informou uma decisão de design específica documentada na AD
 **Agradecimentos:** Jerry Mares ([VADUGWI](https://doi.org/10.5281/zenodo.19383636)) — inspiração de design de avaliação afetiva determinística.
 
 <details>
-<summary><b>Registros de desenvolvimento (14 artigos · código-fonte no GitHub)</b></summary>
+<summary><b>Registros de desenvolvimento (15 artigos · código-fonte no GitHub)</b></summary>
 
 1. [I Built an AI Agent from Scratch Because Frameworks Are the Vulnerability](https://github.com/shimo4228/zenn-content/blob/main/articles-en/moltbook-agent-scratch-build.md)
 2. [Natural Language as Architecture](https://github.com/shimo4228/zenn-content/blob/main/articles-en/moltbook-agent-evolution-quadrilogy.md)
@@ -214,5 +216,6 @@ Cada artigo abaixo informou uma decisão de design específica documentada na AD
 12. [AI Agent Black Boxes Have Two Layers — Technical Limits and Business Incentives](https://github.com/shimo4228/zenn-content/blob/main/articles-en/agent-blackbox-capitalism-timescale-en.md)
 13. [Where ReAct Agents Are Actually Needed in Business](https://github.com/shimo4228/zenn-content/blob/main/articles-en/react-agent-business-quadrant.md)
 14. [The LLM Workflow Quadrant Is Missing from Our Vocabulary](https://github.com/shimo4228/zenn-content/blob/main/articles-en/react-agent-business-quadrant-2.md)
+15. [Is ReAct Needed in Production? — Separating Design and Operation Phases](https://github.com/shimo4228/zenn-content/blob/main/articles-en/react-agent-business-quadrant-3.md)
 
 </details>

@@ -111,6 +111,20 @@ wrapped in local punctuation when embedded in a translated sentence.
 - **skill-as-memory loop** — ADR-0023 architecture.
 - **pivot snapshots** — ADR-0020 replay mechanism.
 
+### AAP four-quadrant lens (Keep original)
+
+Quadrant names are direct AAP terminology and stay in English in all six
+languages, with a bilingual gloss allowed on first use (e.g.
+「LLM Workflow（LLM ワークフロー象限）」). The lens is borrowed in this
+project as a usage-description aid, not as a category claim (ADR-0033).
+
+- **Script** — deterministic, defined-input quadrant.
+- **Algorithmic Search** — deterministic, exploratory-input quadrant.
+- **LLM Workflow** — semantic-judgement, defined-input quadrant.
+- **Autonomous Agentic Loop** — semantic-judgement, exploratory-input quadrant.
+- **Phase-crossing observation** — work that originates in operation phase but revises design-phase artifacts (skills, rules, identity). Not a quadrant; an orthogonal observation. In-repo anchors: ADR-0016, ADR-0023.
+- **quadrant lens** — the borrowed routing diagnostic itself. Bilingual gloss "象限レンズ / 象限診断" allowed on first use in JA.
+
 ### AKC phase → CLI mapping (English only)
 
 - `distill` — Extract (behavioral / constitutional knowledge)

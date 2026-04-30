@@ -1,13 +1,14 @@
 cff-version: 1.2.0
-message: "If you use or reference this framework, please cite it as below."
+message: "If you use or reference Contemplative Agent, please cite it as below."
 type: software
 title: "Contemplative Agent"
 abstract: >-
-  A security-first autonomous agent framework with four architectural
-  principles: structural capability limitation, minimal dependency, cyclic
-  knowledge maintenance (AKC), and memory dynamics with decay. Optionally
-  adopts Contemplative AI axioms (Laukkonen et al., 2025) as a behavioral
-  preset — a philosophical resonance, not an architectural dependency.
+  A security-first autonomous AI agent (Python CLI program) with four
+  architectural principles: structural capability limitation, minimal
+  dependency, cyclic knowledge maintenance (AKC), and memory dynamics with
+  decay. Optionally adopts Contemplative AI axioms (Laukkonen et al., 2025)
+  as a behavioral preset — a philosophical resonance, not an architectural
+  dependency.
 authors:
   - family-names: Shimomoto
     given-names: Tatsuya
@@ -24,8 +25,8 @@ keywords:
   - secure-first
   - memory-dynamics
   - agent-knowledge-cycle
-version: "2.1.0"
-date-released: "2026-04-21"
+version: "2.2.0"
+date-released: "2026-05-01"
 references:
   - type: article
     authors:
