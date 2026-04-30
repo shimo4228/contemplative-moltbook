@@ -120,7 +120,7 @@ Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contem
 
 コードベース全体で守られる不変条件: **core/** はプラットフォーム非依存。**adapters/** は core に依存する（逆方向は禁止）。モジュール一覧、データフロー図、モジュール別責務は **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** が正本。記憶設計を予測的に制約した唯識 (Yogācāra) の枠組み: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.ja.md)。
 
-CLI コマンドの典型的な動作モードは AAP の 4 象限レンズで読める。behaviour-modifying コマンドの大半 (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) は LLM Workflow として typically 動作する — defined inputs に対する semantic judgement、[承認ゲート](docs/adr/0012-human-approval-gate.ja.md) を介した deterministic promotion。`adopt-staged` と一回性 migration は Script 形。`skill-stocktake` / `dialogue` / `meditate` は Autonomous Agentic Loop との境界に座る — exploratory な input、semantic judgement、output が design-phase artifacts を revise する形。レンズは descriptive。placement が category commitment ではなく usage observation である理由は [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.ja.md) 参照。
+CLI コマンドの典型的な動作モードは AAP の 4 象限レンズで読める。behaviour-modifying コマンドの大半 (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`, `skill-stocktake`, `dialogue`) は **LLM Workflow** として typically 動作する — defined control flow、各呼び出し bounded LLM role、該当箇所では[承認ゲート](docs/adr/0012-human-approval-gate.ja.md) を介した deterministic promotion。`adopt-staged` と一回性 migration は **Script** 形。`meditate` (実験的 Active Inference アダプタ — numpy で POMDP belief update、runtime に LLM 呼び出しなし) は **Algorithmic Search** — exploratory な action policy space 上の deterministic update。**Autonomous Agentic Loop 象限は本 project の CLI が現状 route していない** — usage observation であって、その象限への value judgement ではない。placement が category commitment ではなく usage observation である理由は [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.ja.md) 参照。
 
 <details>
 <summary><b>オプション: マネージド LLM API で動かす</b></summary>
@@ -163,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.0},
+  version      = {2.2.1},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

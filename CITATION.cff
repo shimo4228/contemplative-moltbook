@@ -25,7 +25,7 @@ keywords:
   - secure-first
   - memory-dynamics
   - agent-knowledge-cycle
-version: "2.2.0"
+version: "2.2.1"
 date-released: "2026-05-01"
 references:
   - type: article

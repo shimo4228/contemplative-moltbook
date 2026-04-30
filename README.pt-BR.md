@@ -120,7 +120,7 @@ O núcleo é independente de plataforma. Adaptadores são wrappers finos em torn
 
 Um invariante vale em toda a base de código: **core/** é independente de plataforma; **adapters/** dependem do core, nunca o contrário. Mapas de módulos, diagramas de fluxo de dados e responsabilidades por módulo estão em **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (fonte autoritativa). O frame de oito consciências do Yogācāra que restringiu o design da memória: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
-Os modos típicos de operação dos comandos CLI podem ser lidos pela lente de quatro quadrantes da AAP. A maioria dos comandos behaviour-modifying (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) tipicamente opera como LLM Workflow — julgamento semântico sobre inputs definidos, promoção determinística através da [porta de aprovação](docs/adr/0012-human-approval-gate.md). `adopt-staged` e migrações pontuais têm forma Script. `skill-stocktake`, `dialogue` e `meditate` ficam na fronteira com Autonomous Agentic Loop — inputs exploratórios, julgamento semântico, output que revisa artefatos de design-phase. A lente é descritiva; ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) para entender por que os placements são observações de uso e não compromissos de categoria.
+Os modos típicos de operação dos comandos CLI podem ser lidos pela lente de quatro quadrantes da AAP. A maioria dos comandos behaviour-modifying (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`, `skill-stocktake`, `dialogue`) tipicamente opera como **LLM Workflow** — fluxo de controle definido, papéis LLM limitados por chamada, promoção determinística através da [porta de aprovação](docs/adr/0012-human-approval-gate.md) onde aplicável. `adopt-staged` e migrações pontuais têm forma **Script**. `meditate` (o adaptador experimental de Active Inference — atualizações de crença POMDP em numpy, sem LLM em tempo de execução) é **Algorithmic Search** — atualizações determinísticas sobre um espaço exploratório de políticas de ação. **O quadrante Autonomous Agentic Loop não é roteado atualmente por nenhum comando CLI deste projeto** — uma observação de uso, não um juízo de valor sobre esse quadrante. Ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) para entender por que os placements são observações de uso e não compromissos de categoria.
 
 <details>
 <summary><b>Opcional: Rodar com APIs de LLM gerenciadas</b></summary>
@@ -163,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.0},
+  version      = {2.2.1},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

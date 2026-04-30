@@ -120,7 +120,7 @@ Episode Log   raw actions, immutable JSONL (untrusted)
 
 代码库始终遵守一个不变式: **core/** 与平台无关；**adapters/** 依赖 core，反之绝不成立。模块地图、数据流图、模块级职责见 **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)**（权威来源）。约束记忆设计的唯识 (Yogācāra) 八识框架: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md)。
 
-CLI 命令的典型运作模式可借助 AAP 的四象限 lens 解读。多数 behaviour-modifying 命令 (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) 通常以 LLM Workflow 模式运作 — 在已定义的输入上做语义判断，并通过[审批闸门](docs/adr/0012-human-approval-gate.md)进行确定性提升。`adopt-staged` 与一次性迁移属 Script 形态。`skill-stocktake` / `dialogue` / `meditate` 跨于 Autonomous Agentic Loop 的边界 — 输入是探索性的，判断是语义的，输出会修订 design-phase 的工件。lens 是描述性的；为何这些放置仅是 usage observation 而非 category commitment，请见 [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md)。
+CLI 命令的典型运作模式可借助 AAP 的四象限 lens 解读。多数 behaviour-modifying 命令 (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`, `skill-stocktake`, `dialogue`) 通常以 **LLM Workflow** 模式运作 — 已定义的控制流，每次调用 bounded LLM role，在适用之处通过[审批闸门](docs/adr/0012-human-approval-gate.md)进行确定性提升。`adopt-staged` 与一次性迁移属 **Script** 形态。`meditate`（实验性 Active Inference 适配器 — numpy 里的 POMDP belief update，运行期不调用 LLM）属 **Algorithmic Search** — 探索性行动策略空间上的决定论更新。**Autonomous Agentic Loop 象限目前未被本项目的任何 CLI 命令 route** — 这是 usage observation，并非对该象限的 value judgement。为何这些放置仅是 usage observation 而非 category commitment，请见 [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md)。
 
 <details>
 <summary><b>可选: 使用托管 LLM API 运行</b></summary>
@@ -163,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.0},
+  version      = {2.2.1},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

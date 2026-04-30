@@ -8,7 +8,32 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
-Tracking post-v2.2.0 follow-ups. Details live in ADRs.
+Tracking post-v2.2.1 follow-ups. Details live in ADRs.
+
+---
+
+## v2.2.1 — ADR-0033 Placement Correction (2026-05-01)
+
+Same-day correction following code re-read of `core/stocktake.py`, `adapters/dialogue/peer.py`, and `adapters/meditation/{pomdp,meditate}.py`. Documentation-only; no code change.
+
+### Fixed
+
+- **ADR-0033 Observations — placement of `skill-stocktake` and `dialogue`.** v2.2.0 described both as sitting at the "LLM Workflow ↔ Autonomous Agentic Loop boundary". On code re-read both have fixed control flow + bounded LLM roles per call (frozen prompt templates, fixed output schemas, no tool calls, no LLM-driven next-step decisions) — they are LLM Workflow proper, not boundary cases. `core/stocktake.py` even documents that pair-level LLM judging was deliberately removed in favour of embedding clustering + 1-shot merge, which is the structural shape of LLM Workflow rather than ReAct.
+- **ADR-0033 Observations — placement of `meditate`.** v2.2.0 described `meditate` as "outside the quadrant axis (no LLM)". The quadrant axis is *not* LLM-specific. `meditate` runs deterministic POMDP belief-update loops in numpy — A (likelihood) / B (transition) / C (preference) / D (prior) matrices, temporal flattening, counterfactual pruning, convergence detection — over an exploratory action-policy space. This is the **(2) Algorithmic Search** cell exactly.
+- **Autonomous Agentic Loop quadrant — explicit not-routed observation.** v2.2.1 promotes "no CLI command in this project currently routes work through the Autonomous Agentic Loop quadrant" from an implicit observation to an explicit one across `README.md` (6 languages), `llms.txt`, `llms-full.txt`, and ADR-0033 Observations. This is a structural consequence of the existing approval gates and the One External Adapter principle, not a separate design rule.
+- **ADR-0033 Status section** gains a "Corrected 2026-05-01 (same-day)" note recording both placement errors and the re-read evidence.
+- **`llms-full.txt` Q&A "Which AAP quadrant does Contemplative Agent operate in?"** rewritten with the corrected placements.
+- **GitHub release v2.2.0** receives a corrigendum note pointing to v2.2.1.
+
+### Changed
+
+- **Version**: `pyproject.toml` + `CITATION.cff` + `llms-full.txt` + 6 README BibTeX blocks bumped from 2.2.0 to 2.2.1.
+
+### Notes
+
+- No code change. Behaviour, dependencies, security posture, and test count are identical to v2.2.0.
+- The Quadrant-lens *vocabulary* introduced in v2.2.0 is unchanged. Only the per-command placements are corrected.
+- ADR-0033 Decision section, Self-check section, Alternatives Considered, Consequences, and References are unchanged from v2.2.0.
 
 ---
 

@@ -120,7 +120,7 @@ El núcleo es independiente de la plataforma. Los adaptadores son envoltorios fi
 
 Un invariante se mantiene en toda la base de código: **core/** es independiente de la plataforma; **adapters/** dependen del core, nunca al revés. Los mapas de módulos, diagramas de flujo de datos y responsabilidades por módulo están en **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (fuente autoritativa). El frame de las ocho consciencias del Yogācāra que restringió el diseño de la memoria: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
-Los modos de operación típicos de los comandos CLI pueden leerse a través de la lente de cuatro cuadrantes de AAP. La mayoría de los comandos behaviour-modifying (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) opera típicamente como LLM Workflow — juicio semántico sobre entradas definidas, promoción determinista a través de la [puerta de aprobación](docs/adr/0012-human-approval-gate.md). `adopt-staged` y las migraciones puntuales tienen forma Script. `skill-stocktake`, `dialogue` y `meditate` se sitúan en la frontera con Autonomous Agentic Loop — entradas exploratorias, juicio semántico, output que revisa artefactos de design-phase. La lente es descriptiva; ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) para entender por qué los placements son observaciones de uso y no compromisos de categoría.
+Los modos de operación típicos de los comandos CLI pueden leerse a través de la lente de cuatro cuadrantes de AAP. La mayoría de los comandos behaviour-modifying (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`, `skill-stocktake`, `dialogue`) opera típicamente como **LLM Workflow** — flujo de control definido, roles LLM acotados por llamada, promoción determinista a través de la [puerta de aprobación](docs/adr/0012-human-approval-gate.md) donde aplique. `adopt-staged` y las migraciones puntuales tienen forma **Script**. `meditate` (el adaptador experimental de Active Inference — actualizaciones de creencia POMDP en numpy, sin LLM en tiempo de ejecución) es **Algorithmic Search** — actualizaciones deterministas sobre un espacio exploratorio de políticas de acción. **El cuadrante Autonomous Agentic Loop no está siendo ruteado actualmente por ningún comando CLI de este proyecto** — una observación de uso, no un juicio de valor sobre ese cuadrante. Ver [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) para entender por qué los placements son observaciones de uso y no compromisos de categoría.
 
 <details>
 <summary><b>Opcional: Ejecutar con APIs de LLM gestionadas</b></summary>
@@ -163,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.0},
+  version      = {2.2.1},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

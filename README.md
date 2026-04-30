@@ -120,7 +120,7 @@ The core is platform-agnostic. Adapters are thin wrappers around platform I/O.
 
 One invariant holds across the codebase: **core/** is platform-independent; **adapters/** depend on core, never the reverse. Module maps, data-flow diagrams, and per-module responsibilities live in **[docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md)** (the authoritative source). The Yogācāra eight-consciousness frame that constrained the memory design: [ADR-0017](docs/adr/0017-yogacara-eight-consciousness-frame.md).
 
-The CLI commands' typical operating modes can be read through AAP's four-quadrant lens. Most behaviour-modifying commands (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`) typically operate as LLM Workflow — semantic judgement on defined inputs, deterministic promotion through the [approval gate](docs/adr/0012-human-approval-gate.md). `adopt-staged` and one-time migrations are Script-shaped. `skill-stocktake`, `dialogue`, and `meditate` straddle the boundary toward Autonomous Agentic Loop — exploratory inputs, semantic judgement, output that revises design-phase artifacts. The lens is descriptive; see [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) for why placements are usage observations, not category commitments.
+The CLI commands' typical operating modes can be read through AAP's four-quadrant lens. Most behaviour-modifying commands (`distill`, `insight`, `skill-reflect`, `rules-distill`, `amend-constitution`, `distill-identity`, `skill-stocktake`, `dialogue`) typically operate as **LLM Workflow** — defined control flow, bounded LLM roles per call, deterministic promotion through the [approval gate](docs/adr/0012-human-approval-gate.md) where applicable. `adopt-staged` and one-time migrations are **Script** shape. `meditate` (the experimental Active-Inference adapter — POMDP belief updates in numpy, no LLM at runtime) is **Algorithmic Search** — deterministic updates over an exploratory action-policy space. **The Autonomous Agentic Loop quadrant is not currently routed by any CLI command in this project** — a usage observation, not a value judgement on that quadrant. See [ADR-0033](docs/adr/0033-aap-quadrant-lens-usage-note.md) for why placements are usage observations, not category commitments.
 
 <details>
 <summary><b>Optional: Running with Managed LLM APIs</b></summary>
@@ -163,7 +163,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.0},
+  version      = {2.2.1},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

@@ -4,6 +4,8 @@
 
 accepted (note) — narrow / observational。category commitment ではない。象限語が usage observation から category claim に drift し始めたら ADR-0030 / ADR-0032 と同じ pattern で撤回する (original 本文を保存する形)。
 
+**Corrected 2026-05-01 (same-day)**: original の Observations section に 2 つの factual error があった。(1) `skill-stocktake` と `dialogue` を「LLM Workflow ↔ Autonomous Agentic Loop 境界に座る」と描いていたが、コード再読すると両方とも fixed control flow + bounded LLM role per call (frozen prompt template、fixed output schema、tool 呼び出しなし、LLM driven の next-step decision なし) で、境界ではなく LLM Workflow そのもの。`core/stocktake.py` は pair-level LLM judging を意図的に廃して embedding clustering + 1-shot merge に帰着させたと明記しており、これは LLM Workflow の構造形そのもの (ReAct ではない)。(2) `meditate` を「LLM 不使用なので象限軸の外」と描いていたが、象限軸は LLM 専用ではない。`meditate` は exploratory action space 上の deterministic POMDP belief update (numpy のみ、runtime に LLM 呼び出しなし) で、(2) Algorithmic Search セルそのもの。Observations section を下記の通り書き直す。Decision / Self-check / Alternatives / Consequences / References は変更なし。
+
 ## Date
 
 2026-05-01
@@ -46,10 +48,12 @@ accepted (note) — narrow / observational。category commitment ではない。
 
 以下は各 CLI コマンドが「現状 typically どう動作しているか」の descriptive observation。コマンドの typical mode が shift すれば description も follow する; 本 ADR を書き直す必要はない。
 
-- 大半の behaviour-modifying コマンド — `distill` / `distill-identity` / `insight` / `skill-reflect` / `rules-distill` / `amend-constitution` — は **LLM Workflow** mode で typically 動作している。defined inputs を取り、semantic judgement を適用し、結果は [Human Approval Gate](0012-human-approval-gate.ja.md) を介して deterministic に promote される。承認ゲートはこれら placement を honest に保つ構造的機構: semantic step の output が state change の前に必ず deterministic boundary に着地することを強制する
+- 大半の behaviour-modifying コマンド — `distill` / `distill-identity` / `insight` / `skill-reflect` / `rules-distill` / `amend-constitution` / `skill-stocktake` / `dialogue` — は **LLM Workflow** mode で typically 動作している。defined control flow + bounded LLM role per call (frozen prompt template、fixed output schema、tool 呼び出しなし、LLM driven の next-step decision なし) を持つ。Promotion を伴うものは semantic step の output を [Human Approval Gate](0012-human-approval-gate.ja.md) で deterministic boundary に着地させる — これが placement を honest に保つ構造機構。`dialogue` は multi-turn loop だが含まれる: loop は peer message 単位で、各 turn で LLM は固定 `DIALOGUE_PROMPT` + 固定 reply schema で 1 回呼ばれるだけで、LLM-driven な action selection はない。`core/stocktake.py` は pair-level LLM judging を意図的に廃して embedding clustering + 1-shot merge に帰着させたと明記しており、これは ReAct ではなく LLM Workflow の構造そのもの
 - `adopt-staged` と一回性の migration (`embed-backfill` / `migrate-patterns` / `migrate-categories` / `migrate-identity`) は **Script** mode で typically 動作している。staging 済み artifacts を deterministic に promote するもので、実行時に semantic judgement は走らない
-- `skill-stocktake` (および degree of less で `dialogue` / `meditate`) は LLM Workflow と Autonomous Agentic Loop の境界に座る。input space は exploratory、judgement は semantic だが、output は外部に観測可能な side effect ではなく design-phase artifacts (skills / rules / identity) を revise するものになる。これは **Phase-crossing observation** — work が operation phase で発生して design phase に書き戻る。同じ pattern の in-repo anchor は [ADR-0016](0016-insight-narrow-stocktake-broad.ja.md) (insight = narrow generator / stocktake = broad consolidator) と [ADR-0023](0023-skill-as-memory-loop.ja.md) (skill-as-memory ループ + usage log + reflective write)
-- 残りの象限 (Algorithmic Search、純粋形の Autonomous Agentic Loop) は本 project が現在 route していない。これは usage observation であって、それら象限への value judgement ではない
+- `meditate` (実験的 Active Inference アダプタ) は **Algorithmic Search** で動作する。numpy で POMDP の決定論的 belief update — A (likelihood) / B (transition) / C (preference) / D (prior) 行列、temporal flattening、counterfactual pruning、convergence detection — を exploratory な action policy space 上で回す。runtime に LLM 呼び出しはない。control flow は exploratory (各 iteration が前 belief state に依存) だが各 step は deterministic、これが (2) セルそのもの。**象限軸は LLM 専用ではない**: LLM 不使用が即「象限軸の外」を意味しない
+- **Autonomous Agentic Loop 象限は本 project の CLI が現状 route していない**。実装済みのどのコマンドも LLM に runtime tool selection や open-ended iteration を委ねない。これは usage observation であって、その象限自体や route する他 project への value judgement ではない。既存の承認ゲートと One External Adapter 原則の構造的帰結であって、別途の設計ルールではない
+
+象限 placement と混同されやすい独立観察を 1 つ: `skill-stocktake` / `skill-reflect` / `distill` 系列の output は design-phase artifacts (skills / rules / identity / constitution) を revise する。これは **Phase-crossing observation** — Phase (design / operation) は AAP の第 3 dimension、象限とは独立。第 5 象限でも hybrid placement でもない。In-repo anchors: [ADR-0016](0016-insight-narrow-stocktake-broad.ja.md) (insight = narrow generator / stocktake = broad consolidator) と [ADR-0023](0023-skill-as-memory-loop.ja.md) (skill-as-memory ループ + usage log + reflective write)
 
 ## ADR-0032 撤回理由に対する self-check
 
