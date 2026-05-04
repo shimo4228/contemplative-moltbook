@@ -13,11 +13,13 @@ MOLTBOOK_HOME="${MOLTBOOK_HOME:-$HOME/.config/moltbook}"
 DATA_REPO="$HOME/MyAI_Lab/contemplative-agent-data"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROMPT_TEMPLATE="$PROJECT_ROOT/config/prompts/weekly-analysis.md"
+PRINCIPLES_FILE="$PROJECT_ROOT/config/prompts/principles.md"
 REPORT_DIR="$MOLTBOOK_HOME/reports/analysis"
 COMMENT_REPORT_DIR="$MOLTBOOK_HOME/reports/comment-reports"
 
 DAYS=7
 END_DATE=""
+PREV_REPORT_COUNT="${WEEKLY_PREV_COUNT:-3}"
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
@@ -141,14 +143,32 @@ else
     STATE_DIFF="No state data available (data repo not found)."
 fi
 
-# --- Previous week's analysis ---
-PREV_REPORT=""
-prev_end=$(date -j -f %Y-%m-%d -v-1d "$START_DATE" +%Y-%m-%d)
-prev_file="$REPORT_DIR/weekly-${prev_end}.md"
-if [[ -f "$prev_file" ]]; then
-    PREV_REPORT="## Previous Week's Analysis (ending $prev_end)"$'\n\n'
-    PREV_REPORT+="$(cat "$prev_file")"
-    echo "Including previous report: $prev_file"
+# --- Previous N weeks' analyses (Principle 4 guard ground) ---
+PREV_REPORTS=""
+PREV_FOUND=0
+for i in $(seq 1 "$PREV_REPORT_COUNT"); do
+    offset=$((i * DAYS))
+    prev_end=$(date -j -f %Y-%m-%d -v-"$offset"d "$END_DATE" +%Y-%m-%d)
+    prev_file="$REPORT_DIR/weekly-${prev_end}.md"
+    if [[ -f "$prev_file" ]]; then
+        PREV_REPORTS+="## Previous Report (ending $prev_end)"$'\n\n'
+        PREV_REPORTS+="$(cat "$prev_file")"$'\n\n---\n\n'
+        PREV_FOUND=$((PREV_FOUND + 1))
+        echo "Including previous report: $prev_file"
+    fi
+done
+if [[ $PREV_FOUND -eq 0 ]]; then
+    PREV_REPORTS="No previous reports available for trend comparison."
+fi
+
+# --- Methodological principles ---
+PRINCIPLES=""
+if [[ -f "$PRINCIPLES_FILE" ]]; then
+    PRINCIPLES="## Methodological Principles (override defaults)"$'\n\n'
+    PRINCIPLES+="$(cat "$PRINCIPLES_FILE")"
+    echo "Including principles: $PRINCIPLES_FILE"
+else
+    echo "WARNING: principles.md not found at $PRINCIPLES_FILE" >&2
 fi
 
 # --- Build prompt ---
@@ -156,9 +176,11 @@ SYSTEM_PROMPT=$(cat "$PROMPT_TEMPLATE")
 
 USER_PROMPT="Analyze the following Moltbook agent activity for $START_DATE to $END_DATE ($DAYS days).
 
+$PRINCIPLES
+
 $STATE_DIFF
 
-$PREV_REPORT
+$PREV_REPORTS
 
 ## Daily Reports
 
