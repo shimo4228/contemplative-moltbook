@@ -88,7 +88,6 @@ This pipeline is the AKC six phases mapped onto code: `distill` covers Extract; 
 
 - **Knowledge cycle (AKC) over its own logs** — the agent runs the six-phase cycle on its own logs. No fine-tuning, no labeled training data. Every promotion (logs → patterns → skills → rules → identity) passes through a [human approval gate](docs/adr/0012-human-approval-gate.md).
 - **Embedding + views** — classification is a query, not state; named *views* are editable semantic seeds ([ADR-0019](docs/adr/0019-discrete-categories-to-embedding-views.md), `category` field retired in [ADR-0026](docs/adr/0026-retire-discrete-categories.md)).
-- **Memory evolution + hybrid retrieval** — a new pattern can trigger LLM-driven re-interpretation of older topically-related ones; the old row is soft-invalidated and a revised row appended. Cosine + BM25 hybrid scoring ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
 - **Skill-as-memory loop** — skills are retrieved, applied, and rewritten by outcome ([ADR-0023](docs/adr/0023-skill-as-memory-loop.md)).
 - **Noise as seed** — rejected episodes are preserved as `noise-YYYY-MM-DD.jsonl`; when view centroids shift they become available for re-classification rather than being lost ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
 - **Replayable pivot snapshots** — distill runs bundle the full inference-time context (views + constitution + prompts + skills + rules + identity + centroid embeddings + thresholds) so decisions can be replayed bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
@@ -99,7 +98,7 @@ This pipeline is the AKC six phases mapped onto code: `distill` covers Extract; 
 
 Accountability and security boundaries are documented as harness-neutral ADRs in [AAP](https://github.com/shimo4228/agent-attribution-practice). This repository is the operational implementation of those judgments.
 
-- No shell execution, no arbitrary network access, no file traversal — that code does not exist in the codebase. Domain-locked to `moltbook.com` + localhost Ollama. 3 runtime dependencies: `requests`, `numpy`, `rank-bm25`.
+- No shell execution, no arbitrary network access, no file traversal — that code does not exist in the codebase. Domain-locked to `moltbook.com` + localhost Ollama. 2 runtime dependencies: `requests`, `numpy`.
 - One external adapter per process ([ADR-0015](docs/adr/0015-one-external-adapter-per-agent.md)).
 - Full threat model: [ADR-0007](docs/adr/0007-security-boundary-model.md). [Latest security scan](docs/security/2026-04-01-security-scan.md).
 
@@ -189,7 +188,7 @@ The MIT license means what it says — fork it, strip it for parts, embed the pi
 
 Each paper below informed a specific design decision documented in the linked ADR.
 
-- Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten-style dynamic indexing and memory evolution; informs the re-interpretation of topically-related older patterns when a new pattern arrives ([ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md)).
+- Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents.* [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) — Zettelkasten-style dynamic indexing and memory evolution. Originally informed [ADR-0022](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md), withdrawn by [ADR-0034](docs/adr/0034-withdraw-memory-evolution-and-hybrid-retrieval.md) after empirical evaluation. Retained as a historical reference.
 - Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) — bitemporal knowledge-graph edges (Graphiti engine); informs the `valid_from` / `valid_until` contract on every pattern ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
 - Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Enhancing Large Language Models with Long-Term Memory.* [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) — Ebbinghaus-style decay with access-reinforced strength; originally informed the retrieval-aware forgetting curve proposed in [ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md), retired by [ADR-0028](docs/adr/0028-retire-pattern-level-forgetting-feedback.md) in favour of locating memory dynamics at the skill layer. Retained as a historical reference.
 - Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *Memory Injection Attacks on LLM Agents via Query-Only Interaction* (MINJA). [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) — query-only memory injection attacks on agent memory; motivates `source_type` + `trust_score` provenance so MINJA-class attacks become structurally visible rather than invisible ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).

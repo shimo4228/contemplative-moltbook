@@ -62,7 +62,7 @@ All ADRs have an English primary (`*.md`) and a Japanese companion (`*.ja.md`). 
 - [ADR-0019 Discrete categories → embedding + views](docs/adr/0019-discrete-categories-to-embedding-views.md): replace `category` / `subcategory` string fields with embedding coordinates + named views (user-editable Markdown seeds) — classification becomes a query, not state
 - [ADR-0020 Pivot snapshots for replayability](docs/adr/0020-pivot-snapshots-for-replayability.md): every behavior-producing run writes a snapshot bundling the full inference-time context (views, constitution, prompts, skills, rules, identity, centroids, thresholds) so decisions are bit-for-bit replayable
 - [ADR-0021 Pattern schema — provenance / bitemporal / forgetting / feedback](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md): extend KnowledgeStore pattern schema with `source_type` + `trust_score` + `valid_from` / `valid_until` + strength + feedback (partially superseded by ADR-0028 / ADR-0029)
-- [ADR-0022 Memory evolution + hybrid retrieval](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md): A-Mem-style LLM re-interpretation of topically-related older patterns when a new pattern arrives; retrieval combines cosine + BM25 lexical scoring
+- [ADR-0022 Memory evolution + hybrid retrieval](docs/adr/0022-memory-evolution-and-hybrid-retrieval.md): superseded by ADR-0034 (withdrawn after empirical evaluation showed low-value revisions and zero BM25 boost)
 - [ADR-0023 Skill-as-memory loop](docs/adr/0023-skill-as-memory-loop.md): skills are retrieved, applied, and rewritten by outcome — `skill_router` selects, usage log records outcome, `skill-reflect` revises failing skills
 - [ADR-0024 Identity block separation](docs/adr/0024-identity-block-separation.md): superseded by ADR-0030 (withdrawn on single-responsibility grounds)
 - [ADR-0025 Identity history + migrate-identity CLI](docs/adr/0025-identity-history-and-migrate-cli.md): superseded by ADR-0030 (withdrawn alongside ADR-0024)
@@ -74,6 +74,7 @@ All ADRs have an English primary (`*.md`) and a Japanese companion (`*.ja.md`). 
 - [ADR-0031 Classification as query](docs/adr/0031-classification-as-query.md): substrate principle for self-improving memory — discrete categories give way to embedding + views; classification is a query, not state
 - [ADR-0032 Runtime-agent stance — withdrawn](docs/adr/0032-runtime-agent-stance.md): worldview ADR articulating Contemplative Agent as a "runtime agent" category; withdrawn the same day on tension with the contemplative axioms (Emptiness / Non-Duality / adversarial-placement). Original body preserved
 - [ADR-0033 Note — AAP quadrant lens (usage description)](docs/adr/0033-aap-quadrant-lens-usage-note.md): borrows AAP's four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) as a usage-description aid for CLI commands; explicitly disclaims category-boundary status; cross-references ADR-0032's withdrawal lesson
+- [ADR-0034 Withdraw memory evolution and hybrid retrieval](docs/adr/0034-withdraw-memory-evolution-and-hybrid-retrieval.md): supersedes ADR-0022 — both IV-4 (memory evolution) and IV-5 (BM25 hybrid retrieval) removed after empirical evaluation showed low-value revisions and zero BM25 boost in the actual view-and-pattern vocabulary distribution
 
 ## Project skills
 

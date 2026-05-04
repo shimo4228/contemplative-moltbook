@@ -8,7 +8,7 @@ accepted
 
 ## Context
 
-After ADR-0021 (pattern schema) and ADR-0022 (memory evolution + hybrid retrieval), the knowledge store is observable, bitemporal, and re-interprets itself. Skills — the third memory layer — still have none of that. Three concrete gaps remain:
+After ADR-0021 (pattern schema) and ADR-0022 (memory evolution + hybrid retrieval; later withdrawn by ADR-0034), the knowledge store is observable, bitemporal, and (was originally meant to) re-interpret itself. Skills — the third memory layer — still have none of that. Three concrete gaps remain:
 
 1. **Skills are loaded indiscriminately.** `llm._build_system_prompt()` (llm.py:235-240) concatenates *every* `.md` under `SKILLS_DIR` into the system prompt on every generation. A skill learned from one narrow situation shapes every unrelated action. With the current ~dozen skills this is tolerable; it does not scale, and it propagates behavioral drift — an insight about submolt selection will also sit inside a solve challenge prompt.
 

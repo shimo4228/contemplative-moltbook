@@ -73,12 +73,12 @@ Retire pattern-level forgetting and feedback. Specifically:
 
 ### `views._rank` scoring simplified
 
-Retrieval score becomes `(α·cosine + β·bm25_norm) × trust_score`. The strength factor is gone. The `mark_access` parameter is removed — `_rank` is a pure read.
+Retrieval score becomes `(α·cosine + β·bm25_norm) × trust_score`. The strength factor is gone. The `mark_access` parameter is removed — `_rank` is a pure read. (Note: ADR-0034 later removed the BM25 channel; the score is now `cosine × trust_score`.)
 
 ### Field initialization removed from producers
 
 - `knowledge_store.add_learned_pattern`
-- `memory_evolution.apply_revision`
+- `memory_evolution.apply_revision` (later removed by ADR-0034)
 - `rules_distill._build_skill_dicts` (rank adapter dicts)
 
 ### Load-path field preservation removed
@@ -102,7 +102,7 @@ ADR-0021's *IV-3 (Forgetting)* and *IV-10 (Feedback)* sections are superseded by
 ## Consequences
 
 - **Schema cleanup.** Pattern size drops by 4 numeric/string fields (~40 bytes each per pattern). On 377 patterns, ~15 KB reclaimed.
-- **Retrieval simpler and more predictable.** Score = cosine × trust (+ optional BM25 blend). No hidden time-decay factor; no hidden access-count bonus. Easier to reason about and tune.
+- **Retrieval simpler and more predictable.** Score = cosine × trust. (Originally allowed an optional BM25 blend; the BM25 channel was later removed by ADR-0034.) No hidden time-decay factor; no hidden access-count bonus. Easier to reason about and tune.
 - **`is_live` fires on trust + bitemporal only.** The strength floor was never below threshold in production data (all strengths were dominated by creation-date decay at identical access_count = 0), so removing it has no observable effect.
 - **Security posture unchanged.** MINJA defense was already structurally achieved via `summarize_record` quarantine + `external_reply` trust 0.55. Forgetting/feedback were never armed as secondary defense in production.
 - **Backward-compatible load.** Legacy files containing the retired fields load cleanly; the fields are silently dropped, and the next save rewrites without them.

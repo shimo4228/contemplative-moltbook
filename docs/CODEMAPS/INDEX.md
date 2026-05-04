@@ -45,10 +45,10 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 ---
 
 ### 3. [core-modules.md](core-modules.md) — Core Layer Deep Dive
-**Platform-independent foundation.** 27 modules providing base functionality.
+**Platform-independent foundation.** 26 modules providing base functionality.
 
 **Topics**:
-- 28 core modules: _io, config, domain, prompts, llm (includes `LLMBackend` Protocol), embeddings, episode_embeddings, episode_log, knowledge_store, memory, scheduler, distill, insight, constitution, rules_distill, stocktake, views, snapshot, migration, report, metrics, forgetting (ADR-0021), memory_evolution (ADR-0022), skill_frontmatter (ADR-0023), skill_router (ADR-0023), skill_reflect (ADR-0023), clustering (ADR-0019 companion)
+- 27 core modules: _io, config, domain, prompts, llm (includes `LLMBackend` Protocol), embeddings, episode_embeddings, episode_log, knowledge_store, memory, scheduler, distill, insight, constitution, rules_distill, stocktake, views, snapshot, migration, report, metrics, forgetting (ADR-0021), skill_frontmatter (ADR-0023), skill_router (ADR-0023), skill_reflect (ADR-0023), clustering (ADR-0019 companion)
 - 2-stage distill pipeline (extract → refine, identity update integrated)
 - Dependency flow diagram
 - 3 frozen dataclasses (Interaction, PostRecord, Insight)
@@ -130,7 +130,7 @@ Package versions, transitive dependencies, security notes.
 | Dialogue adapter modules | 1 (peer.py) |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) + result types (see core-modules.md) |
 | CLI commands | 25 (init, register, status, run, distill, distill-identity, insight, skill-reflect, adopt-staged, remove-skill, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, prune-skill-usage, enrich, embed-backfill, migrate-patterns, migrate-categories) |
-| Prompt templates | 32 (added: memory_evolution, skill_reflect) |
+| Prompt templates | 31 (added: skill_reflect) |
 | Config templates | 11 (config/templates/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |
 

@@ -140,7 +140,7 @@ one-shot の `contemplative-agent migrate-patterns` CLI:
 - **後方互換**: load path はこれらのフィールドなしで legacy pattern を読み、デフォルトとして扱う。save path は常に書く。rollback は `cp knowledge.json.bak.pre-adr0021-* knowledge.json`。
 - **新モジュール**: `forgetting.py`（Ebbinghaus 数学 + floor）と `feedback.py`（post-action updater stub）。どちらも小さい。
 - **テスト範囲**: `test_knowledge_store`, `test_distill`, `test_views`, 新規 `test_forgetting`, 新規 `test_feedback`, 新規 `test_migration` で合計 ~15 ケース追加。
-- **後続依存**: ADR-0022（Memory Evolution + Hybrid Retrieval）は `valid_from`/`valid_until` を前提とする。ADR-0023（Skill router）は attribution のために `source_episode_ids` を前提とする。両方ともこの ADR の上に乗る。
+- **後続依存**: ADR-0022（Memory Evolution + Hybrid Retrieval）は `valid_from`/`valid_until` を前提としていた（後に ADR-0034 で撤回）。ADR-0023（Skill router）は attribution のために `source_episode_ids` を前提とする。
 
 ## Key Insight
 

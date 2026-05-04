@@ -140,7 +140,7 @@ Persistence stays dict-based (not frozen dataclass) to minimize blast radius. He
 - **Backward compatibility**: load path reads legacy patterns without these fields and treats them as defaults. Save path always writes them. Rollback is `cp knowledge.json.bak.pre-adr0021-* knowledge.json`.
 - **New modules**: `forgetting.py` (Ebbinghaus math + floors), `feedback.py` (post-action updater stub). Both small.
 - **Test surface**: ~15 new test cases across `test_knowledge_store`, `test_distill`, `test_views`, new `test_forgetting`, new `test_feedback`, new `test_migration` cases.
-- **Follow-up dependencies**: ADR-0022 (Memory Evolution + Hybrid Retrieval) assumes `valid_from`/`valid_until`. ADR-0023 (Skill router) assumes `source_episode_ids` for attribution. Both build on this ADR.
+- **Follow-up dependencies**: ADR-0022 (Memory Evolution + Hybrid Retrieval) assumed `valid_from`/`valid_until` (later withdrawn by ADR-0034). ADR-0023 (Skill router) assumes `source_episode_ids` for attribution.
 
 ## Key Insight
 

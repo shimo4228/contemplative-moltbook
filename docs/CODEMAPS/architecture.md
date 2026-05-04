@@ -2,7 +2,7 @@
 # Architecture
 
 ## Project Type
-Python application: Contemplative AI agent with core/adapter separation + 3-layer memory + embedding-based views (ADR-0019) + pivot snapshots (ADR-0020) + pattern provenance/bitemporal/forgetting/feedback (ADR-0021) + memory evolution + BM25 hybrid retrieval (ADR-0022) + skill-as-memory loop (ADR-0023). Identity stays monolithic; the block schema attempt (ADR-0024/0025) was withdrawn by ADR-0030. Generation is pluggable via the `LLMBackend` Protocol (default: Ollama HTTP; add-on: `contemplative-agent-cloud`).
+Python application: Contemplative AI agent with core/adapter separation + 3-layer memory + embedding-based views (ADR-0019) + pivot snapshots (ADR-0020) + pattern provenance/bitemporal/forgetting/feedback (ADR-0021) + skill-as-memory loop (ADR-0023). Identity stays monolithic; the block schema attempt (ADR-0024/0025) was withdrawn by ADR-0030; the memory evolution + BM25 hybrid retrieval attempt (ADR-0022) was withdrawn by ADR-0034. Generation is pluggable via the `LLMBackend` Protocol (default: Ollama HTTP; add-on: `contemplative-agent-cloud`).
 
 **Stats**: 51 modules, ~13400 LOC (test count: see [INDEX.md](INDEX.md))
 
@@ -39,7 +39,7 @@ Python application: Contemplative AI agent with core/adapter separation + 3-laye
   |    distill.py  insight.py  constitution.py          |
   |    rules_distill.py  stocktake.py  scheduler.py     |
   |    report.py  metrics.py  forgetting.py             |
-  |    memory_evolution.py  skill_frontmatter.py        |
+  |    skill_frontmatter.py                             |
   |    skill_router.py  skill_reflect.py  clustering.py |
   |                                                      |
   |  adapters/moltbook/  (platform-specific, 12 modules)|

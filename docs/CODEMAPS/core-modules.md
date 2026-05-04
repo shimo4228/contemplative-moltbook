@@ -22,13 +22,12 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `migration.py` | 346 | `run_embed_backfill()` (ADR-0019) + `migrate_patterns_to_adr0021()` pattern-schema backfill |
 | `snapshot.py` | 178 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020 |
 | `forgetting.py` | 30 | Retrieval gate (ADR-0021 IV-2/IV-7 + ADR-0028 retirement): `TRUST_FLOOR`, `is_live(pattern)` — bitemporal + trust floor only. Ebbinghaus strength and mark_accessed were retired by ADR-0028. |
-| `memory_evolution.py` | 250 | A-Mem bidirectional update (ADR-0022): `find_neighbors` / `revise_neighbor` / `apply_revision` / `evolve_patterns` |
 | `skill_frontmatter.py` | 205 | YAML-subset parser/renderer for skill-file metadata (`last_reflected_at`, `success_count`, `failure_count`, ADR-0023) |
 | `skill_router.py` | 432 | Context-conditioned skill router (ADR-0023): cosine top-K over `(title+body)` embedding, no-inject fallback, usage log, `record_outcome`, `aggregate_usage`, `needs_reflection` |
 | `skill_reflect.py` | 133 | `reflect_skills() → ReflectResult` (ADR-0023): usage window → eligible skills → LLM revises body → `last_reflected_at` frontmatter update; `NO_CHANGE` output is counted separately |
 | `scheduler.py` | 165 | Rate limit state, `has_read_budget`/`has_write_budget`, persistence |
 | `constitution.py` | 106 | `amend_constitution()` → `AmendmentResult` |
-| `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021) + memory evolution pass (ADR-0022); `distill_identity()` reads/writes identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
+| `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021); `distill_identity()` reads/writes identity.md as a single text blob (legacy whole-file path restored by ADR-0030). Memory evolution pass (ADR-0022) was withdrawn by ADR-0034 |
 | `insight.py` | 319 | `extract_insight()` → `InsightResult`; view-driven batch building. Emits ADR-0023 frontmatter on generated skills, pulls live-only patterns via `KnowledgeStore.get_live_patterns`, and ranks batches by `effective_importance` (trust × strength × time decay) |
 | `rules_distill.py` | 322 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format |
 | `stocktake.py` | 363 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject |

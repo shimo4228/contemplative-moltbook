@@ -29,7 +29,7 @@ Revising an axis becomes O(seed-edit), not O(corpus-size). When the Curate phase
 ## Reference Implementations
 
 - [ADR-0019](0019-discrete-categories-to-embedding-views.md) — initial migration from a discrete `category` field to view-based projection
-- [ADR-0022](0022-memory-evolution-and-hybrid-retrieval.md) — extension with cosine + BM25 hybrid scoring and memory evolution
+- ~~[ADR-0022](0022-memory-evolution-and-hybrid-retrieval.md) — extension with cosine + BM25 hybrid scoring and memory evolution~~ (withdrawn by ADR-0034)
 - [ADR-0026](0026-retire-discrete-categories.md) — Phase-3 completion, removal of the legacy `category` field
 
 ## Closest Prior Art

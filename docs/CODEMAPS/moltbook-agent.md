@@ -19,11 +19,10 @@ cli.py (2164L)  -- composition root, only file importing both core/ and adapters
  |    episode_log.py (98L)        -- Layer 1: append-only JSONL episode storage
  |    knowledge_store.py (393L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal (ADR-0021; forgetting/feedback retired by ADR-0028) + view telemetry (ADR-0020)
  |    memory.py (490L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
- |    views.py (396L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, hybrid cosine+BM25 ADR-0022)
+ |    views.py (340L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, cosine × trust ranking)
  |    migration.py (346L)         -- run_embed_backfill (ADR-0019) + migrate_patterns_to_adr0021
  |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
  |    forgetting.py (30L)         -- is_live: bitemporal + trust floor retrieval gate (ADR-0021 + ADR-0028 retirement)
- |    memory_evolution.py (250L)  -- A-Mem bidirectional update: find_neighbors/revise_neighbor/apply_revision (ADR-0022)
  |    skill_frontmatter.py (205L) -- stdlib YAML subset parser for skill metadata (ADR-0023)
  |    skill_router.py (432L)      -- cosine top-K skill selection + usage log + reflect prep (ADR-0023)
  |    scheduler.py (165L)         -- rate limit scheduling, persistence
@@ -173,7 +172,6 @@ In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 - insight_extraction
 - rules_distill, rules_distill_refine
 - constitution_amend
-- memory_evolution (ADR-0022 — revise neighbor pattern in light of new related pattern, NO_CHANGE marker for no-op)
 
 **Audit**:
 - stocktake_skills, stocktake_rules, stocktake_merge, stocktake_merge_rules

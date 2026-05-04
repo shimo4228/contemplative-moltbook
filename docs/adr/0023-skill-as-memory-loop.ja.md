@@ -8,7 +8,7 @@ accepted
 
 ## Context
 
-ADR-0021（pattern スキーマ）と ADR-0022（memory evolution + hybrid retrieval）の後、knowledge store は観測可能・bitemporal で自らを再解釈するようになった。skill（第 3 のメモリ層）にはそれらが一切ない。具体的な欠落が 3 つ残る:
+ADR-0021（pattern スキーマ）と ADR-0022（memory evolution + hybrid retrieval、後に ADR-0034 で撤回）の後、knowledge store は観測可能・bitemporal で（当初は）自らを再解釈する想定だった。skill（第 3 のメモリ層）にはそれらが一切ない。具体的な欠落が 3 つ残る:
 
 1. **skill が無差別にロードされる。** `llm._build_system_prompt()`（llm.py:235-240）は generate のたびに `SKILLS_DIR` 配下の *全* `.md` を system prompt に連結する。狭い状況から得た skill があらゆる無関係な行動を形作る。現在の ~10 程度の skill では許容できるが、スケールしないし、行動ドリフトを伝播させる — submolt 選択についての insight が solve challenge のプロンプトにも居座ってしまう。
 

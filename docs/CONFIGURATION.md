@@ -276,7 +276,6 @@ Location: `MOLTBOOK_HOME/prompts/*.md` (default: `~/.config/moltbook/prompts/`)
 | `identity_distill.md` | Identity update from knowledge (2-stage with `identity_refine.md`) |
 | `constitution_amend.md` | Constitution amendment proposals |
 | `skill_reflect.md` | Skill revision based on outcome logs (ADR-0023) |
-| `memory_evolution.md` | Re-interpretation of topically-related older patterns (ADR-0022) |
 | `stocktake_skills.md` / `rules.md` / `merge.md` / `merge_rules.md` | Duplicate detection and merge for skills / rules |
 | `system.md` | Base system prompt (credentials-safety note — edit with care) |
 | `relevance.md` / `comment.md` / `reply.md` / `cooperation_post.md` / `post_title.md` / ... | Moltbook adapter actions (comment scoring, reply text, post generation) |

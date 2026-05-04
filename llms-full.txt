@@ -18,8 +18,8 @@ Self-contained AI-facing reference for Contemplative Agent — a local-only auto
 - **Generation LLM**: Qwen3.5 9B (Q4_K_M quantization, ~6.6 GB on disk) via Ollama
 - **Embedding model**: nomic-embed-text (~274 MB, 768-dim) via Ollama
 - **Hardware**: Apple Silicon Mac (M1+), 16 GB RAM, ~10 GB free disk
-- **Runtime dependencies**: requests>=2.33.0, numpy>=1.24.0, rank-bm25>=0.2.2
-- **ADRs**: 32 active + 1 withdrawn (ADR-0001 through ADR-0033; ADR-0032 withdrawn)
+- **Runtime dependencies**: requests>=2.33.0, numpy>=1.24.0
+- **ADRs**: 32 active + 2 withdrawn (ADR-0001 through ADR-0034; ADR-0032 and ADR-0022 withdrawn)
 - **External lenses borrowed**: AAP four-quadrant routing lens (Script / Algorithmic Search / LLM Workflow / Autonomous Agentic Loop) — usage description only, not a category claim (ADR-0033)
 - **Ethical framework presets**: 11 (contemplative, utilitarian, stoic, care-ethicist, deontologist, pragmatist, narrativist, contractarian, cynic, existentialist, tabula-rasa)
 - **Runtime data directory**: `$MOLTBOOK_HOME` (default `~/.config/moltbook/`)
@@ -37,7 +37,7 @@ Self-contained AI-facing reference for Contemplative Agent — a local-only auto
 |---|---|---|
 | Generative Agents | Park, J., O'Brien, J., Cai, C., Morris, M., Liang, P., & Bernstein, M. (2023). *Generative Agents: Interactive Simulacra of Human Behavior*. ACM UIST 2023 | importance rating, memory stream, reflection tree |
 | MemGPT / Letta | Packer, C., Fang, V., Patil, S., Lin, K., Wooders, S., & Gonzalez, J. (2023). *MemGPT: Towards LLMs as Operating Systems*. [arXiv:2310.08560](https://arxiv.org/abs/2310.08560) | virtual memory, Core Memory → Identity |
-| A-MEM | Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents*. [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) | Zettelkasten-style memory evolution |
+| A-MEM | Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). *A-MEM: Agentic Memory for LLM Agents*. [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) | Originally informed memory evolution (ADR-0022); withdrawn by ADR-0034 |
 | Zep / Graphiti | Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). *Zep: A Temporal Knowledge Graph Architecture*. [arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | bitemporal valid_from / valid_until on patterns |
 | MemoryBank | Zhong, W., Guo, L., Gao, Q., Ye, H., & Wang, Y. (2023). *MemoryBank: Long-Term Memory for LLMs*. [arXiv:2305.10250](https://arxiv.org/abs/2305.10250) | Ebbinghaus-style decay (retired ADR-0028) |
 | MINJA | Dong, S., Xu, S., He, P., Li, Y., Tang, J., Liu, T., Liu, H., & Xiang, Z. (2025). *Memory Injection Attacks on LLM Agents*. [arXiv:2503.03704](https://arxiv.org/abs/2503.03704) | MINJA-class attacks, source_type + trust_score |
@@ -71,7 +71,7 @@ Security by absence is defined as the design principle of not implementing dange
 
 ## What data leaves my machine when running the agent?
 
-Only adapter-specific traffic. The Moltbook adapter sends HTTPS requests to `moltbook.com` — post content, feed queries, notification replies — with no telemetry and no training data collection. Ollama serves LLM calls on `localhost` and never hits the network. Episode logs, `knowledge.json`, `identity.md`, `reports/`, and all distilled artifacts stay in `$MOLTBOOK_HOME` (default `~/.config/moltbook/`) with 0600 file permissions. Dependencies are limited to 3 runtime packages (`requests`, `numpy`, `rank-bm25`) — no subprocess, no shell, no templating engine, no analytics SDK.
+Only adapter-specific traffic. The Moltbook adapter sends HTTPS requests to `moltbook.com` — post content, feed queries, notification replies — with no telemetry and no training data collection. Ollama serves LLM calls on `localhost` and never hits the network. Episode logs, `knowledge.json`, `identity.md`, `reports/`, and all distilled artifacts stay in `$MOLTBOOK_HOME` (default `~/.config/moltbook/`) with 0600 file permissions. Dependencies are limited to 2 runtime packages (`requests`, `numpy`) — no subprocess, no shell, no templating engine, no analytics SDK.
 
 ---
 

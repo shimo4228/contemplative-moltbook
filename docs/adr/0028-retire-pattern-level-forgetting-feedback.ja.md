@@ -73,12 +73,12 @@ pattern 層の forgetting と feedback を撤回。具体的には:
 
 ### `views._rank` スコア単純化
 
-retrieval score は `(α·cosine + β·bm25_norm) × trust_score`。strength 因子を除去。`mark_access` パラメータも除去 — `_rank` は pure read に。
+retrieval score は `(α·cosine + β·bm25_norm) × trust_score`。strength 因子を除去。`mark_access` パラメータも除去 — `_rank` は pure read に。(注: BM25 channel は後に ADR-0034 で撤回され、現在は `cosine × trust_score`。)
 
 ### Producer からフィールド初期化を除去
 
 - `knowledge_store.add_learned_pattern`
-- `memory_evolution.apply_revision`
+- `memory_evolution.apply_revision` (後に ADR-0034 で削除)
 - `rules_distill._build_skill_dicts` (rank adapter dicts)
 
 ### Load-path のフィールド保持を除去
@@ -102,7 +102,7 @@ ADR-0021 の *IV-3 (Forgetting)* と *IV-10 (Feedback)* は本 ADR に supersede
 ## 影響
 
 - **Schema cleanup**: pattern あたり 4 フィールド (~40 bytes each) 減。377 patterns で ~15 KB 回復。
-- **Retrieval の単純化・予測可能性向上**: score = cosine × trust (+ optional BM25)。隠れた time-decay 因子・access-count bonus なし。tuning しやすい。
+- **Retrieval の単純化・予測可能性向上**: score = cosine × trust。(当初は optional BM25 blend を許容していたが BM25 channel は後に ADR-0034 で撤回。) 隠れた time-decay 因子・access-count bonus なし。tuning しやすい。
 - **`is_live` は trust + bitemporal のみ**: strength floor は本番データで閾値未満になっていなかった (全 strength が創造日 decay に支配され access_count=0 で一定) ため、観測可能な挙動変化なし。
 - **セキュリティ姿勢は不変**: MINJA defense は既に `summarize_record` quarantine + `external_reply` trust 0.55 で構造的に達成済み。forgetting/feedback は secondary defense として armed されていなかった。
 - **Load 後方互換**: 撤回フィールドを含む legacy ファイルは clean に読まれ、フィールドは silent drop、次 save で書き直し。

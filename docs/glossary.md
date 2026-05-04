@@ -68,8 +68,6 @@ AKC updates.
 | provenance | 出所記録 | 出处记录 | 出處記錄 | proveniência | procedencia | |
 | trust score | 信頼度 | 可信度 | 可信度 | índice de confiança | puntuación de confianza | |
 | bitemporal | 時間妥当性 (bitemporal) | 双时态 (bitemporal) | 雙時態 (bitemporal) | bitemporal | bitemporal | partial |
-| hybrid retrieval | ハイブリッド検索 | 混合检索 | 混合檢索 | recuperação híbrida | recuperación híbrida | |
-| memory evolution | 記憶の進化 | 记忆进化 | 記憶進化 | evolução da memória | evolución de la memoria | |
 | approval gate | 承認ゲート | 审批闸门 | 審核閘門 | porta de aprovação | puerta de aprobación | |
 | human approval gate | 人間承認ゲート | 人类审批闸门 | 人類審核閘門 | porta de aprovação humana | puerta de aprobación humana | |
 | self-improving | 自己改善 | 自我改进 | 自我改進 | auto-aperfeiçoamento | automejora | |

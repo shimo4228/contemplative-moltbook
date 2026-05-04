@@ -29,7 +29,7 @@ accepted — ADR-0019、ADR-0022、ADR-0026 に既に実現されている原則
 ## Reference Implementations
 
 - [ADR-0019](0019-discrete-categories-to-embedding-views.ja.md) — 離散的 `category` フィールドから view ベース投影への initial migration
-- [ADR-0022](0022-memory-evolution-and-hybrid-retrieval.ja.md) — cosine + BM25 ハイブリッドスコアと memory evolution
+- ~~[ADR-0022](0022-memory-evolution-and-hybrid-retrieval.ja.md) — cosine + BM25 ハイブリッドスコアと memory evolution~~ (ADR-0034 で撤回)
 - [ADR-0026](0026-retire-discrete-categories.ja.md) — Phase-3 完了、legacy `category` フィールド削除
 
 ## Closest Prior Art
