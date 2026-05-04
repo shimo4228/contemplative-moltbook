@@ -1,7 +1,7 @@
 # ADR-0022: Memory Evolution + Hybrid Retrieval
 
 ## Status
-accepted
+withdrawn ([ADR-0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.ja.md) により 2026-05-05 撤回)
 
 ## Date
 2026-04-16
@@ -73,3 +73,13 @@ BM25 を選ぶ理由: TF-IDF は BM25 の退化形; dense-dense reranker（ColBE
 ## Key Insight
 
 ADR-0019 は「分類は状態ではなく query」と言った。ADR-0021 は「認識論的軸は明示フィールドであるべき」と言った。ADR-0022 はこう言う: 「pattern は静的な原子ではなく、その意味は以来到来したものの関数である」。evolution は write path でこれを明示し、hybrid retrieval は read path でこれを明示する。両方あわせて、store は observation のリストから Zettelkasten に近いものへ移動する — note を追加すると近傍 note が変わり、note を見つけるには *何について* か（cosine）と *何と言っているか*（字句）の両方を使う。
+
+## Withdrawal Note (2026-05-05)
+
+[ADR-0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.ja.md) は本 ADR を全体撤回する。実証評価の結果、IV-4 (memory evolution) と IV-5 (BM25 hybrid retrieval) の両方を削除:
+
+- memory_evolution の改訂の 78% が `[0.75, 0.80)` 帯に集中し、その帯域で LLM は再解釈ではなく言い換えを生成していた
+- BM25 は view seed (抽象テーマ) と pattern 文章 (具体ログ観察) で語彙が重ならず効果ゼロ
+- `distilled` field が 2 つの互換性のない目的で使われていた (ADR-0021 caller では ISO timestamp、ADR-0022 の revision path では prose) ため 39.6% の schema-broken row を生んだ
+
+bibliography 参照 (A-Mem、Zep / Graphiti / Cognee / Mem0) は将来別機構でこれらの問いを再訪する ADR の出発点として保持。実証記録と記録した教訓は [ADR-0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.ja.md) を参照。

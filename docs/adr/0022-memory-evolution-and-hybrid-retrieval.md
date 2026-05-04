@@ -1,7 +1,7 @@
 # ADR-0022: Memory Evolution + Hybrid Retrieval
 
 ## Status
-accepted
+withdrawn (by [ADR-0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.md) on 2026-05-05)
 
 ## Date
 2026-04-16
@@ -73,3 +73,13 @@ New module `src/contemplative_agent/core/evolution.py` holds `EVOLUTION_MIN`, `E
 ## Key Insight
 
 ADR-0019 said "classification is a query, not state". ADR-0021 said "epistemic axes should be explicit fields". ADR-0022 says: "patterns are not static atoms; their meaning is a function of what's arrived since". Evolution makes that explicit in the write path; hybrid retrieval makes it explicit in the read path. Together they move the store from a list-of-observations toward something closer to a Zettelkasten — where adding a note changes nearby notes and where finding a note uses both what it's *about* (cosine) and what it *says* (lexical).
+
+## Withdrawal Note (2026-05-05)
+
+[ADR-0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.md) withdraws this ADR in full. Both IV-4 (memory evolution) and IV-5 (BM25 hybrid retrieval) were removed after empirical evaluation showed:
+
+- 78% of memory_evolution revisions fell in the `[0.75, 0.80)` band, where the LLM produced rephrasings rather than reinterpretations
+- BM25 had no effect because view seeds (abstract themes) and pattern text (concrete log observations) shared no vocabulary
+- The `distilled` field was used for two incompatible purposes (ISO timestamp by ADR-0021 callers, prose by ADR-0022's revision path), which produced 39.6% schema-broken rows
+
+The bibliography references (A-Mem, Zep / Graphiti / Cognee / Mem0) are kept as starting points for any future ADR that revisits these questions with a different mechanism. See [ADR-0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.md) for the empirical record and the lesson recorded.
