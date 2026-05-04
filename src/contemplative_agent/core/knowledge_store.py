@@ -7,7 +7,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 from ._io import now_iso, write_restricted
 from .config import FORBIDDEN_SUBSTRING_PATTERNS
@@ -188,18 +188,6 @@ class KnowledgeStore:
     def get_raw_patterns_since(self, since: str) -> List[dict]:
         """Return raw pattern dicts distilled after the given ISO timestamp."""
         return self._filter_since(since, self._learned_patterns)
-
-    def add_revised_patterns(self, rows: Iterable[dict]) -> None:
-        """Append pre-built pattern dicts produced by memory evolution.
-
-        Each ``row`` is expected to already carry the full post-ADR-0021
-        shape (provenance, trust_score, valid_from/valid_until). Callers
-        — currently only ``distill._process_category`` — use this to
-        ingest the ``EvolutionBatch.revised_rows`` output of
-        ``apply_revision`` without reaching into ``_learned_patterns``.
-        """
-        for row in rows:
-            self._learned_patterns.append(dict(row))
 
     def get_live_patterns(self) -> List[dict]:
         """Return patterns that pass ``is_live`` (bitemporal + trust + strength)."""

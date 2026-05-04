@@ -29,14 +29,12 @@ from .forgetting import is_live
 from .knowledge_store import TRUST_BASE_BY_SOURCE, effective_importance
 from .llm import generate, _get_default_system_prompt, get_distill_system_prompt, validate_identity_content
 from .memory import EpisodeLog, KnowledgeStore
-from .memory_evolution import evolve_patterns
 from .prompts import (
     DISTILL_PROMPT,
     DISTILL_REFINE_PROMPT,
     DISTILL_IMPORTANCE_PROMPT,
     IDENTITY_DISTILL_PROMPT,
     IDENTITY_REFINE_PROMPT,
-    MEMORY_EVOLUTION_PROMPT,
 )
 from .views import ViewRegistry
 
@@ -674,36 +672,6 @@ def _distill_category(
         )
         logger.info("Added pattern (importance=%.1f, source=%s): %s",
                      importance, source_type, pattern[:80])
-
-    # ADR-0022 (IV-4) Memory Evolution: for each newly added pattern, revise
-    # topically-related *older* patterns' distilled text. The revision runs
-    # against the full live pool (excludes just-added patterns' own
-    # representations by construction — they aren't neighbors of themselves
-    # in the [EVOLUTION_MIN, SIM_UPDATE) band). The prompt may be empty if
-    # config/prompts/memory_evolution.md is absent — skip then.
-    if MEMORY_EVOLUTION_PROMPT:
-        live_patterns = [
-            p for p in knowledge.get_raw_patterns()
-            if is_live(p)
-            and isinstance(p.get("embedding"), list)
-        ]
-        new_entries: List[Tuple[str, np.ndarray]] = []
-        for pattern, emb in zip(add_patterns, add_embeddings):
-            if emb is None:
-                continue
-            new_entries.append((pattern, emb))
-
-        batch = evolve_patterns(
-            new_entries, live_patterns, MEMORY_EVOLUTION_PROMPT,
-        )
-        for old_ref, invalidated in batch.invalidations:
-            knowledge.replace_pattern(old_ref, invalidated)
-        if batch.revised_rows:
-            knowledge.add_revised_patterns(batch.revised_rows)
-            logger.info(
-                "Memory evolution: revised %d neighbor patterns",
-                len(batch.revised_rows),
-            )
 
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)
 
