@@ -8,6 +8,7 @@ from typing import Optional
 
 from ...core.config import MAX_COMMENT_LENGTH, MAX_POST_LENGTH, MAX_POST_TITLE_LENGTH
 from ...core.domain import get_domain_config, resolve_prompt
+from ...core.memory import POST_TOPIC_SUMMARY_MAX
 from ...core.prompts import (
     COMMENT_PROMPT,
     COOPERATION_POST_PROMPT,
@@ -162,14 +163,22 @@ def check_topic_novelty(
 
 
 def summarize_post_topic(content: str) -> str:
-    """Generate a 1-line topic summary for storage in memory."""
+    """Generate a 1-line topic summary for storage in memory.
+
+    The output is truncated to POST_TOPIC_SUMMARY_MAX so the dedup gate
+    (token-set Jaccard against memory-stored topic_summaries) sees both
+    sides at the same cap. Symmetry is largely preserved by prefix-5
+    stemming in dedup._tokens, but the LLM-failure fallback path falls
+    through to raw post content (potentially 40k chars), where the cap
+    is load-bearing.
+    """
     prompt = TOPIC_SUMMARY_PROMPT.format(
         post_content=wrap_untrusted_content(content),
     )
     result = generate(prompt, num_predict=60)
     if result:
-        return result.strip()[:100]
-    return content[:100]
+        return result.strip()[:POST_TOPIC_SUMMARY_MAX]
+    return content[:POST_TOPIC_SUMMARY_MAX]
 
 
 def select_submolt(
@@ -216,5 +225,7 @@ def generate_session_insight(
     )
     result = generate(prompt, num_predict=100)
     if result:
-        return result.strip()[:150]
+        # Char cap is owned by memory.record_insight(), which truncates to
+        # SUMMARY_MAX_LENGTH (200). Returning the full sanitized output here.
+        return result.strip()
     return None

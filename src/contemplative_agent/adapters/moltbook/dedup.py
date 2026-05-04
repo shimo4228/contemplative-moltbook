@@ -82,6 +82,13 @@ def is_duplicate_title(
     the topic_summary is also fed in, which lifts real duplicates further
     above 0.25 — title-only is the worst case.
 
+    Symmetry note: callers should normalize ``draft_topic_summary`` to the
+    same char cap as memory storage (POST_TOPIC_SUMMARY_MAX = 100) before
+    passing in. Prefix-5 stemming makes Jaccard largely cap-invariant in
+    practice, but on the summarize_post_topic LLM-failure fallback path the
+    raw post content (up to 40k chars) is used as the summary, where
+    asymmetric token-set sizes collapse the score toward 0.
+
     Args:
         draft_title: The candidate post title.
         draft_topic_summary: Optional 1-line topic summary of the draft body.

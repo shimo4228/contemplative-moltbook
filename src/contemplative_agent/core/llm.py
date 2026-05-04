@@ -383,6 +383,12 @@ def _sanitize_output(text: str, max_length: Optional[int] = None) -> str:
     (no slicing) so dedup/distill/insight aren't silently truncated by
     a cap meant for SNS post length. External callers (Moltbook posts,
     comments, replies) keep the cap to satisfy platform constraints.
+
+    Note: ``max_length`` is a Python post-hoc ``str[:max_length]`` slice
+    on sanitized output, NOT an LLM-side token limit. Token-level control
+    is via ``num_predict`` (caller side); the name is preserved for
+    historical compatibility with external callers where it doubles as
+    the platform char-cap value.
     """
     sanitized = _strip_thinking(text).strip()
     for pattern in FORBIDDEN_SUBSTRING_PATTERNS:

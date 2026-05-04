@@ -318,6 +318,20 @@ class TestPostHistoryAndInsights:
         assert i.insight_type == "topic_saturation"
         assert len(store.get_recent_insights()) == 1
 
+    def test_record_insight_truncates_observation(self):
+        # memory schema is the single source of truth for observation char
+        # cap (SUMMARY_MAX_LENGTH = 200). Adapters must not pre-truncate to
+        # a smaller value that would silently bypass this invariant.
+        store = MemoryStore()
+        long_obs = "x" * 400
+        i = store.record_insight(
+            timestamp="t1",
+            observation=long_obs,
+            insight_type="session_summary",
+        )
+        assert len(i.observation) <= 200
+        assert len(i.observation) > 150  # guard against historical [:150] slice
+
     def test_get_recent_post_topics(self):
         store = MemoryStore()
         for i in range(10):

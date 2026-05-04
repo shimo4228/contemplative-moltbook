@@ -26,6 +26,14 @@ MAX_INTERACTIONS = 1000
 MAX_POST_HISTORY = 50
 MAX_INSIGHTS = 30
 
+# Schema-level cap for PostRecord.topic_summary. The single source of truth
+# for the 100-char invariant; adapters that produce summaries normalize to
+# this value before passing in (the dedup gate's token-set Jaccard is
+# largely cap-invariant after prefix-5 stemming, but the LLM-fallback path
+# in summarize_post_topic uses raw post content as the summary, where the
+# cap is load-bearing for set symmetry).
+POST_TOPIC_SUMMARY_MAX = 100
+
 # Re-export for backward compatibility — all external code imports from here
 __all__ = [
     "EpisodeLog",
@@ -36,6 +44,7 @@ __all__ = [
     "MAX_INTERACTIONS",
     "MAX_POST_HISTORY",
     "MemoryStore",
+    "POST_TOPIC_SUMMARY_MAX",
     "PostRecord",
     "truncate",
 ]
@@ -330,7 +339,7 @@ class MemoryStore:
             timestamp=timestamp,
             post_id=post_id,
             title=title,
-            topic_summary=truncate(topic_summary, 100),
+            topic_summary=truncate(topic_summary, POST_TOPIC_SUMMARY_MAX),
             content_hash=content_hash[:16],
         )
         self._post_history.append(record)
