@@ -1,7 +1,6 @@
 """Tests for sleep-time memory distillation (ADR-0009 embedding-based)."""
 
 import json
-import logging
 from unittest.mock import patch, MagicMock
 
 import numpy as np

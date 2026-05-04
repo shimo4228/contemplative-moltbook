@@ -19,6 +19,7 @@ from contemplative_agent.core.llm import (
     _sanitize_output,
     wrap_untrusted_content,
     generate,
+    generate_for_api,
 )
 
 
@@ -328,40 +329,101 @@ class TestGenerate:
         assert payload["options"]["num_ctx"] == 32768
 
 
+class TestGenerateForApi:
+    """ADR-0018 amendment: API 投稿系 caller は max_length のみ指定、
+    num_predict は max(50, ceil(max_length/3)+50) で内部派生。
+    """
+
+    @patch("contemplative_agent.core.llm.generate")
+    def test_post_title_max_length_derives_to_150(self, mock_gen):
+        mock_gen.return_value = "ok"
+        generate_for_api("p", max_length=300)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["num_predict"] == 150  # ceil(300/3) + 50 = 150
+
+    @patch("contemplative_agent.core.llm.generate")
+    def test_comment_max_length_derives_to_3384(self, mock_gen):
+        mock_gen.return_value = "ok"
+        generate_for_api("p", max_length=10000)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["num_predict"] == 3384  # ceil(10000/3) + 50 = 3384
+
+    @patch("contemplative_agent.core.llm.generate")
+    def test_self_post_max_length_derives_to_13384(self, mock_gen):
+        mock_gen.return_value = "ok"
+        generate_for_api("p", max_length=40000)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["num_predict"] == 13384  # ceil(40000/3) + 50 = 13384
+
+    @patch("contemplative_agent.core.llm.generate")
+    def test_zero_max_length_returns_50(self, mock_gen):
+        """At max_length=0, num_predict = ceil(0/3) + 50 = 50 (the +50 margin)."""
+        mock_gen.return_value = "ok"
+        generate_for_api("p", max_length=0)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["num_predict"] == 50
+
+    @patch("contemplative_agent.core.llm.generate")
+    def test_passes_max_length_through(self, mock_gen):
+        mock_gen.return_value = "ok"
+        generate_for_api("p", max_length=300)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["max_length"] == 300
+
+
 class TestGenerateComment:
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_returns_generated_text(self, mock_gen):
         mock_gen.return_value = "Interesting take on cooperation."
         result = generate_comment("a post about AI cooperation")
         assert result == "Interesting take on cooperation."
 
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_returns_none_on_failure(self, mock_gen):
         mock_gen.return_value = None
         assert generate_comment("some post") is None
 
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
+    def test_uses_generate_for_api_with_max_comment_length(self, mock_gen):
+        from contemplative_agent.core.config import MAX_COMMENT_LENGTH
+        mock_gen.return_value = "ok"
+        generate_comment("post")
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["max_length"] == MAX_COMMENT_LENGTH
+        # caller does not pass num_predict; it's derived internally
+        assert "num_predict" not in kwargs
+
 
 class TestGenerateCooperationPost:
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_returns_generated_post(self, mock_gen):
         mock_gen.return_value = "A post about cooperation trends."
         result = generate_cooperation_post("alignment, safety, cooperation")
         assert result == "A post about cooperation trends."
 
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_returns_none_on_failure(self, mock_gen):
         mock_gen.return_value = None
         assert generate_cooperation_post("topics") is None
 
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
+    def test_uses_generate_for_api_with_max_post_length(self, mock_gen):
+        from contemplative_agent.core.config import MAX_POST_LENGTH
+        mock_gen.return_value = "ok"
+        generate_cooperation_post("topics")
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["max_length"] == MAX_POST_LENGTH
+        assert "num_predict" not in kwargs
+
 
 class TestGenerateReply:
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_basic_reply(self, mock_gen):
         mock_gen.return_value = "I agree, that's a great point."
         result = generate_reply("original post", "their comment")
         assert result == "I agree, that's a great point."
 
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_reply_with_history(self, mock_gen):
         mock_gen.return_value = "Building on our earlier discussion..."
         result = generate_reply(
@@ -374,17 +436,59 @@ class TestGenerateReply:
         assert "prev exchange 1" in prompt
         assert "prev exchange 2" in prompt
 
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_reply_without_history(self, mock_gen):
         mock_gen.return_value = "response"
         generate_reply("post", "comment", conversation_history=None)
         prompt = mock_gen.call_args[0][0]
         assert "Previous exchanges" not in prompt
 
-    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate")
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
     def test_returns_none_on_failure(self, mock_gen):
         mock_gen.return_value = None
         assert generate_reply("post", "comment") is None
+
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
+    def test_uses_generate_for_api_with_max_comment_length(self, mock_gen):
+        from contemplative_agent.core.config import MAX_COMMENT_LENGTH
+        mock_gen.return_value = "ok"
+        generate_reply("post", "comment")
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["max_length"] == MAX_COMMENT_LENGTH
+        assert "num_predict" not in kwargs
+
+
+class TestGeneratePostTitle:
+    """post title is consolidated to use generate_for_api with MAX_POST_TITLE_LENGTH;
+    the post-generate `[:80]` slice is removed (was a 3rd redundant cap)."""
+
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
+    def test_uses_generate_for_api_with_title_length(self, mock_gen):
+        from contemplative_agent.adapters.moltbook.llm_functions import generate_post_title
+        from contemplative_agent.core.config import MAX_POST_TITLE_LENGTH
+        mock_gen.return_value = "A reasonable title"
+        result = generate_post_title("topics")
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["max_length"] == MAX_POST_TITLE_LENGTH
+        assert "num_predict" not in kwargs
+        assert result == "A reasonable title"
+
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
+    def test_strips_quotes(self, mock_gen):
+        from contemplative_agent.adapters.moltbook.llm_functions import generate_post_title
+        mock_gen.return_value = '"A quoted title"'
+        result = generate_post_title("topics")
+        assert result == "A quoted title"
+
+    @patch("contemplative_agent.adapters.moltbook.llm_functions.generate_for_api")
+    def test_no_80_char_slice(self, mock_gen):
+        """The `[:80]` slice was overkill — API limit is 300 chars (per skill.md)."""
+        from contemplative_agent.adapters.moltbook.llm_functions import generate_post_title
+        long_title = "x" * 200
+        mock_gen.return_value = long_title
+        result = generate_post_title("topics")
+        # 200 chars passes through (was previously truncated to 80)
+        assert result == long_title
 
 
 class TestExtractTopics:

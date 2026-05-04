@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -497,6 +498,32 @@ def generate(
 
     _circuit.record_success()
     return _sanitize_output(raw_text, max_length)
+
+
+def generate_for_api(
+    prompt: str,
+    max_length: int,
+    *,
+    system: Optional[str] = None,
+) -> Optional[str]:
+    """Generate text for an API publish path (post/comment/reply/title).
+
+    Caller specifies only ``max_length`` (the API's char limit). ``num_predict``
+    is derived as ``ceil(max_length/3) + 50`` — 1 token ≈ 3 chars conservative
+    + 50 token margin (yields min 50 tokens at max_length=0).
+
+    ADR-0018 amendment (2026-05-04): API caller per-caller ``num_predict``
+    calibration is replaced by this single derivation, so callers specify
+    one value (``max_length``) instead of two. Internal callers
+    (distill/insight/etc) keep their ADR-0018 calibrated values.
+    """
+    estimated_num_predict = math.ceil(max_length / 3) + 50
+    return generate(
+        prompt,
+        system=system,
+        max_length=max_length,
+        num_predict=estimated_num_predict,
+    )
 
 
 _INJECTION_TOKENS = (

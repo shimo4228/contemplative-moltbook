@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Optional
 
-from ...core.config import MAX_COMMENT_LENGTH, MAX_POST_LENGTH
+from ...core.config import MAX_COMMENT_LENGTH, MAX_POST_LENGTH, MAX_POST_TITLE_LENGTH
 from ...core.domain import get_domain_config, resolve_prompt
 from ...core.prompts import (
     COMMENT_PROMPT,
@@ -20,7 +20,7 @@ from ...core.prompts import (
     TOPIC_NOVELTY_PROMPT,
     TOPIC_SUMMARY_PROMPT,
 )
-from ...core.llm import generate, wrap_untrusted_content
+from ...core.llm import generate, generate_for_api, wrap_untrusted_content
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def score_relevance(post_text: str) -> float:
 def generate_comment(post_text: str) -> Optional[str]:
     """Generate a contextual comment for a post."""
     prompt = COMMENT_PROMPT.format(post_content=wrap_untrusted_content(post_text))
-    return generate(prompt, max_length=MAX_COMMENT_LENGTH, num_predict=300)
+    return generate_for_api(prompt, max_length=MAX_COMMENT_LENGTH)
 
 
 def generate_cooperation_post(
@@ -92,7 +92,7 @@ def generate_cooperation_post(
         insights_section=insights_section,
         knowledge_section="",
     )
-    return generate(prompt, max_length=MAX_POST_LENGTH, num_predict=600)
+    return generate_for_api(prompt, max_length=MAX_POST_LENGTH)
 
 
 def generate_reply(
@@ -111,7 +111,7 @@ def generate_reply(
         original_post=wrap_untrusted_content(original_post),
         their_comment=wrap_untrusted_content(their_comment),
     )
-    return generate(prompt, max_length=MAX_COMMENT_LENGTH, num_predict=300)
+    return generate_for_api(prompt, max_length=MAX_COMMENT_LENGTH)
 
 
 def generate_post_title(feed_topics: str) -> Optional[str]:
@@ -119,9 +119,12 @@ def generate_post_title(feed_topics: str) -> Optional[str]:
     prompt = _resolve_domain_prompt(POST_TITLE_PROMPT).format(
         feed_topics=wrap_untrusted_content(feed_topics),
     )
-    result = generate(prompt, max_length=100, num_predict=50)
+    result = generate_for_api(prompt, max_length=MAX_POST_TITLE_LENGTH)
     if result:
-        return result.strip().strip('"').strip("'")[:80]
+        # Strip surrounding whitespace and quotes the LLM may add. Length is
+        # already bounded by max_length=MAX_POST_TITLE_LENGTH (300 chars per
+        # API spec); the previous [:80] slice was an unrelated 3rd cap, removed.
+        return result.strip().strip('"').strip("'")
     return None
 
 

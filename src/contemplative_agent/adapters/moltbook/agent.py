@@ -35,7 +35,6 @@ from .verification import (
 from ...core.config import (
     FORBIDDEN_SUBSTRING_PATTERNS,
     FORBIDDEN_WORD_PATTERNS,
-    MAX_POST_LENGTH,
     VALID_ID_PATTERN,
 )
 from ...core.domain import DomainConfig, get_domain_config
@@ -305,10 +304,12 @@ class Agent:
 
     @staticmethod
     def _passes_content_filter(content: str) -> bool:
-        """Check content against safety filters for GUARDED mode."""
-        if len(content) > MAX_POST_LENGTH:
-            logger.warning("Content exceeds max length (%d > %d)", len(content), MAX_POST_LENGTH)
-            return False
+        """Check content against safety filters for GUARDED mode.
+
+        ADR-0018 amendment (2026-05-04): length enforcement moved to
+        ``_sanitize_output()`` (one cap per artifact, ADR-0030); this filter
+        only checks forbidden patterns and emptiness.
+        """
         content_lower = content.lower()
         for pattern in FORBIDDEN_SUBSTRING_PATTERNS:
             if pattern.lower() in content_lower:

@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict
 
 import numpy as np
 import pytest
 
 from contemplative_agent.core.memory_evolution import (
-    EVOLUTION_K,
     EVOLUTION_MAX_EXCL,
     EVOLUTION_MIN,
-    NO_CHANGE_MARKER,
     EvolutionPair,
     EvolutionResult,
     _parse_revision,

@@ -1,7 +1,7 @@
 # ADR-0018: Per-Caller num_predict + Embedding-Only Stocktake
 
 ## Status
-accepted
+accepted (amended 2026-05-04 — see Amendment section below)
 
 ## Date
 2026-04-15
@@ -82,3 +82,48 @@ Reject path: the merge prompts (`stocktake_merge.md`, `stocktake_merge_rules.md`
 
 - ADR-0016 (Insight narrow, Stocktake broad): this ADR upholds that contract — stocktake remains the broad consolidator, but its machinery is simplified. The narrow/broad role split is unchanged.
 - ADR-0012 (Human approval gate): the `CANNOT_MERGE` path adds a fourth outcome to the approval state machine (merged / skipped / LLM failure / rejected-as-distinct). All four route through the same write_restricted + audit log.
+
+## Amendment (2026-05-04)
+
+### Context
+
+API publish callers (self-post / comment / reply / post-title) showed a 67% mid-sentence truncation rate on 2026-05-04 (33 comments, 22 truncated; 5 replies, 3 truncated, including a mid-word break "richer artic"). Verbatim duplicate publications also occurred: Apr 30 self-post #2 was re-published verbatim as May 3 self-post #2, identical including the truncation point.
+
+Root cause analysis showed two issues:
+
+1. The original ADR's per-caller `num_predict` calibration (300 / 600 / 50) targeted M1 hang avoidance, not output-length sufficiency. Token caps were tight relative to char caps, so generation halted mid-sentence well before `max_length` slice would trigger.
+2. Three independent length caps had accumulated for API publish callers, violating ADR-0030 "1 artifact 1 責務":
+   - `num_predict` (token, Ollama side)
+   - `max_length` → `_sanitize_output()` slice (char, Python side)
+   - `agent.py:_passes_content_filter()` redundant length re-check
+   - `generate_post_title()` post-generate `[:80]` slice (3rd cap)
+
+### Decision
+
+Introduce `core/llm.py::generate_for_api(prompt, max_length)` for API publish callers. `num_predict` is derived inside the wrapper as `max(50, ceil(max_length/3) + 50)` (1 token ≈ 3 chars conservative, +50 token margin, 50 floor for very short caps). Callers specify only `max_length` — one parameter instead of two, eliminating the unbalanced-cap class of bug.
+
+Updated config constants reflect verified Moltbook API limits (skill.md, 2026-05-04):
+
+- `MAX_POST_LENGTH`: 20000 → **40000** (the previous value was half the actual API limit)
+- `MAX_POST_TITLE_LENGTH`: new constant **300** (replaces `max_length=100` ad-hoc)
+- `MAX_COMMENT_LENGTH`: 10000 retained (API does not specify; conservative cap)
+
+Removed redundant layers:
+
+- `agent.py:_passes_content_filter()` length check — `_sanitize_output()` slice already enforces it
+- `generate_post_title()` post-generate `[:80]` slice — was an unrelated 3rd cap with no API or design basis
+
+### Scope of Amendment
+
+**API publish callers** (self-post / comment / reply / post-title): per-caller `num_predict` argument removed; migrated to `generate_for_api(prompt, max_length=...)`.
+
+**Internal callers** (distill / insight / topic / submolt / relevance / topic_novelty / topic_summary / session_insight / etc): unchanged. ADR-0018 per-caller calibration still applies. M1 hang avoidance remains the constraint for these paths; consolidation is out of scope for this amendment.
+
+### Related Change
+
+A body-hash dedup gate is added in `post_pipeline.py` to catch verbatim re-publication that title/topic Jaccard misses. This is independent of the truncation fix (a duplicate body with a slightly different title currently slips through the Jaccard gate). The gate reuses the existing `content_hash` (16-char SHA-256 prefix) on `PostRecord` — no schema change.
+
+### Verification
+
+- 7 new tests in `test_llm.py` and `test_agent.py` validate: derivation formula, each caller using `generate_for_api`, `[:80]` slice removal, redundant length check removal, body-hash gate firing.
+- Existing `test_too_long` and `test_at_max_length` removed (length check no longer in `_passes_content_filter`).

@@ -109,11 +109,11 @@ class TestPassesContentFilter:
         assert Agent._passes_content_filter("") is False
         assert Agent._passes_content_filter("   ") is False
 
-    def test_too_long(self):
-        assert Agent._passes_content_filter("x" * 20001) is False
-
-    def test_at_max_length(self):
-        assert Agent._passes_content_filter("x" * 20000) is True
+    def test_no_length_check(self):
+        """ADR-0018 amendment: length enforcement moved to _sanitize_output();
+        _passes_content_filter() no longer duplicates the cap (ADR-0030: 1 artifact 1 責務)."""
+        assert Agent._passes_content_filter("x" * 50000) is True
+        assert Agent._passes_content_filter("x" * 100000) is True
 
     @pytest.mark.parametrize("forbidden", [
         "api_key", "API_KEY", "api-key", "apikey", "password",
@@ -151,9 +151,10 @@ class TestConfirmAction:
         agent = Agent(autonomy=AutonomyLevel.GUARDED)
         assert agent._confirm_action("test", "  ") is False
 
-    def test_guarded_rejects_too_long(self):
-        agent = Agent(autonomy=AutonomyLevel.GUARDED)
-        assert agent._confirm_action("test", "x" * 20001) is False
+    # ADR-0018 amendment 2026-05-04: length enforcement moved to
+    # _sanitize_output(); the redundant check in _passes_content_filter is
+    # removed (ADR-0030: 1 artifact 1 責務). The corresponding length-only
+    # rejection test is therefore deleted — see test_no_length_check above.
 
     @patch("builtins.input", return_value="y")
     def test_approve_asks_user_yes(self, mock_input):
@@ -453,6 +454,49 @@ class TestRunPostCycle:
         agent._client.post.assert_called_once()
         assert any("Posted: Notes on dedup gates" in a for a in agent._actions_taken)
 
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.is_duplicate_title", return_value=(False, 0.0, None))
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.summarize_post_topic", return_value="topic summary")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.check_topic_novelty", return_value=True)
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.generate_post_title", return_value="A different title")
+    @patch("contemplative_agent.adapters.moltbook.post_pipeline.extract_topics", return_value="topic1")
+    def test_skips_when_body_hash_matches(
+        self, mock_topics, mock_title, mock_novelty, mock_summarize, mock_dedup,
+    ):
+        """ADR-0018 amendment: body-hash gate catches verbatim re-publication
+        that title/topic Jaccard misses (May 3 2026 self-post #2 = Apr 30 #2,
+        identical body but different title)."""
+        from contemplative_agent.adapters.moltbook.content import _content_hash
+        from contemplative_agent.core.memory import PostRecord
+
+        duplicate_body = "A body that was posted verbatim earlier in the week."
+        prior_hash = _content_hash(duplicate_body)
+
+        agent = Agent(autonomy=AutonomyLevel.AUTO)
+        agent._client = MagicMock()
+        agent._scheduler = MagicMock()
+        agent._scheduler.can_post.return_value = True
+        agent._content = MagicMock()
+        agent._content.create_cooperation_post.return_value = duplicate_body
+
+        prior_record = PostRecord(
+            timestamp="2026-04-30T00:00:00Z",
+            post_id="prior-post",
+            title="Prior post title",
+            topic_summary="prior summary",
+            content_hash=prior_hash,
+        )
+        # is_duplicate_title is mocked to return False, so the only gate
+        # that can block here is the body-hash gate we're testing.
+        agent._ctx.memory.get_recent_posts = MagicMock(return_value=[prior_record])
+
+        feed_resp = MagicMock()
+        feed_resp.json.return_value = {"posts": [{"title": "t", "content": "c"}]}
+        agent._client.get.return_value = feed_resp
+
+        agent._post_pipeline.run_cycle(agent._client, agent._scheduler)
+        # Body hash matched → publish skipped
+        agent._client.post.assert_not_called()
+
     def test_skips_when_cannot_post(self):
         agent = Agent(autonomy=AutonomyLevel.AUTO)
         agent._client = MagicMock()
@@ -581,8 +625,10 @@ class TestRunPostCycle:
         agent._scheduler = MagicMock()
         agent._scheduler.can_post.return_value = True
         agent._content = MagicMock()
+        # Distinct from test_posts_dynamic to avoid body-hash collision under
+        # the new dedup gate (ADR-0018 amendment 2026-05-04).
         agent._content.create_cooperation_post.return_value = (
-            "We paused to revisit how gates intersect with memory."
+            "Network failure path: a distinct body for the client-error test."
         )
 
         feed_resp = MagicMock()
@@ -648,8 +694,10 @@ class TestRunPostCycle:
         agent._scheduler = MagicMock()
         agent._scheduler.can_post.return_value = True
         agent._content = MagicMock()
+        # Distinct from test_post_success_records_skill_outcome to avoid
+        # body-hash collision under the new dedup gate (ADR-0018 amendment).
         agent._content.create_cooperation_post.return_value = (
-            "A body about how gates intersect with memory."
+            "APPROVE-mode rejection path: a distinct body for this test."
         )
 
         feed_resp = MagicMock()

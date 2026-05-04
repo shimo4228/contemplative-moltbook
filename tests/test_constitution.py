@@ -1,6 +1,5 @@
 """Tests for constitution amendment."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 from contemplative_agent.core.constitution import AmendmentResult, amend_constitution, MIN_PATTERNS_REQUIRED

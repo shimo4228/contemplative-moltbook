@@ -139,6 +139,23 @@ class PostPipeline:
                 )
             return
 
+        # Body-hash dedup gate (ADR-0018 amendment 2026-05-04):
+        # catches verbatim re-publication that title/summary Jaccard misses.
+        # May 3 2026: self-post #2 was verbatim of Apr 30 #2 with a different
+        # title — Jaccard passed, body was identical. The local content_hash
+        # is also reused at record_post() below to avoid recomputing.
+        content_hash = _content_hash(content)
+        recent_post_hashes = {r.content_hash for r in recent_posts}
+        if content_hash in recent_post_hashes:
+            logger.info(
+                "Blocked verbatim duplicate self-post by body hash: %r", title,
+            )
+            if router is not None and action_id is not None:
+                router.record_outcome(
+                    action_id, "partial", note="gated:body_hash_dup",
+                )
+            return
+
         if not self._confirm_action(f"Dynamic Post: {title}", content):
             if router is not None and action_id is not None:
                 router.record_outcome(
@@ -182,11 +199,10 @@ class PostPipeline:
                 "content": content, "title": title,
             })
 
-            # Record post in memory. Reuse draft_summary computed for the
-            # dedup gate above instead of calling summarize_post_topic
-            # twice on the same content.
+            # Record post in memory. Reuse draft_summary and content_hash
+            # computed above (Jaccard gate / body-hash gate) instead of
+            # recomputing.
             topic_summary = draft_summary or title
-            content_hash = _content_hash(content)
             ctx.memory.record_post(
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 post_id=post_id,

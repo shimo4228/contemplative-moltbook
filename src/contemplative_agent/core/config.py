@@ -24,5 +24,10 @@ FORBIDDEN_WORD_PATTERNS: Tuple[str, ...] = (
     "secret",
 )
 
-MAX_POST_LENGTH = 20000
+# Moltbook API char limits (verified via skill.md, 2026-05-04):
+# - Post body: 40,000 chars
+# - Post title: 300 chars
+# - Comment / Reply: not specified (10,000 retained as conservative cap)
+MAX_POST_LENGTH = 40000
+MAX_POST_TITLE_LENGTH = 300
 MAX_COMMENT_LENGTH = 10000

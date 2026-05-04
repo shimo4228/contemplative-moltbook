@@ -13,7 +13,6 @@ from contemplative_agent.cli import (
     _approve_delete,
     _handle_adopt_staged,
     _handle_dialogue,
-    _handle_distill_identity,
     _handle_prune_skill_usage,
     _handle_remove_skill,
     _handle_rules_stocktake,

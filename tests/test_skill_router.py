@@ -232,7 +232,8 @@ class TestSelect:
         assert len(matches) == 1  # version 1 passes threshold
 
         # Overwrite with "version 2" — should miss threshold. Bump mtime.
-        import os, time
+        import os
+        import time
         time.sleep(0.01)
         path.write_text("# Alpha\n\nversion 2\n", encoding="utf-8")
         os.utime(path, None)  # ensure mtime advance on some FS

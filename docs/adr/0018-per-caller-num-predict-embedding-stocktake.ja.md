@@ -1,7 +1,7 @@
 # ADR-0018: Per-Caller num_predict + Embedding-Only Stocktake
 
 ## Status
-accepted
+accepted (2026-05-04 amended — 末尾の Amendment セクション参照)
 
 ## Date
 2026-04-15
@@ -87,3 +87,48 @@ Reject パス: merge prompt (`stocktake_merge.md`、`stocktake_merge_rules.md`) 
 
 - ADR-0016 (Insight narrow、Stocktake broad): 本 ADR はその契約を保持する — stocktake は broad consolidator のまま。機構だけ簡素化した。narrow/broad の役割分離は不変
 - ADR-0012 (Human approval gate): `CANNOT_MERGE` パスが承認ステートマシンに 4 番目の結果を追加する (merged / skipped / LLM failure / rejected-as-distinct)。4 つとも write_restricted + audit log の同じ経路を通る
+
+## Amendment (2026-05-04)
+
+### Context
+
+API 投稿系 caller (self-post / comment / reply / post-title) で 2026-05-04 に mid-sentence truncation が 67% 発生 (33 件中 22 件、reply 5 件中 3 件、`"richer artic"` で mid-word 切れも含む)。同日、Apr 30 self-post #2 が May 3 self-post #2 として **verbatim duplicate publish** された (truncation point まで一致)。
+
+調査の結果、以下が判明:
+
+1. ADR-0018 の per-caller `num_predict` calibration (300 / 600 / 50) は M1 hang 回避を主目的としており、出力長充足は副次的だった。token cap が char cap に対して tight すぎ、`max_length` slice が発火する前に LLM が token boundary で停止していた
+2. API 投稿系 caller 内で **3 つの独立した length cap が累積**しており、ADR-0030「1 artifact 1 責務」と矛盾していた:
+   - `num_predict` (token, Ollama 側)
+   - `max_length` → `_sanitize_output()` slice (char, Python 側)
+   - `agent.py:_passes_content_filter()` の冗長な length 再 check
+   - `generate_post_title()` の post-generate `[:80]` slice (3 つ目の cap)
+
+### Decision
+
+`core/llm.py::generate_for_api(prompt, max_length)` を新設し、API 投稿系 caller を移行。`num_predict` は wrapper 内部で `max(50, ceil(max_length/3) + 50)` で派生 (1 token ≈ 3 chars conservative、+50 token margin、極短 cap 用に floor 50)。caller は **`max_length` だけ指定**するため、token cap と char cap の不整合という bug クラスが構造的に消える。
+
+config 定数は Moltbook API の verified 制限 (skill.md, 2026-05-04) と整合させた:
+
+- `MAX_POST_LENGTH`: 20000 → **40000** (旧値は API 制限の半分しか使っていなかった)
+- `MAX_POST_TITLE_LENGTH`: 新規定数 **300** (旧 ad-hoc `max_length=100` を置換)
+- `MAX_COMMENT_LENGTH`: 10000 維持 (API 仕様未記載、保守的 cap)
+
+冗長 layer 削除:
+
+- `agent.py:_passes_content_filter()` の length check — `_sanitize_output()` slice で既に強制されている
+- `generate_post_title()` の post-generate `[:80]` slice — API・設計いずれの根拠もない 3 つ目の cap
+
+### Amendment の Scope
+
+**API 投稿系 caller** (self-post / comment / reply / post-title): per-caller `num_predict` 引数を撤回、`generate_for_api(prompt, max_length=...)` に移行。
+
+**Internal caller** (distill / insight / topic / submolt / relevance / topic_novelty / topic_summary / session_insight 等): 不変。ADR-0018 per-caller calibration 維持。M1 hang 回避が引き続き効いており、本 amendment では集約しない。
+
+### 関連変更
+
+`post_pipeline.py` に **body-hash dedup gate** を追加 (truncate 修正と独立、verbatim re-publish を catch する)。本文同一・title 微差で Jaccard を擦り抜けたケース (May 3 = Apr 30) を防ぐ。`PostRecord.content_hash` (16-char SHA-256 prefix) をそのまま流用、schema 変更なし。
+
+### 検証
+
+- `test_llm.py` と `test_agent.py` に 7 tests 追加: 派生公式の境界値、各 caller の `generate_for_api` 利用、`[:80]` slice 削除、冗長 length check 削除、body-hash gate 発火
+- 既存の `test_too_long` / `test_at_max_length` は削除 (length check が `_passes_content_filter` から消えたため)
