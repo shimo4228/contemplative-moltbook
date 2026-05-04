@@ -384,8 +384,9 @@ def _merge_episode_stats(dst: _BackfillBuilder, src: BackfillStats) -> None:
 
 
 # ============================================================
-# ADR-0021: Pattern schema migration (provenance / bitemporal /
-# forgetting / feedback). Additive and idempotent.
+# ADR-0021: Pattern schema migration (provenance / bitemporal).
+# ADR-0028 / ADR-0029 also strip retired fields here.
+# Additive (for defaults) and idempotent.
 # ============================================================
 
 

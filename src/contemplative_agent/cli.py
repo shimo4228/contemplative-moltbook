@@ -1145,7 +1145,7 @@ def _take_snapshot(
 
 
 def _handle_migrate_patterns(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """ADR-0021 migration: fill provenance / bitemporal / forgetting / feedback fields."""
+    """ADR-0021 migration: fill provenance / bitemporal defaults; strip retired fields (ADR-0028 forgetting/feedback, ADR-0029 sanitized)."""
     from .core.migration import migrate_patterns_to_adr0021
 
     stats = migrate_patterns_to_adr0021(KNOWLEDGE_PATH, dry_run=args.dry_run)
@@ -1321,7 +1321,7 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
 
 def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     from .core._io import write_restricted
-    from .core.insight import _write_last_insight, extract_insight
+    from .core.insight import extract_insight, write_last_insight
     from .core.memory import EpisodeLog, KnowledgeStore
 
     _warn_dry_run_deprecated(args)
@@ -1364,7 +1364,7 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
         else:
             print("Skipped.")
     if written > 0:
-        _write_last_insight(SKILLS_DIR)
+        write_last_insight(SKILLS_DIR)
     print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
 
 
@@ -2025,7 +2025,7 @@ def main() -> None:
     # migrate-patterns (ADR-0021)
     migrate_parser = subparsers.add_parser(
         "migrate-patterns",
-        help="ADR-0021: fill provenance / bitemporal / forgetting / feedback fields on legacy patterns",
+        help="ADR-0021: fill provenance / bitemporal defaults on legacy patterns; strip retired fields (ADR-0028 forgetting/feedback, ADR-0029 sanitized)",
     )
     migrate_parser.add_argument(
         "--dry-run", action="store_true",

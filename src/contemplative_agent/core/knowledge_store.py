@@ -190,7 +190,7 @@ class KnowledgeStore:
         return self._filter_since(since, self._learned_patterns)
 
     def get_live_patterns(self) -> List[dict]:
-        """Return patterns that pass ``is_live`` (bitemporal + trust + strength)."""
+        """Return patterns that pass ``is_live`` (bitemporal + trust)."""
         from .forgetting import is_live
 
         return [p for p in self._learned_patterns if is_live(p)]

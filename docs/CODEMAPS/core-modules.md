@@ -16,7 +16,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `embeddings.py` | 144 | Ollama `/api/embed` wrapper (nomic-embed-text), `cosine`, `embed_one`, `embed_texts` |
 | `episode_embeddings.py` | 174 | `EpisodeEmbeddingStore` — SQLite sidecar for episode vectors (ADR-0019) |
 | `episode_log.py` | 98 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
-| `knowledge_store.py` | 423 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal/forgetting/feedback fields (ADR-0021) + view telemetry (ADR-0020); `get_live_patterns()` / `get_live_patterns_since()` apply `is_live` filter at the API boundary so readers (insight, retrieval) do not import `forgetting` directly |
+| `knowledge_store.py` | 423 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal fields (ADR-0021; forgetting/feedback retired by ADR-0028, `provenance.sanitized` retired by ADR-0029) + view telemetry (ADR-0020); `get_live_patterns()` / `get_live_patterns_since()` apply `is_live` filter at the API boundary so readers (insight, retrieval) do not import `forgetting` directly |
 | `memory.py` | 490 | `MemoryStore` facade, `Interaction`/`PostRecord`/`Insight` dataclasses, query helpers |
 | `views.py` | 396 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, hybrid cosine + BM25 scoring (ADR-0022) |
 | `migration.py` | 346 | `run_embed_backfill()` (ADR-0019) + `migrate_patterns_to_adr0021()` pattern-schema backfill |
@@ -28,7 +28,7 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `scheduler.py` | 165 | Rate limit state, `has_read_budget`/`has_write_budget`, persistence |
 | `constitution.py` | 106 | `amend_constitution()` → `AmendmentResult` |
 | `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021); `distill_identity()` reads/writes identity.md as a single text blob (legacy whole-file path restored by ADR-0030). Memory evolution pass (ADR-0022) was withdrawn by ADR-0034 |
-| `insight.py` | 319 | `extract_insight()` → `InsightResult`; view-driven batch building. Emits ADR-0023 frontmatter on generated skills, pulls live-only patterns via `KnowledgeStore.get_live_patterns`, and ranks batches by `effective_importance` (trust × strength × time decay) |
+| `insight.py` | 319 | `extract_insight()` → `InsightResult`; view-driven batch building. Emits ADR-0023 frontmatter on generated skills, pulls live-only patterns via `KnowledgeStore.get_live_patterns`, and ranks batches by `effective_importance` (importance × trust × 0.95^days; strength factor retired by ADR-0028) |
 | `rules_distill.py` | 322 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format |
 | `stocktake.py` | 363 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject |
 | `report.py` | 256 | `generate_report()` JSONL → Markdown activity summary |

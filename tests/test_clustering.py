@@ -16,11 +16,6 @@ def _pat(text: str, embedding: List[float], importance: float = 0.5) -> dict:
         "embedding": list(embedding),
         "importance": importance,
         "trust_score": 1.0,
-        # Neutral forgetting fields so effective_importance == importance.
-        "last_accessed_at": "2026-04-17T00:00",
-        "access_count": 0,
-        "success_count": 0,
-        "failure_count": 0,
     }
 
 
@@ -136,10 +131,6 @@ class TestEdgeCases:
                 "pattern": "noemb",
                 "importance": 0.5,
                 "trust_score": 1.0,
-                "last_accessed_at": "2026-04-17T00:00",
-                "access_count": 0,
-                "success_count": 0,
-                "failure_count": 0,
             }
         ]
         clusters, singletons = cluster_patterns(

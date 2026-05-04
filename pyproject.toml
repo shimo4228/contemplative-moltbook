@@ -46,5 +46,14 @@ markers = [
     "integration: Integration tests",
 ]
 
+[tool.pyright]
+include = ["src", "tests"]
+# Argparse handler signatures take (args, parser) uniformly via dispatcher;
+# many handlers do not use parser. The `_` prefix marks intent; `disableTaggedHints`
+# silences Pylance's grayed-out "is not accessed" hints (not a Pyright rule).
+reportUnusedVariable = "none"
+reportUnreachable = "none"
+disableTaggedHints = true
+
 [dependency-groups]
 dev = []

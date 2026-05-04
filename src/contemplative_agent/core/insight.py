@@ -143,7 +143,7 @@ def _build_cluster_batches(
     if len(candidates) < min_size:
         return []
 
-    clusters, _singletons = cluster_patterns(
+    clusters, _ = cluster_patterns(
         candidates,
         threshold=threshold,
         min_size=min_size,
@@ -171,7 +171,7 @@ def _read_last_insight(skills_dir: Optional[Path]) -> Optional[str]:
     return None
 
 
-def _write_last_insight(skills_dir: Path) -> None:
+def write_last_insight(skills_dir: Path) -> None:
     """Record the current timestamp as the last insight run."""
     skills_dir.mkdir(parents=True, exist_ok=True)
     marker = skills_dir / ".last_insight"
@@ -208,7 +208,7 @@ def extract_insight(
     knowledge_store.load()
 
     # ADR-0021: pull live-only patterns so bitemporally superseded /
-    # trust-floor / strength-floor entries never enter batching.
+    # trust-floor entries never enter batching.
     # ADR-0026: dropped category="uncategorized" gate; gated=True is the
     # only hard exclusion (handled by _build_cluster_batches).
     if full:
