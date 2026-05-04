@@ -112,7 +112,7 @@ def amend_constitution(
         constitutional_patterns=constitutional_text,
     )
 
-    result = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
+    result = generate(prompt, system=get_distill_system_prompt(), num_predict=3000)
     if result is None:
         msg = "LLM failed to generate constitution amendment."
         logger.warning(msg)

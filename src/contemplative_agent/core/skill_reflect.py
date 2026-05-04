@@ -102,7 +102,7 @@ def reflect_skills(
                 or "(none)"
             ),
         )
-        output = gen(prompt, num_predict=1500)
+        output = gen(prompt, num_predict=3000)
         if output is None:
             logger.warning("LLM failed to revise skill %s.", stats.name)
             continue

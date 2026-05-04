@@ -233,7 +233,7 @@ def distill_identity(
 
     # Step 1: Free-form self-analysis (rules/axioms for value grounding,
     # but no identity — it's already in the prompt via {current_identity})
-    result = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
+    result = generate(prompt, system=get_distill_system_prompt(), num_predict=3000)
     if result is None:
         msg = "LLM failed at step 1 (self-analysis)."
         logger.warning(msg)
@@ -241,7 +241,7 @@ def distill_identity(
 
     # Step 2: Refine into simple persona
     refine_prompt = IDENTITY_REFINE_PROMPT.format(raw_output=result)
-    refined = generate(refine_prompt, system=_get_default_system_prompt(), num_predict=1500)
+    refined = generate(refine_prompt, system=_get_default_system_prompt(), num_predict=3000)
     if refined is None:
         msg = "LLM failed at step 2 (refine). Using step 1 output."
         logger.warning(msg)
@@ -534,14 +534,14 @@ def _distill_category(
         prompt = DISTILL_PROMPT.format(episodes="\n".join(episode_lines))
 
         # Step 1: Extract — free-form output, with rules/axioms as lens
-        result = generate(prompt, system=get_distill_system_prompt(), num_predict=1500)
+        result = generate(prompt, system=get_distill_system_prompt(), num_predict=3000)
         if result is None:
             logger.warning("Batch %d/%d: step 1 (extract) failed", batch_idx + 1, len(batches))
             continue
 
         # Step 2: Summarize — concise patterns as JSON string array
         refine_prompt = DISTILL_REFINE_PROMPT.format(raw_output=result)
-        refined = generate(refine_prompt, num_predict=1500)
+        refined = generate(refine_prompt, num_predict=3000)
         if refined is None:
             logger.warning("Batch %d/%d: step 2 (summarize) failed, using step 1 output",
                            batch_idx + 1, len(batches))
@@ -575,7 +575,7 @@ def _distill_category(
         if batch_patterns and DISTILL_IMPORTANCE_PROMPT:
             patterns_text = "\n".join(f"- {p}" for p in batch_patterns)
             importance_prompt = DISTILL_IMPORTANCE_PROMPT.format(patterns=patterns_text)
-            importance_result = generate(importance_prompt, num_predict=1500, format=IMPORTANCE_SCHEMA)
+            importance_result = generate(importance_prompt, num_predict=3000, format=IMPORTANCE_SCHEMA)
             if importance_result:
                 batch_importances = _parse_importance_scores(importance_result, len(batch_patterns))
 

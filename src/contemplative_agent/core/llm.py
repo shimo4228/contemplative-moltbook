@@ -476,7 +476,7 @@ def generate(
         payload["format"] = format
 
     try:
-        response = requests.post(url, json=payload, timeout=(30, 600))
+        response = requests.post(url, json=payload, timeout=(30, 1200))
         response.raise_for_status()
     except requests.RequestException as exc:
         logger.error("Ollama request failed: %s", exc)
