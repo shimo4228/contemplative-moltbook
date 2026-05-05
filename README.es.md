@@ -91,7 +91,7 @@ Esta pipeline es el mapeo de las seis fases AKC al código: `distill` cubre Extr
 - **Noise as seed** — los episodios rechazados se preservan como `noise-YYYY-MM-DD.jsonl`; cuando los centroides de las views se desplazan, quedan disponibles para reclasificación en lugar de perderse ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
 - **Pivot snapshots reproducibles** — las ejecuciones de `distill` empaquetan el contexto completo en tiempo de inferencia (views + constitution + prompts + skills + rules + identity + embeddings de centroides + thresholds), permitiendo replay bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
 - **Trazabilidad de procedencia** — cada patrón lleva `source_type` y `trust_score`; los ataques de inyección de memoria de la clase MINJA se vuelven estructuralmente visibles ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
-- **Markdown all the way down** — constitución, identidad, habilidades, reglas, 32 prompts del pipeline y 7 semillas de view están todas como Markdown bajo `$MOLTBOOK_HOME/`. Edita un prompt para cambiar cómo se extraen los patrones; cambia una semilla de view para desplazar la clasificación. [Personaliza →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
+- **Markdown all the way down** — constitución, identidad, habilidades, reglas, 31 prompts del pipeline y 7 semillas de view están todas como Markdown bajo `$MOLTBOOK_HOME/`. Edita un prompt para cambiar cómo se extraen los patrones; cambia una semilla de view para desplazar la clasificación. [Personaliza →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
 
 ## Modelo de seguridad
 
@@ -160,7 +160,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.1},
+  version      = {2.3.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

@@ -2,15 +2,15 @@
 # Architecture
 
 ## Project Type
-Python application: Contemplative AI agent with core/adapter separation + 3-layer memory + embedding-based views (ADR-0019) + pivot snapshots (ADR-0020) + pattern provenance/bitemporal/forgetting/feedback (ADR-0021). Identity stays monolithic; the block schema attempt (ADR-0024/0025) was withdrawn by ADR-0030; the memory evolution + BM25 hybrid retrieval attempt (ADR-0022) was withdrawn by ADR-0034; the skill-as-memory loop (ADR-0023) was sunset by ADR-0036. Generation is pluggable via the `LLMBackend` Protocol (default: Ollama HTTP; add-on: `contemplative-agent-cloud`).
+Python application: Contemplative AI agent with core/adapter separation + 3-layer memory + embedding-based views (ADR-0019) + pivot snapshots (ADR-0020) + pattern provenance/bitemporal/forgetting/feedback (ADR-0021). Identity stays monolithic; the block schema attempt (ADR-0024/0025) was withdrawn by ADR-0030; the memory evolution + BM25 hybrid retrieval attempt (ADR-0022) was withdrawn by ADR-0034; the skill-as-memory loop (ADR-0023) was sunset by ADR-0036; the memory subsystem converged to a Yogācāra-aligned frame in ADR-0037. Generation is pluggable via the `LLMBackend` Protocol (default: Ollama HTTP; add-on: `contemplative-agent-cloud`).
 
-**Stats**: 43 modules, ~11400 LOC (test count: see [INDEX.md](INDEX.md))
+**Stats**: 43 modules, ~11400 LOC, 1032 tests (test files: see [INDEX.md](INDEX.md))
 
 ## System Diagram
 
 ```
-                    contemplative-agent v2.1.0
-                    ==========================
+                    Contemplative Agent
+                    ===================
   config/ (templates only, git-managed — seed for init)
     domain.json       prompts/*.md           templates/constitution/*.md
     views/*.md                                templates/<character>/*  (11 frameworks)
@@ -40,6 +40,8 @@ Python application: Contemplative AI agent with core/adapter separation + 3-laye
   |    rules_distill.py  stocktake.py  scheduler.py     |
   |    report.py  metrics.py  forgetting.py             |
   |    clustering.py                                     |
+  |    text_utils.py  thresholds.py                     |  (ADR-0035 PR2 helpers)
+  |    artifact_extraction.py                           |  (ADR-0035 PR3a helper)
   |                                                      |
   |  adapters/moltbook/  (platform-specific, 12 modules)|
   |    agent.py  session_context.py  feed_manager.py    |
@@ -54,7 +56,7 @@ Python application: Contemplative AI agent with core/adapter separation + 3-laye
   |  adapters/dialogue/  (2-agent peer loop, 1 module)  |
   |    peer.py                                           |
   |                                                      |
-  |  cli.py  (composition root, ~1830L)                 |
+  |  cli.py  (composition root, ~1826L)                 |
   +-----------------------------------------------------+
          |                              |
     Moltbook API                   Ollama (local, default)

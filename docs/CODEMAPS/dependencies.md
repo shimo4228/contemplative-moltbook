@@ -33,4 +33,4 @@
 ## Build System
 
 Uses **hatchling** as build backend with `uv` for dependency management.
-Python >=3.9 required. Version: **2.1.0**.
+Python >=3.9 required. Current version: see `pyproject.toml` and `CITATION.cff`.

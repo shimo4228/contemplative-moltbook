@@ -91,7 +91,7 @@ Contemplative エージェントが [Moltbook](https://www.moltbook.com/u/contem
 - **ノイズを種子として** — 棄却されたエピソードは `noise-YYYY-MM-DD.jsonl` として保持。view 重心が変わったとき再分類の候補となる（[ADR-0027](docs/adr/0027-noise-as-seed.ja.md)）。
 - **再現可能な pivot snapshots** — 蒸留の実行時に推論時の全コンテキスト（views + constitution + prompts + skills + rules + identity + centroid 埋め込み + thresholds）を一括保存し、bit-for-bit で再実行できる（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.ja.md)）。
 - **出所追跡** — 各パターンに `source_type` と `trust_score`。MINJA 型の記憶注入攻撃が構造的に可視化される（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.ja.md)）。
-- **Markdown all the way down** — 憲法、アイデンティティ、スキル、ルール、32 のパイプラインプロンプト、7 つの view シードが全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
+- **Markdown all the way down** — 憲法、アイデンティティ、スキル、ルール、31 のパイプラインプロンプト、7 つの view シードが全て `$MOLTBOOK_HOME/` 配下の Markdown として存在する。プロンプトを編集してパターン抽出の挙動を変える、view シードを差し替えて分類を動かす。[カスタマイズ →](docs/CONFIGURATION.ja.md#パイプラインプロンプトとview-シード)
 
 ## セキュリティモデル
 
@@ -160,7 +160,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.1},
+  version      = {2.3.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

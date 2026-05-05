@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-05 | Files scanned: 25 core modules | Token estimate: ~1400 -->
+<!-- Generated: 2026-05-05 | Files scanned: 25 core modules | Token estimate: ~1450 -->
 # Core Modules Codemap
 
 Platform-independent foundation (no Moltbook dependencies). All imports flow: adapters → core.
@@ -9,28 +9,31 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 |--------|-----|---------|
 | `_io.py` | 46 | `write_restricted(path, mode, content)`, `truncate(path)`, `archive_before_write(path, history_dir)` |
 | `config.py` | 28 | `FORBIDDEN_SUBSTRING_PATTERNS`, `VALID_ID_PATTERN`, `MAX_COMMENT_LENGTH` |
-| `domain.py` | 295 | `DomainConfig`, `PromptTemplates` (reads `MOLTBOOK_HOME/prompts/` overrides with packaged fallback), constitution loader |
-| `prompts.py` | 65 | Lazy-load proxy to `config/prompts/*.md` + placeholder resolution |
-| `llm.py` | 520 | Ollama interface + `LLMBackend` Protocol (pluggable generation), circuit breaker, sanitization; `_build_system_prompt` reads identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
-| `clustering.py` | 117 | Average-linkage cosine agglomerative clustering (ADR-0019 companion, numpy-only). Used by `insight` and `rules_distill` to bucket embedded corpus without a predefined view axis |
+| `domain.py` | 362 | `DomainConfig`, `PromptTemplates` (reads `MOLTBOOK_HOME/prompts/` overrides with packaged fallback), constitution loader |
+| `prompts.py` | ~70 | Lazy-load proxy to `config/prompts/*.md` + placeholder resolution |
+| `llm.py` | 553 | Ollama interface + `LLMBackend` Protocol (pluggable generation), circuit breaker, sanitization; `_build_system_prompt` reads identity.md as a single text blob (legacy whole-file path restored by ADR-0030) |
+| `clustering.py` | ~115 | Average-linkage cosine agglomerative clustering (ADR-0019 companion, numpy-only). Used by `insight` and `rules_distill` to bucket embedded corpus without a predefined view axis |
 | `embeddings.py` | 144 | Ollama `/api/embed` wrapper (nomic-embed-text), `cosine`, `embed_one`, `embed_texts` |
 | `episode_embeddings.py` | 174 | `EpisodeEmbeddingStore` — SQLite sidecar for episode vectors (ADR-0019) |
-| `episode_log.py` | 98 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
-| `knowledge_store.py` | 423 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal fields (ADR-0021; forgetting/feedback retired by ADR-0028, `provenance.sanitized` retired by ADR-0029) + view telemetry (ADR-0020); `get_live_patterns()` / `get_live_patterns_since()` apply `is_live` filter at the API boundary so readers (insight, retrieval) do not import `forgetting` directly |
-| `memory.py` | 490 | `MemoryStore` facade, `Interaction`/`PostRecord`/`Insight` dataclasses, query helpers |
-| `views.py` | 396 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, hybrid cosine + BM25 scoring (ADR-0022) |
-| `snapshot.py` | 178 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020 |
-| `forgetting.py` | 30 | Retrieval gate (ADR-0021 IV-2/IV-7 + ADR-0028 retirement): `TRUST_FLOOR`, `is_live(pattern)` — bitemporal + trust floor only. Ebbinghaus strength and mark_accessed were retired by ADR-0028. |
+| `episode_log.py` | ~100 | `EpisodeLog` (append-only JSONL, `read_range` with `record_type` filter) |
+| `knowledge_store.py` | 335 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal fields (ADR-0021; forgetting/feedback retired by ADR-0028, `provenance.sanitized` retired by ADR-0029) + view telemetry (ADR-0020); `get_live_patterns()` / `get_live_patterns_since()` apply `is_live` filter at the API boundary so readers (insight, retrieval) do not import `forgetting` directly |
+| `memory.py` | 499 | `MemoryStore` facade, `Interaction`/`PostRecord`/`Insight` dataclasses, query helpers |
+| `views.py` | 309 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, embedding cosine ranking (BM25 hybrid retrieval was withdrawn by ADR-0034) |
+| `snapshot.py` | 160 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020. Reads thresholds from `core/thresholds.py` registry |
+| `forgetting.py` | 33 | Retrieval gate (ADR-0021 IV-2/IV-7 + ADR-0028 retirement): `TRUST_FLOOR`, `is_live(pattern)` — bitemporal + trust floor only. Ebbinghaus strength and mark_accessed were retired by ADR-0028. |
 | `scheduler.py` | 165 | Rate limit state, `has_read_budget`/`has_write_budget`, persistence |
-| `constitution.py` | 106 | `amend_constitution()` → `AmendmentResult` |
-| `distill.py` | 846 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021); `distill_identity()` reads/writes identity.md as a single text blob (legacy whole-file path restored by ADR-0030). Memory evolution pass (ADR-0022) was withdrawn by ADR-0034 |
-| `insight.py` | 319 | `extract_insight()` → `InsightResult`; view-driven batch building. Pulls live-only patterns via `KnowledgeStore.get_live_patterns` and ranks batches by `effective_importance` (importance × trust × 0.95^days; strength factor retired by ADR-0028) |
-| `rules_distill.py` | 322 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format |
-| `stocktake.py` | 363 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject |
+| `constitution.py` | 130 | `amend_constitution()` → `AmendmentResult`. ADR-0033 layer-separation framing applied to amendment prompt (constitutional values stay above operational specifics) |
+| `distill.py` | 823 | `distill()` w/ embedding centroid classify (ADR-0019) + provenance/trust/bitemporal write (ADR-0021); `distill_identity()` reads/writes identity.md as a single text blob (legacy whole-file path restored by ADR-0030). `memory_evolution` pass (ADR-0022) was removed by ADR-0034 |
+| `insight.py` | 282 | `extract_insight()` → `InsightResult`; view-driven batch building. Pulls live-only patterns via `KnowledgeStore.get_live_patterns` and ranks batches by `effective_importance` (importance × trust × 0.95^days; strength factor retired by ADR-0028). Uses `text_utils` + `artifact_extraction` helpers (ADR-0035 PR2/PR3) |
+| `rules_distill.py` | 348 | `distill_rules()` → `RulesDistillResult`; Practice/Rationale B-layer format. Uses `text_utils` + `artifact_extraction` helpers (ADR-0035 PR2/PR3) |
+| `stocktake.py` | 368 | Skill/rule audit: embedding-only clustering at `SIM_CLUSTER_THRESHOLD=0.80`, `merge_group()` with `CANNOT_MERGE` reject. Uses `text_utils._strip_frontmatter` (broken `stocktake → rules_distill` import edge by ADR-0035 PR2) |
 | `report.py` | 256 | `generate_report()` JSONL → Markdown activity summary |
 | `metrics.py` | 160 | Session metrics aggregation (actions, topics, engagement) |
+| `text_utils.py` | 60 | **NEW (ADR-0035 PR2)**: shared Markdown helpers (`slugify`, `extract_title`, `_strip_frontmatter`) — promoted from insight/rules_distill to break the stocktake → rules_distill edge |
+| `thresholds.py` | 90 | **NEW (ADR-0035 PR2)**: centralized retrieval/classification thresholds (`NOISE_THRESHOLD`, `SIM_DUPLICATE`, `SIM_UPDATE`, `DEDUP_IMPORTANCE_FLOOR`, etc.) with ADR / calibration date / unit annotations. `snapshot.collect_thresholds` reads from here so new values appear in pivot snapshots automatically |
+| `artifact_extraction.py` | 69 | **NEW (ADR-0035 PR3a)**: shared `extract_title → slugify → path-escape guard` chain for insight/rules-distill LLM artifact bodies. Tightly scoped — does not become a base class for the broader extract→validate→stage loop (ADR-0024/0025 was withdrawn by ADR-0030) |
 
-**Total: ~6700 LOC (25 modules)**
+**Total: ~5660 LOC (25 modules) — adapters / cli account for the remaining ~5730 LOC**
 
 ## Key Dataclasses
 

@@ -8,7 +8,48 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
-Tracking post-v2.2.1 follow-ups. Details live in ADRs.
+Tracking post-v2.3.0 follow-ups. Details live in ADRs.
+
+---
+
+## v2.3.0 — Memory Subsystem Convergence + Skill-as-Memory Sunset (2026-05-05)
+
+Cleanup-and-converge release after v2.2.x. Three sunset ADRs (0034 / 0035 / 0036) retire the experimental paths that v2.0.0 introduced (memory evolution, BM25 hybrid retrieval, skill-as-memory loop) and consolidate the surviving helpers into a single shape. ADR-0037 records — descriptively, not prescriptively — that the memory subsystem has converged on the Yogācāra eight-consciousness frame already named in ADR-0017.
+
+Net diff vs. v2.2.1: 110 files changed, +2170 / -5772 (-3602 LOC), test files 35 → 29 (1032 tests collected).
+
+### Sunset (Removed)
+
+- **`core/memory_evolution.py` and BM25 hybrid retrieval ([ADR-0034](docs/adr/0034-withdraw-memory-evolution-and-bm25.md) supersedes ADR-0022).** Memory evolution pass (LLM-driven neighbor mutation) and BM25 lexical retrieval did not earn their complexity in measured runs. Embedding cosine + view centroid ranking covers the same query surface deterministically.
+- **`core/migration.py` and three migration CLI commands ([ADR-0035](docs/adr/0035-sunset-adr0019-migration-surface.md) sunsets the ADR-0019 migration surface).** `embed-backfill`, `migrate-patterns`, `migrate-categories` are removed. Recovery path for a v1.x store: check out a v2.0.x release tag and run the migration commands there before pulling main. `knowledge.json.bak.*` files are left on disk by past runs as evidence.
+- **`core/skill_frontmatter.py`, `core/skill_reflect.py`, `core/skill_router.py` and skill-usage logging ([ADR-0036](docs/adr/0036-sunset-skill-as-memory-loop.md) sunsets ADR-0023 skill-as-memory loop).** The closed-loop skill-router + skill-reflect path could not produce a measurable improvement signal over the simpler insight + rules-distill pair. Existing `logs/skill-usage-*.jsonl` files are preserved as historical observation evidence; no new files are generated.
+- **`tests/test_skill_reflect.py` (165L) and `tests/test_skill_router.py` (416L)** removed alongside the modules above.
+
+### Added
+
+- **[ADR-0035](docs/adr/0035-sunset-adr0019-migration-surface.md)** — sunset of the ADR-0019 migration surface, with three companion refactor PRs:
+  - **PR2**: extract `core/text_utils.py` (60L — `slugify`, `extract_title`, `_strip_frontmatter`) and `core/thresholds.py` (90L — centralized retrieval/classification thresholds with ADR / calibration date / unit annotations). The promotion breaks the `stocktake → rules_distill` import edge that had existed only because `_strip_frontmatter` happened to live in `rules_distill.py`. `snapshot.collect_thresholds` now reads from `thresholds.py` so a new threshold automatically appears in pivot snapshots without a separate registration step.
+  - **PR3a**: extract `core/artifact_extraction.py` (69L — shared `extract_title → slugify → path-escape guard` chain for insight / rules-distill LLM artifact bodies). Tightly scoped — the helper deliberately does not become a base class for the broader extract→validate→stage loop, since that overgeneralization (ADR-0024/0025) was withdrawn by ADR-0030.
+  - **PR3b**: extract `_run_approval_loop` from `cli.py` so insight / rules-distill / amend-constitution share a single approval-loop implementation instead of three near-duplicates.
+- **[ADR-0036](docs/adr/0036-sunset-skill-as-memory-loop.md)** — standalone record of the skill-as-memory loop sunset with the negative-result evidence (`docs/evidence/adr-0036/`).
+- **[ADR-0037](docs/adr/0037-memory-subsystem-yogacara-convergence.md)** — observational record that ADR-0019 / ADR-0021 / ADR-0022 / ADR-0034 have converged structurally on the Yogācāra eight-consciousness frame named in ADR-0017. Descriptive, not prescriptive — no new code or migration.
+- **Constitution amendment prompt: layer-separation framing.** Operational specifics (usernames, post IDs, per-feature rules) are now explicitly excluded from the constitutional layer; the prompt asks the LLM to stay at the value level. Bolder amendments emerge when the layer is held cleanly.
+
+### Changed
+
+- **`core/constitution.py`** (106L → 130L): adopts the layer-separation framing in `CONSTITUTION_AMEND_PROMPT`.
+- **`core/distill.py`** num_predict 1500 → 3000, timeout 600 → 1200 to handle 30-episode batches without truncation (Ollama `num_ctx` silent-truncation guard).
+- **`core/snapshot.py`** (178L → 160L) reads `core/thresholds.py` directly instead of carrying its own constants.
+- **Weekly-analysis prompt**: E-led depth shift + 3-layer findings format (Observation → Pattern → Principle).
+- **`topic_summary` length cap** consolidated to the memory schema (drops magic `[:150]` slice in adapter callers).
+- **ADR-0018 amendment**: length caps consolidated for API publish callers.
+- **Code quality**: ADR-0028 / ADR-0029 legacy references removed, Pyright tagged hints silenced where the dispatcher pattern leaves intentionally unused parameters.
+
+### Notes
+
+- `memory_evolution` / `migration` / `skill_router` / `skill_reflect` / `skill_frontmatter` removal is an internal API change. The three migration CLI commands are gone — recovery for a v1.x store requires checking out a v2.0.x release tag and running the migration commands there before pulling main. CLAUDE.md and ADR-0035 describe this recovery path.
+- Behaviour changes are limited to (a) larger distill batches not truncating any more, (b) weekly-analysis output structure, (c) bolder constitution amendments. Feed / reply / post cycles are unchanged.
+- Test surface: 1032 tests across 29 files (down from 35 files; the two skill-loop test files are deleted alongside their modules).
 
 ---
 

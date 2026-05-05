@@ -1,8 +1,8 @@
-<!-- Generated: 2026-04-21 | Total codemaps: 5 | Token estimate: ~500 -->
+<!-- Generated: 2026-05-05 | Total codemaps: 5 | Token estimate: ~500 -->
 # Codemaps Index
 
 Comprehensive architectural documentation for contemplative-moltbook project.
-**Last Updated**: 2026-05-05 | **Codebase**: 43 modules, ~11400 LOC
+**Last Updated**: 2026-05-05 | **Codebase**: 43 modules, ~11400 LOC, 1032 tests
 
 ---
 
@@ -48,7 +48,7 @@ Comprehensive architectural documentation for contemplative-moltbook project.
 **Platform-independent foundation.** 25 modules providing base functionality.
 
 **Topics**:
-- 24 core modules: _io, config, domain, prompts, llm (includes `LLMBackend` Protocol), embeddings, episode_embeddings, episode_log, knowledge_store, memory, scheduler, distill, insight, constitution, rules_distill, stocktake, views, snapshot, report, metrics, forgetting (ADR-0021), clustering (ADR-0019 companion)
+- 25 core modules: _io, config, domain, prompts, llm (includes `LLMBackend` Protocol), embeddings, episode_embeddings, episode_log, knowledge_store, memory, scheduler, distill, insight, constitution, rules_distill, stocktake, views, snapshot, report, metrics, forgetting (ADR-0021), clustering (ADR-0019 companion), text_utils + thresholds + artifact_extraction (ADR-0035 PR2/PR3 helpers)
 - 2-stage distill pipeline (extract → refine, identity update integrated)
 - Dependency flow diagram
 - 3 frozen dataclasses (Interaction, PostRecord, Insight)
@@ -121,16 +121,16 @@ Package versions, transitive dependencies, security notes.
 
 | Metric | Value |
 |--------|-------|
-| Total modules | 51 (28 core + 12 adapters/moltbook + 4 adapters/meditation + 1 adapters/dialogue + cli + 5 `__init__`) |
-| LOC | ~13400 |
-| Test files | 35 |
-| Core modules | 28 (platform-independent) |
+| Total modules | 49 (25 core + 12 adapters/moltbook + 4 adapters/meditation + 1 adapters/dialogue + cli + 6 `__init__`) |
+| LOC | ~11400 |
+| Test files | 29 (1032 tests collected) |
+| Core modules | 25 (platform-independent) |
 | Moltbook adapter modules | 12 |
 | Meditation adapter modules | 4 |
 | Dialogue adapter modules | 1 (peer.py) |
 | Dataclasses | 3 (Interaction, PostRecord, Insight) + result types (see core-modules.md) |
-| CLI commands | 20 (init, register, status, run, distill, distill-identity, insight, adopt-staged, remove-skill, rules-distill, amend-constitution, report, generate-report, solve, meditate, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich) |
-| Prompt templates | 30 |
+| CLI commands | 21 (init, register, status, run, distill, distill-identity, insight, adopt-staged, remove-skill, rules-distill, amend-constitution, report, generate-report, solve, meditate, dialogue, install-schedule, skill-stocktake, rules-stocktake, sync-data, enrich) |
+| Prompt templates | 31 |
 | Config templates | 11 (config/templates/) |
 | Rate limit budgets | 2 (GET 60/min, POST 30/min) |
 
@@ -152,4 +152,4 @@ Package versions, transitive dependencies, security notes.
 
 CODEMAPS はコード変更時に更新する（「どこにあるか」のコード索引）。
 
-Last full scan: 2026-05-05 (43 modules verified, post-ADR-0036 sunset of skill-as-memory loop)
+Last full scan: 2026-05-05 (43 modules verified, post-ADR-0034 BM25 retirement / ADR-0036 skill-as-memory loop sunset / ADR-0037 Yogācāra convergence)

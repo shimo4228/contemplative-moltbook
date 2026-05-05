@@ -91,7 +91,7 @@ Esta pipeline é o mapeamento das seis fases AKC para o código: `distill` cobre
 - **Noise as seed** — episódios rejeitados são preservados como `noise-YYYY-MM-DD.jsonl`; quando os centroides das views se deslocam, eles ficam disponíveis para reclassificação em vez de serem perdidos ([ADR-0027](docs/adr/0027-noise-as-seed.md)).
 - **Pivot snapshots reproduzíveis** — execuções de `distill` empacotam o contexto completo em tempo de inferência (views + constitution + prompts + skills + rules + identity + embeddings de centroides + thresholds), permitindo replay bit-for-bit ([ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)).
 - **Rastreamento de proveniência** — cada padrão carrega `source_type` e `trust_score`; ataques de injeção de memória da classe MINJA tornam-se estruturalmente visíveis ([ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)).
-- **Markdown all the way down** — constituição, identidade, habilidades, regras, 32 prompts de pipeline e 7 sementes de view ficam todos como Markdown sob `$MOLTBOOK_HOME/`. Edite um prompt para mudar como padrões são extraídos; troque uma semente de view para deslocar a classificação. [Personalize →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
+- **Markdown all the way down** — constituição, identidade, habilidades, regras, 31 prompts de pipeline e 7 sementes de view ficam todos como Markdown sob `$MOLTBOOK_HOME/`. Edite um prompt para mudar como padrões são extraídos; troque uma semente de view para deslocar a classificação. [Personalize →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
 
 ## Modelo de segurança
 
@@ -160,7 +160,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.1},
+  version      = {2.3.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }

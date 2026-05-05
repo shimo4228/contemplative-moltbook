@@ -3,22 +3,22 @@
 
 Platform-specific implementations. Dependency: adapters → core.
 
-## Moltbook Adapter (12 modules, ~3060 LOC)
+## Moltbook Adapter (12 modules, ~3100 LOC)
 
 | Module | LOC | Purpose |
 |--------|-----|---------|
-| `config.py` | 85 | URLs, paths, timeouts, rate limits, constants |
-| `agent.py` | 609 | Session orchestrator (feed/reply/post cycles, AutonomyLevel) |
-| `session_context.py` | 53 | Shared mutable state (memory, rate_limited, actions) |
+| `config.py` | ~85 | URLs, paths, timeouts, rate limits, constants |
+| `agent.py` | 619 | Session orchestrator (feed/reply/post cycles, AutonomyLevel) |
+| `session_context.py` | ~55 | Shared mutable state (memory, rate_limited, actions) |
 | `feed_manager.py` | 348 | Feed fetch, relevance scoring, engagement, ID dedup, promo filter, per-author rate limit |
 | `reply_handler.py` | 394 | Notification handling, reply generation, posting |
-| `post_pipeline.py` | 195 | Topic extraction, novelty check, test-content gate, Jaccard dedup, dynamic post gen |
+| `post_pipeline.py` | 207 | Topic extraction, novelty check, test-content gate, Jaccard dedup, dynamic post gen |
 | `client.py` | 448 | HTTP client (auth, domain lock, retry/429-backoff) |
-| `auth.py` | 111 | Credential management, agent registration |
+| `auth.py` | ~110 | Credential management, agent registration |
 | `verification.py` | 236 | Math challenge solver, failure tracking, auto-stop |
-| `content.py` | 64 | Rules-based content, dedup, axiom intro injection |
-| `llm_functions.py` | 217 | Moltbook-specific LLM (select_submolt, context builders) |
-| `dedup.py` | 206 | Deterministic gates: prefix-5 stem + Jaccard, test-content blocklist, promotional URL regex |
+| `content.py` | ~65 | Rules-based content, dedup, axiom intro injection |
+| `llm_functions.py` | 231 | Moltbook-specific LLM (select_submolt, context builders) |
+| `dedup.py` | 213 | Deterministic gates: prefix-5 stem + Jaccard, test-content blocklist, promotional URL regex |
 
 ## Session Orchestration (agent.py, 609L)
 

@@ -11,25 +11,28 @@ cli.py (1826L)  -- composition root, only file importing both core/ and adapters
  -> core/  (25 modules)
  |    _io.py (46L)                -- file I/O (write_restricted, truncate, archive_before_write)
  |    config.py (28L)             -- security constants (FORBIDDEN_*, VALID_*, MAX_*)
- |    domain.py (295L)            -- DomainConfig + PromptTemplates + constitution loader
- |    prompts.py (65L)            -- lazy-loading proxy to config/prompts/*.md
- |    llm.py (413L)               -- Ollama interface, circuit breaker; _build_system_prompt reads identity.md as single blob (legacy path restored by ADR-0030)
+ |    domain.py (362L)            -- DomainConfig + PromptTemplates + constitution loader
+ |    prompts.py (~70L)           -- lazy-loading proxy to config/prompts/*.md
+ |    llm.py (553L)               -- Ollama interface + LLMBackend Protocol, circuit breaker; _build_system_prompt reads identity.md as single blob (legacy path restored by ADR-0030)
  |    embeddings.py (144L)        -- /api/embed wrapper (nomic-embed-text) + cosine + embed_one/embed_texts
  |    episode_embeddings.py (174L)-- EpisodeEmbeddingStore (SQLite sidecar, ADR-0019)
- |    episode_log.py (98L)        -- Layer 1: append-only JSONL episode storage
- |    knowledge_store.py (393L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal (ADR-0021; forgetting/feedback retired by ADR-0028) + view telemetry (ADR-0020)
- |    memory.py (490L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
- |    views.py (340L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, cosine × trust ranking)
- |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
- |    forgetting.py (30L)         -- is_live: bitemporal + trust floor retrieval gate (ADR-0021 + ADR-0028 retirement)
+ |    episode_log.py (~100L)      -- Layer 1: append-only JSONL episode storage
+ |    knowledge_store.py (335L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal (ADR-0021; forgetting/feedback retired by ADR-0028) + view telemetry (ADR-0020)
+ |    memory.py (499L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
+ |    views.py (309L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, embedding cosine ranking — BM25 hybrid retired by ADR-0034)
+ |    snapshot.py (160L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020); reads thresholds.py registry
+ |    forgetting.py (33L)         -- is_live: bitemporal + trust floor retrieval gate (ADR-0021 + ADR-0028 retirement)
  |    scheduler.py (165L)         -- rate limit scheduling, persistence
- |    distill.py (846L)           -- embedding classify + 3-step distill + identity distill (whole-file legacy, restored by ADR-0030)
- |    insight.py (307L)           -- view-driven behavior pattern extraction (knowledge → skills)
- |    rules_distill.py (322L)     -- Practice/Rationale B-layer rules synthesis (skills → rules)
- |    constitution.py (106L)      -- constitutional amendment (constitutional view → ethics)
- |    stocktake.py (363L)         -- skill/rule audit: embedding clustering, merge/quality, CANNOT_MERGE
+ |    distill.py (823L)           -- embedding classify + 3-step distill + identity distill (whole-file legacy, restored by ADR-0030); memory_evolution pass removed by ADR-0034
+ |    insight.py (282L)           -- view-driven behavior pattern extraction (knowledge → skills); uses text_utils + artifact_extraction
+ |    rules_distill.py (348L)     -- Practice/Rationale B-layer rules synthesis (skills → rules); uses text_utils + artifact_extraction
+ |    constitution.py (130L)      -- constitutional amendment (constitutional view → ethics); ADR-0033 layer-separation framing
+ |    stocktake.py (368L)         -- skill/rule audit: embedding clustering, merge/quality, CANNOT_MERGE; uses text_utils._strip_frontmatter
  |    report.py (256L)            -- activity report generation (JSONL → Markdown)
  |    metrics.py (160L)           -- session metrics aggregation
+ |    text_utils.py (60L)         -- NEW (ADR-0035 PR2): shared Markdown helpers (slugify / extract_title / _strip_frontmatter)
+ |    thresholds.py (90L)         -- NEW (ADR-0035 PR2): centralized retrieval/classification thresholds with ADR + calibration annotations
+ |    artifact_extraction.py (69L)-- NEW (ADR-0035 PR3a): shared extract_title → slugify → path-escape guard chain for insight/rules-distill
  |
  -> adapters/moltbook/  (12 modules)
  |    config.py (85L)             -- URLs, paths, timeouts, rate limits
@@ -96,14 +99,14 @@ config/                           -- externalized templates (domain-swappable, g
 | `ContentManager` | adapters/moltbook/content.py | 64 | Content gen + axiom intro |
 | `EpisodeLog` | core/episode_log.py | 98 | Append-only JSONL |
 | `EpisodeEmbeddingStore` | core/episode_embeddings.py | 174 | SQLite sidecar for episode vectors (ADR-0019) |
-| `KnowledgeStore` | core/knowledge_store.py | 305 | Patterns JSON + telemetry update (ADR-0020) |
-| `MemoryStore` | core/memory.py | 490 | Facade over 3-layer memory |
-| `ViewRegistry` | core/views.py | 289 | Seed-text views, lazy centroid cache (ADR-0019) |
+| `KnowledgeStore` | core/knowledge_store.py | 335 | Patterns JSON + telemetry update (ADR-0020) |
+| `MemoryStore` | core/memory.py | 499 | Facade over 3-layer memory |
+| `ViewRegistry` | core/views.py | 309 | Seed-text views, lazy centroid cache (ADR-0019) |
 | `Interaction` / `PostRecord` / `Insight` | core/memory.py | — | @dataclass(frozen=True) |
 | `Scheduler` | core/scheduler.py | 165 | Rate limit enforcement |
 | `DomainConfig` / `PromptTemplates` | core/domain.py | — | @dataclass(frozen=True) |
 
-## CLI Commands (26 subcommands)
+## CLI Commands (21 active subcommands; 3 migration commands sunset by ADR-0035)
 
 ```
 contemplative-agent init [--template <character>] [--config-dir PATH]
@@ -152,7 +155,7 @@ Global flags:
   --approve / --guarded / --auto  Autonomy level
 ```
 
-## Prompt Templates (32)
+## Prompt Templates (31)
 
 In `config/prompts/*.md`, lazy-loaded via `core/prompts.py`:
 

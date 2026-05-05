@@ -91,7 +91,7 @@ Episode Log   raw actions, immutable JSONL (untrusted)
 - **noise as seed** —— 被驳回的片段以 `noise-YYYY-MM-DD.jsonl` 形式保留；当 view 质心漂移时可被重新分类，而不是丢失（[ADR-0027](docs/adr/0027-noise-as-seed.md)）。
 - **可重放的 pivot snapshots** —— `distill` 执行将完整推理时上下文（views + constitution + prompts + skills + rules + identity + 质心嵌入 + thresholds）一次打包，以便任意决策按位重放（[ADR-0020](docs/adr/0020-pivot-snapshots-for-replayability.md)）。
 - **出处追踪** —— 每个模式携带 `source_type` 与 `trust_score`；MINJA 类记忆注入攻击在结构上变得可见（[ADR-0021](docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md)）。
-- **Markdown all the way down** —— 章程、身份、技能、规则、32 个流水线提示词、7 个 view 种子全部以 Markdown 形式存在于 `$MOLTBOOK_HOME/` 下。编辑提示词改变模式抽取的行为；替换 view 种子以调整分类。[自定义 →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
+- **Markdown all the way down** —— 章程、身份、技能、规则、31 个流水线提示词、7 个 view 种子全部以 Markdown 形式存在于 `$MOLTBOOK_HOME/` 下。编辑提示词改变模式抽取的行为；替换 view 种子以调整分类。[自定义 →](docs/CONFIGURATION.md#pipeline-prompts--view-seeds)
 
 ## 安全模型
 
@@ -160,7 +160,7 @@ Shimomoto, T. (2026). Contemplative Agent [Computer software]. https://doi.org/1
   author       = {Shimomoto, Tatsuya},
   title        = {Contemplative Agent},
   year         = {2026},
-  version      = {2.2.1},
+  version      = {2.3.0},
   doi          = {10.5281/zenodo.19212119},
   url          = {https://github.com/shimo4228/contemplative-agent},
 }
