@@ -13,7 +13,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, cast
 
 if TYPE_CHECKING:
     from .core.views import ViewRegistry
@@ -306,6 +306,52 @@ def _approve_delete(path: Path) -> bool:
     except (EOFError, KeyboardInterrupt):
         print()
         return False
+
+
+def _run_approval_loop(
+    items: Sequence[Any],
+    *,
+    command: str,
+    target_dir: Path,
+    snapshot_path: Optional[Path] = None,
+) -> int:
+    """Iterate generated artifacts through the approval gate, write approved.
+
+    Each item must expose ``filename``, ``text``, and ``target_path``
+    (``SkillResult`` / ``RuleResult`` from core/, and ``StageItem`` here
+    all match this shape — kept structural to avoid dragging core types
+    into the cli module signature).
+
+    Per-handler post-loop hooks (``write_last_insight`` /
+    ``_write_last_run``) and summary prints stay at the call site
+    because the wording differs ("written" vs "revised", per-handler
+    counters).
+
+    Returns the count of approved+written items so the caller can
+    decide whether to fire its post-loop hook.
+    """
+    from .core._io import write_restricted
+
+    written = 0
+    for i, item in enumerate(items, 1):
+        print(f"\n{'='*60}")
+        print(f"[{i}/{len(items)}] {item.filename}")
+        print(item.text)
+        approved = _approve_write(item.target_path)
+        _log_approval(
+            command,
+            item.target_path,
+            approved,
+            item.text,
+            snapshot_path=snapshot_path,
+        )
+        if approved:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            write_restricted(item.target_path, item.text)
+            written += 1
+        else:
+            print("Skipped.")
+    return written
 
 
 def _is_dry_run(args: argparse.Namespace) -> bool:
@@ -1171,7 +1217,6 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
 
 
 def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    from .core._io import write_restricted
     from .core.insight import extract_insight, write_last_insight
     from .core.memory import EpisodeLog, KnowledgeStore
 
@@ -1195,29 +1240,18 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
             command="insight",
         )
         return
-    written = 0
-    for i, skill in enumerate(result.skills, 1):
-        print(f"\n{'='*60}")
-        print(f"[{i}/{len(result.skills)}] {skill.filename}")
-        print(skill.text)
-        approved = _approve_write(skill.target_path)
-        _log_approval(
-            "insight", skill.target_path, approved, skill.text,
-            snapshot_path=snapshot_path,
-        )
-        if approved:
-            SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-            write_restricted(skill.target_path, skill.text)
-            written += 1
-        else:
-            print("Skipped.")
+    written = _run_approval_loop(
+        result.skills,
+        command="insight",
+        target_dir=SKILLS_DIR,
+        snapshot_path=snapshot_path,
+    )
     if written > 0:
         write_last_insight(SKILLS_DIR)
     print(f"\n--- Summary: {written} written, {len(result.skills) - written} skipped, {result.dropped_count} dropped ---")
 
 
 def _handle_skill_reflect(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    from .core._io import write_restricted
     from .core.embeddings import embed_texts
     from .core.skill_reflect import reflect_skills
     from .core.skill_router import DEFAULT_USAGE_WINDOW_DAYS, SkillRouter
@@ -1243,19 +1277,11 @@ def _handle_skill_reflect(args: argparse.Namespace, _parser: argparse.ArgumentPa
             command="skill-reflect",
         )
         return
-    written = 0
-    for i, skill in enumerate(result.skills, 1):
-        print(f"\n{'='*60}")
-        print(f"[{i}/{len(result.skills)}] {skill.filename}")
-        print(skill.text)
-        approved = _approve_write(skill.target_path)
-        _log_approval("skill-reflect", skill.target_path, approved, skill.text)
-        if approved:
-            SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-            write_restricted(skill.target_path, skill.text)
-            written += 1
-        else:
-            print("Skipped.")
+    written = _run_approval_loop(
+        result.skills,
+        command="skill-reflect",
+        target_dir=SKILLS_DIR,
+    )
     dropped = result.eligible - written - result.no_change_count - (len(result.skills) - written)
     print(
         f"\n--- Summary: {written} revised, {result.no_change_count} NO_CHANGE, "
@@ -1264,7 +1290,6 @@ def _handle_skill_reflect(args: argparse.Namespace, _parser: argparse.ArgumentPa
 
 
 def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    from .core._io import write_restricted
     from .core.rules_distill import _write_last_run, distill_rules
 
     snapshot_path = _take_snapshot(args, "rules-distill", _load_view_registry(args))
@@ -1282,22 +1307,12 @@ def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentPa
             command="rules-distill",
         )
         return
-    written = 0
-    for i, rule in enumerate(result.rules, 1):
-        print(f"\n{'='*60}")
-        print(f"[{i}/{len(result.rules)}] {rule.filename}")
-        print(rule.text)
-        approved = _approve_write(rule.target_path)
-        _log_approval(
-            "rules-distill", rule.target_path, approved, rule.text,
-            snapshot_path=snapshot_path,
-        )
-        if approved:
-            RULES_DIR.mkdir(parents=True, exist_ok=True)
-            write_restricted(rule.target_path, rule.text)
-            written += 1
-        else:
-            print("Skipped.")
+    written = _run_approval_loop(
+        result.rules,
+        command="rules-distill",
+        target_dir=RULES_DIR,
+        snapshot_path=snapshot_path,
+    )
     if written > 0:
         _write_last_run(RULES_DIR)
     print(f"\n--- Summary: {written} written, {len(result.rules) - written} skipped, {result.dropped_count} dropped ---")
