@@ -103,3 +103,5 @@ ADR-0019 (embedding + views), ADR-0021 (provenance / bitemporal / forgetting / f
 The convergence was not forced. ADR-0019 was framed in terms of the Emptiness axiom ("classification is a query, not a property"). ADR-0021 was motivated by 2025 memory-poisoning research (MINJA / MemoryGraft). ADR-0022 drew on Mem0 / A-Mem / Zep / MemoryBank independently. The fact that four locally-motivated design decisions produce a coherent 唯識 implementation — complete with 見分/相分, 現行熏習, 習気, and plural 見分 channels — is evidence that ADR-0017's worldview was load-bearing, not decorative: the frame was constraining the shape of admissible solutions all along, even when the ADRs didn't cite it.
 
 This observation does not change any decision. It names a pattern the project already exhibits and makes the frame's predictive usefulness concrete.
+
+See [ADR-0037](0037-memory-subsystem-yogacara-convergence.md) (2026-05-05) for the post-retirement update — paper-borrowed mechanisms (ADR-0021 partial / 0022 / 0023) retired in the three weeks after this convergence note; only Yogācāra-derived implementations remain.
