@@ -20,7 +20,6 @@ cli.py (2164L)  -- composition root, only file importing both core/ and adapters
  |    knowledge_store.py (393L)   -- Layer 2: patterns JSON + provenance/trust/bitemporal (ADR-0021; forgetting/feedback retired by ADR-0028) + view telemetry (ADR-0020)
  |    memory.py (490L)            -- Layer 3 facade + Interaction/PostRecord/Insight + helpers
  |    views.py (340L)             -- ViewRegistry (seed_from + ${VAR}, lazy centroid cache, cosine × trust ranking)
- |    migration.py (346L)         -- run_embed_backfill (ADR-0019) + migrate_patterns_to_adr0021
  |    snapshot.py (178L)          -- write_snapshot + collect_thresholds (pivot snapshots, ADR-0020)
  |    forgetting.py (30L)         -- is_live: bitemporal + trust floor retrieval gate (ADR-0021 + ADR-0028 retirement)
  |    skill_frontmatter.py (205L) -- stdlib YAML subset parser for skill metadata (ADR-0023)
@@ -124,11 +123,11 @@ contemplative-agent remove-skill <name> [--reason TEXT]     -- auditable skill d
 contemplative-agent rules-distill [--full]
 contemplative-agent amend-constitution
 
-# Migrations (Tier 1, pure functions, idempotent)
-contemplative-agent embed-backfill [--patterns-only] [--dry-run]   -- ADR-0019 one-shot migration
-contemplative-agent migrate-patterns [--dry-run]                   -- ADR-0021 schema fill; ADR-0028/0029 also drop retired fields
-contemplative-agent migrate-categories [--dry-run]                 -- ADR-0026 drop category field, apply gated flag
-contemplative-agent enrich [--dry-run]                             -- ADR-0021 trust/provenance fill
+# Migrations
+# embed-backfill / migrate-patterns / migrate-categories were retired
+# by ADR-0035 once active deployments finished migrating. Run them
+# from a v2.0.x release tag if you arrive on main with a v1.x store.
+contemplative-agent enrich [--dry-run]                             -- no-op since ADR-0009 (kept as a stable entry point)
 
 # Audit
 contemplative-agent skill-stocktake [--stage]
@@ -225,7 +224,7 @@ Circuit breaker: 5 consecutive LLM failures → open for 120s.
 | `logs/skill-usage-YYYY-MM-DD.jsonl` | JSONL (0600) | `MOLTBOOK_HOME` | Per-day skill selection + outcome log (ADR-0023); consumed by `skill-reflect` aggregator |
 | `reports/comment-reports/*.md` | Markdown | `MOLTBOOK_HOME` | Daily activity reports |
 | `reports/analysis/weekly-*.md` | Markdown | `MOLTBOOK_HOME` | Weekly analysis (Claude Code via launchd) |
-| `knowledge.json.bak.pre-adr0021` | JSON | `MOLTBOOK_HOME` | One-time backup created by `migrate-patterns` (ADR-0021) |
+| `knowledge.json.bak.*` | JSON | `MOLTBOOK_HOME` | Pre-migration backups left on disk by the retired migration commands (ADR-0035 sunset). Recovery path for a v1.x store. |
 
 ## Security Boundaries
 

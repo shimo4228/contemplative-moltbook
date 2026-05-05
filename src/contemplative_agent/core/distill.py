@@ -152,14 +152,10 @@ def enrich(
     """No-op since ADR-0009: subcategorisation is now query-time via views.
 
     Kept as a stable entry point so the ``enrich`` CLI subcommand is
-    callable; it now reports zero work and points users at
-    ``embed-backfill`` for one-off migration of legacy patterns.
+    callable; it now reports zero work.
     """
     _ = (knowledge_store, dry_run)
-    logger.info(
-        "enrich is a no-op since ADR-0009. "
-        "Run `embed-backfill` once to add embeddings to existing patterns."
-    )
+    logger.info("enrich is a no-op since ADR-0009.")
     return 0
 
 
@@ -188,8 +184,7 @@ def distill_identity(
         identity_path: Path to identity.md file.
         view_registry: ViewRegistry used to retrieve self-reflection
             patterns via embedding cosine. Required for ADR-0009 routing;
-            patterns lacking embeddings are skipped (run embed-backfill
-            first to migrate).
+            patterns lacking embeddings are skipped.
 
     Returns:
         IdentityResult on success, or error message string.
@@ -200,7 +195,7 @@ def distill_identity(
     if view_registry is None:
         msg = (
             "distill_identity requires a ViewRegistry since ADR-0009. "
-            "Run embed-backfill once and pass a ViewRegistry instance."
+            "Pass a ViewRegistry instance."
         )
         logger.warning(msg)
         return msg

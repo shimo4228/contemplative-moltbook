@@ -76,23 +76,24 @@ episode log ↔ sense-streams, knowledge ↔ ālaya (seed storehouse), identity
 
 ## Breaking Changes
 
-- **`knowledge.json` schema is incompatible with v1.x.** Run these migrations
-  once, in order, before starting the agent under v2.0.0:
-
-  ```bash
-  contemplative-agent embed-backfill         # Compute embeddings for existing patterns + episodes
-  contemplative-agent migrate-patterns       # Apply ADR-0021 pattern schema (provenance, bitemporal, strength, feedback)
-  contemplative-agent migrate-categories     # Drop retired category / subcategory fields (ADR-0026)
-  contemplative-agent migrate-identity       # Convert identity.md to block-addressed form (ADR-0024)
-  ```
-
-  Each migration writes a timestamped `.bak` file next to the original before
-  touching it. Keep these backups at least until the new store has been
-  exercised end-to-end.
+- **`knowledge.json` schema is incompatible with v1.x.** The one-time
+  migration commands (`embed-backfill`, `migrate-patterns`,
+  `migrate-categories`) have been retired (ADR-0035) since the
+  migration completed for active deployments. To upgrade a v1.x store
+  now, run the migrations from a v2.0.x release tag before pulling main.
 
 - Discrete `category` / `subcategory` fields are no longer consulted anywhere
   in the codebase. Any external tooling that reads them must switch to
   querying through views.
+
+- The legacy Markdown reader for `knowledge.json` was removed (ADR-0035).
+  Any pre-v2.0 file in Markdown shape now logs a warning and loads as
+  empty. Restore from a `.bak` produced by the v2.0.x migration if needed.
+
+- The deprecated `--dry-run` flag has been removed from `insight`,
+  `rules-distill`, `distill-identity`, and `amend-constitution`. Reject at
+  the approval prompt to discard. Scripts still passing `--dry-run` will
+  fail with `unrecognized arguments`.
 
 ## Major Additions (accepted)
 
@@ -138,11 +139,13 @@ release. Episode logs are not affected.
 
 ## New CLI
 
-- `embed-backfill`, `migrate-patterns`, `migrate-categories`,
-  `migrate-identity` — one-time migrations.
 - `skill-reflect` — revise skills from usage outcomes (ADR-0023).
-- `inspect-identity-history`, `prune-skill-usage` — introspection and
-  maintenance.
+- `prune-skill-usage` — introspection and maintenance.
+- *Retired (ADR-0030)*: `migrate-identity` and `inspect-identity-history`
+  were withdrawn together with the identity-block parsing they served.
+- *Retired (ADR-0035)*: `embed-backfill`, `migrate-patterns`,
+  `migrate-categories` were one-time migrations removed once active
+  deployments finished migrating.
 
 ## Security
 

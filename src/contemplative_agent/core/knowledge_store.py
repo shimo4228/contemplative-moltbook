@@ -243,12 +243,17 @@ class KnowledgeStore:
                 )
                 return
 
-        # Try JSON first, fall back to legacy Markdown
+        # Knowledge files are JSON since v2.0 (ADR-0019). Non-JSON shapes
+        # are no longer accepted; restore from a backup if you need to read
+        # a legacy Markdown file.
         text_stripped = text.strip()
         if text_stripped.startswith("["):
             self._parse_json(text_stripped)
         else:
-            self._parse_legacy_markdown(text)
+            logger.warning(
+                "Knowledge file is not a JSON array; legacy Markdown is no "
+                "longer supported. Restore from a `.bak` file if needed."
+            )
 
     def save(self) -> None:
         """Persist learned patterns to JSON file using atomic write."""
@@ -289,18 +294,19 @@ class KnowledgeStore:
                     entry["last_accessed"] = item["last_accessed"]
                 # ADR-0026: ``category`` / ``subcategory`` are no longer
                 # restored on read. If a legacy file is loaded, the
-                # field is silently dropped; run ``migrate-categories``
-                # to rewrite the file without it.
+                # field is silently dropped on the next save (ADR-0035
+                # retired the ``migrate-categories`` rewrite command).
                 if isinstance(item.get("embedding"), list):
                     entry["embedding"] = list(item["embedding"])
                 if isinstance(item.get("gated"), bool):
                     entry["gated"] = item["gated"]
 
                 # ADR-0021 optional fields. Preserve only if present; the
-                # load path does not auto-fill, so legacy files remain
-                # legacy until migrate-patterns runs. ADR-0029: strip the
-                # retired ``sanitized`` flag at load time so saves are
-                # net-reductive even before migrate-patterns runs.
+                # load path does not auto-fill, so legacy files keep
+                # whatever shape they have on disk (ADR-0035 retired the
+                # ``migrate-patterns`` rewrite command). ADR-0029: strip
+                # the retired ``sanitized`` flag at load time so saves
+                # are net-reductive on the next write-back.
                 if isinstance(item.get("provenance"), dict):
                     prov = dict(item["provenance"])
                     prov.pop("sanitized", None)
@@ -328,19 +334,3 @@ class KnowledgeStore:
                     "importance": 0.5,
                 })
 
-    def _parse_legacy_markdown(self, text: str) -> None:
-        """Parse legacy Markdown format (only extracts Learned Patterns)."""
-        in_patterns = False
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("## "):
-                in_patterns = stripped[3:].strip() == "Learned Patterns"
-                continue
-            if in_patterns and stripped.startswith("- "):
-                item = stripped[2:].strip()
-                if item:
-                    self._learned_patterns.append({
-                        "pattern": item,
-                        "distilled": "unknown",
-                        "importance": 0.5,
-                    })

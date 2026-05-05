@@ -40,6 +40,7 @@ Records of key design decisions for this project.
 | [0032](0032-runtime-agent-stance.md) | Stance — Contemplative Agent as a Runtime Agent | withdrawn — tension with contemplative axioms (ADR-0002) | 2026-04-27 |
 | [0033](0033-aap-quadrant-lens-usage-note.md) | Note — Borrowing AAP's Four-Quadrant Lens as a Usage-Description Aid | accepted (note) | 2026-05-01 |
 | [0034](0034-withdraw-memory-evolution-and-hybrid-retrieval.md) | Withdraw Memory Evolution and BM25 Hybrid Retrieval — Cost Without Benefit | accepted — supersedes 0022 | 2026-05-05 |
+| [0035](0035-sunset-migration-surface-and-consolidate-artifact-extraction.md) | Sunset ADR-0019 Migration Surface and Consolidate Artifact Extraction | accepted | 2026-05-05 |
 
 ## ADR Types
 

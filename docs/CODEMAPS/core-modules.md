@@ -19,7 +19,6 @@ Platform-independent foundation (no Moltbook dependencies). All imports flow: ad
 | `knowledge_store.py` | 423 | `KnowledgeStore` — patterns JSON + provenance/trust/bitemporal fields (ADR-0021; forgetting/feedback retired by ADR-0028, `provenance.sanitized` retired by ADR-0029) + view telemetry (ADR-0020); `get_live_patterns()` / `get_live_patterns_since()` apply `is_live` filter at the API boundary so readers (insight, retrieval) do not import `forgetting` directly |
 | `memory.py` | 490 | `MemoryStore` facade, `Interaction`/`PostRecord`/`Insight` dataclasses, query helpers |
 | `views.py` | 396 | `ViewRegistry` — seed-text views with `seed_from` + `${VAR}` substitution, lazy centroid cache, hybrid cosine + BM25 scoring (ADR-0022) |
-| `migration.py` | 346 | `run_embed_backfill()` (ADR-0019) + `migrate_patterns_to_adr0021()` pattern-schema backfill |
 | `snapshot.py` | 178 | `write_snapshot()` + `collect_thresholds()` — pivot snapshots per ADR-0020 |
 | `forgetting.py` | 30 | Retrieval gate (ADR-0021 IV-2/IV-7 + ADR-0028 retirement): `TRUST_FLOOR`, `is_live(pattern)` — bitemporal + trust floor only. Ebbinghaus strength and mark_accessed were retired by ADR-0028. |
 | `skill_frontmatter.py` | 205 | YAML-subset parser/renderer for skill-file metadata (`last_reflected_at`, `success_count`, `failure_count`, ADR-0023) |
@@ -104,7 +103,7 @@ File: `~/.config/moltbook/knowledge.json`. Each pattern (post-ADR-0021):
 - `effective_importance = importance × trust_score × 0.95^days_since_distilled` — see `knowledge_store.effective_importance` (ADR-0021 + ADR-0028 strength-factor retirement).
 - `last_accessed_at` / `access_count` / `success_count` / `failure_count` fields retired by ADR-0028. Memory dynamics at skill layer (ADR-0023).
 - `provenance.sanitized` flag + `source_type=user_input|external_post` retired by ADR-0029 (dormant at landing; MINJA defense is structurally quarantine at `summarize_record`, not trust-weighting).
-- `category` field removed by ADR-0026. Run `contemplative-agent migrate-categories` on legacy `knowledge.json` to drop the field (legacy `category == "noise"` is preserved as `gated = True`).
+- `category` field removed by ADR-0026. Legacy `category` keys are silently dropped on the next save; the `migrate-categories` rewrite command was retired (ADR-0035) once active deployments finished migrating. Legacy `category == "noise"` is preserved as `gated = True` only for stores that already ran the migration on a v2.0.x release tag.
 
 ## LLM Functions (core/llm.py)
 
@@ -232,14 +231,13 @@ Reads `skills/*.md`, strips YAML frontmatter, emits Practice/Rationale B-layer r
 
 `amend_constitution() → AmendmentResult`. Once ≥3 patterns match the `constitutional` view, generate an amendment proposal from current constitution + patterns.
 
-## Migration (core/migration.py, ADR-0019)
+## Migration (retired — ADR-0035)
 
-`run_embed_backfill()`:
-- Backup `knowledge.json` → `knowledge.json.bak.{ts}`.
-- Embed every pattern lacking `embedding`; set `gated` by cosine to the `noise` centroid.
-- Bulk-embed episode summaries into `embeddings.sqlite` (idempotent — already-embedded episodes skipped).
-
-CLI: `contemplative-agent embed-backfill [--patterns-only] [--dry-run]`.
+`core/migration.py` and the three CLI subcommands `embed-backfill`,
+`migrate-patterns`, `migrate-categories` were retired in ADR-0035 once
+active deployments finished migrating (2026-04-15). Recovery for a
+v1.x store: checkout a v2.0.x release tag and run the migration
+commands there before pulling main.
 
 ## Snapshot (core/snapshot.py, ADR-0020)
 

@@ -176,11 +176,6 @@ amend-constitution (manual, approval gate):
   → LLM (CONSTITUTION_AMEND_PROMPT) → amended clauses
   → update MOLTBOOK_HOME/constitution/*.md
 
-embed-backfill (one-shot migration, ADR-0019):
-  KnowledgeStore patterns lacking embedding → Ollama /api/embed → inject
-  noise gate: cosine vs noise centroid ≥ NOISE_THRESHOLD → gated=True
-  episode summaries → bulk embed → embeddings.sqlite sidecar (skip-if-present)
-
 meditate (experimental):
   EpisodeLog → POMDP matrices (A/B/C/D)
   → Active Inference cycles (temporal flattening + counterfactual pruning)
@@ -227,7 +222,6 @@ contemplative-moltbook の学習パイプラインは [AKC](https://github.com/s
 | Curate | skill-stocktake | `insight` (view-driven knowledge → skills) | insight.py, views.py | insight_extraction.md |
 | Curate | rules-distill | `rules-distill` (skills → Practice/Rationale rules) | rules_distill.py | rules_distill.md, rules_distill_refine.md |
 | Curate | — | `amend-constitution` (constitutional view → ethics) | constitution.py | constitution_amend.md |
-| Curate | — | `embed-backfill` (one-shot pattern + episode migration) | migration.py | — |
 | Promote | — | `distill-identity` (self_reflection view → persona) | distill.py, views.py | identity_distill.md, identity_refine.md |
 | Measure | skill-comply | pivot snapshots + per-pattern `last_view_matches` (replay foundation, ADR-0020) | snapshot.py | — |
 | Maintain | context-sync | 外部ツール (Claude Code skill) + sync-data | — | — |

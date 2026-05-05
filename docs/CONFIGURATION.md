@@ -59,16 +59,6 @@ contemplative-agent skill-stocktake                    # Audit skills for duplic
 contemplative-agent rules-stocktake                    # Audit rules for duplicates / low quality
 ```
 
-### One-Time Migrations
-
-Run once per data store when upgrading from v1.x to v2.0.
-
-```bash
-contemplative-agent embed-backfill         # Compute embeddings for existing patterns + episodes
-contemplative-agent migrate-patterns       # Apply ADR-0021 pattern schema to old knowledge.json
-contemplative-agent migrate-categories     # Drop retired category/subcategory fields (ADR-0026)
-```
-
 ### Scheduling
 
 ```bash

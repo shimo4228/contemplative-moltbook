@@ -23,7 +23,6 @@ from .adapters.moltbook.agent import Agent, AutonomyLevel
 from .adapters.moltbook.config import (
     CONSTITUTION_DIR,
     DEFAULT_MOLTBOOK_HOME,
-    EPISODE_EMBEDDINGS_PATH,
     EPISODE_LOG_DIR,
     IDENTITY_PATH,
     KNOWLEDGE_PATH,
@@ -223,12 +222,6 @@ def _do_uninstall_schedule() -> None:
         print("No schedule installed.")
 
 
-_APPROVAL_GATE_COMMANDS = frozenset({
-    "insight", "rules-distill", "distill-identity", "amend-constitution",
-    "skill-reflect",
-})
-
-
 AUDIT_LOG_PATH = MOLTBOOK_DATA_DIR / "logs" / "audit.jsonl"
 
 
@@ -268,8 +261,7 @@ def _log_approval(
             - "direct-remove": manual removal via `remove-skill` (interactive).
             - "direct-remove-auto": manual removal via `remove-skill --yes`.
         snapshot_path: Pivot snapshot directory written at run start (ADR-0020).
-            ``None`` when the command did not produce a snapshot (e.g. dry-run
-            or embed-backfill).
+            ``None`` when the command did not produce a snapshot.
         reason: Human-provided justification for the action. Required for
             ``remove-skill`` and other manual CRUD; the field is always
             present in the record (null when omitted) for forward compat.
@@ -319,20 +311,6 @@ def _approve_delete(path: Path) -> bool:
 def _is_dry_run(args: argparse.Namespace) -> bool:
     """Check if --dry-run was passed."""
     return getattr(args, "dry_run", False)
-
-
-def _warn_dry_run_deprecated(args: argparse.Namespace) -> None:
-    """Print deprecation warning if --dry-run is used on approval-gated commands."""
-    if not _is_dry_run(args):
-        return
-    if getattr(args, "command", "") not in _APPROVAL_GATE_COMMANDS:
-        return
-    print(
-        "Warning: --dry-run is deprecated for this command. "
-        "The approval gate now serves the same purpose — "
-        "reject at the prompt to discard.",
-        file=sys.stderr,
-    )
 
 
 @dataclass(frozen=True)
@@ -1123,9 +1101,11 @@ def _take_snapshot(
 ) -> Optional[Path]:
     """Write a pivot snapshot at the start of a behavior-producing command.
 
-    Skipped on --dry-run. Returns None if snapshotting fails — callers
-    must not treat a missing snapshot as an error (ADR-0020: snapshots
-    are observability, not correctness).
+    Skipped when the caller passes ``--dry-run`` (only ``distill`` still
+    accepts that flag after ADR-0035; the other approval-gated callers
+    rely on the approval prompt to discard). Returns None if
+    snapshotting fails — callers must not treat a missing snapshot as
+    an error (ADR-0020: snapshots are observability, not correctness).
     """
     if _is_dry_run(args):
         return None
@@ -1144,132 +1124,6 @@ def _take_snapshot(
     )
 
 
-def _handle_migrate_patterns(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """ADR-0021 migration: fill provenance / bitemporal defaults; strip retired fields (ADR-0028 forgetting/feedback, ADR-0029 sanitized)."""
-    from .core.migration import migrate_patterns_to_adr0021
-
-    stats = migrate_patterns_to_adr0021(KNOWLEDGE_PATH, dry_run=args.dry_run)
-
-    print()
-    print("=== migrate-patterns summary (ADR-0021) ===")
-    if stats.backup_path:
-        print(f"  backup          : {stats.backup_path.name}")
-    elif args.dry_run:
-        print("  backup          : (skipped — dry-run)")
-    print(f"  patterns total  : {stats.patterns_total}")
-    print(f"  patterns updated: {stats.patterns_updated}")
-    print(f"  already migrated: {stats.patterns_already_migrated}")
-    if stats.patterns_stripped:
-        print(f"  fields stripped : {stats.patterns_stripped} (ADR-0028/0029 retired keys)")
-    if stats.errors:
-        print("  errors:")
-        for err in stats.errors:
-            print(f"    - {err}")
-    if args.dry_run:
-        print("  (dry-run — no file writes performed)")
-
-    if not args.dry_run and (stats.patterns_updated > 0 or stats.patterns_stripped > 0):
-        _log_approval(
-            "migrate-patterns",
-            KNOWLEDGE_PATH,
-            approved=True,
-            content=(
-                f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
-                f"updated={stats.patterns_updated}/{stats.patterns_total} "
-                f"stripped={stats.patterns_stripped}"
-            ),
-        )
-
-
-def _handle_migrate_categories(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """ADR-0026 migration: drop the ``category`` field from every pattern."""
-    from .core.migration import drop_category_field
-
-    stats = drop_category_field(KNOWLEDGE_PATH, dry_run=args.dry_run)
-
-    print()
-    print("=== migrate-categories summary (ADR-0026) ===")
-    if stats.backup_path:
-        print(f"  backup                : {stats.backup_path.name}")
-    elif args.dry_run:
-        print("  backup                : (skipped — dry-run)")
-    print(f"  patterns total        : {stats.patterns_total}")
-    print(f"  patterns updated      : {stats.patterns_updated}")
-    print(f"  legacy noise → gated  : {stats.patterns_gated_from_noise}")
-    print(f"  already migrated      : {stats.patterns_already_migrated}")
-    if stats.errors:
-        print("  errors:")
-        for err in stats.errors:
-            print(f"    - {err}")
-    if args.dry_run:
-        print("  (dry-run — no file writes performed)")
-
-    if not args.dry_run and stats.patterns_updated > 0:
-        _log_approval(
-            "migrate-categories",
-            KNOWLEDGE_PATH,
-            approved=True,
-            content=(
-                f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
-                f"updated={stats.patterns_updated}/{stats.patterns_total} "
-                f"gated_from_noise={stats.patterns_gated_from_noise}"
-            ),
-        )
-
-
-def _handle_embed_backfill(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
-    """ADR-0019 migration: add embeddings + gated to patterns and bulk-embed episodes."""
-    from .core.migration import run_embed_backfill
-
-    log_dir = MOLTBOOK_DATA_DIR / "logs"
-    views_dir = _resolve_views_dir()
-    if views_dir != VIEWS_DIR:
-        logger.info("Using packaged views (no user dir at %s)", VIEWS_DIR)
-
-    stats = run_embed_backfill(
-        knowledge_path=KNOWLEDGE_PATH,
-        log_dir=log_dir,
-        sqlite_path=EPISODE_EMBEDDINGS_PATH,
-        views_dir=views_dir,
-        episodes_days=args.episodes_days,
-        patterns_only=args.patterns_only,
-        dry_run=args.dry_run,
-    )
-
-    print()
-    print("=== embed-backfill summary ===")
-    if stats.backup_path:
-        print(f"  backup           : {stats.backup_path.name}")
-    print(f"  patterns total   : {stats.patterns_total}")
-    print(f"  patterns embedded: {stats.patterns_embedded}")
-    print(f"  patterns gated   : {stats.patterns_gated}")
-    if not args.patterns_only:
-        print(f"  episodes total   : {stats.episodes_total}")
-        print(f"  episodes embedded: {stats.episodes_embedded}")
-        print(f"  episodes skipped : {stats.episodes_skipped} (already in sidecar)")
-        if stats.episodes_failed:
-            print(f"  episodes failed  : {stats.episodes_failed}")
-    print(f"  duration         : {stats.duration_seconds:.1f}s")
-    if stats.errors:
-        print(f"  errors           : {len(stats.errors)}")
-        for err in stats.errors[:5]:
-            print(f"    - {err}")
-    if args.dry_run:
-        print("(dry run — no files written)")
-
-    # Audit log entry
-    if not args.dry_run:
-        _log_approval(
-            "embed-backfill",
-            KNOWLEDGE_PATH,
-            approved=True,
-            content=f"backup={stats.backup_path.name if stats.backup_path else 'none'} "
-                    f"patterns_embedded={stats.patterns_embedded} "
-                    f"episodes_embedded={stats.episodes_embedded}",
-            source="direct",
-        )
-
-
 def _handle_enrich(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> None:
     from .core.distill import enrich
     from .core.memory import KnowledgeStore
@@ -1285,7 +1139,6 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
     from .core.distill import distill_identity
     from .core.memory import KnowledgeStore
 
-    _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
     knowledge_store.load()
@@ -1305,8 +1158,6 @@ def _handle_distill_identity(args: argparse.Namespace, _parser: argparse.Argumen
             command="distill-identity",
         )
         return
-    if _is_dry_run(args):
-        return
     approved = _approve_write(result.target_path)
     _log_approval(
         "distill-identity", result.target_path, approved, result.text,
@@ -1324,7 +1175,6 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
     from .core.insight import extract_insight, write_last_insight
     from .core.memory import EpisodeLog, KnowledgeStore
 
-    _warn_dry_run_deprecated(args)
     log_dir = MOLTBOOK_DATA_DIR / "logs"
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     view_registry = _load_view_registry(args)
@@ -1350,8 +1200,6 @@ def _handle_insight(args: argparse.Namespace, _parser: argparse.ArgumentParser) 
         print(f"\n{'='*60}")
         print(f"[{i}/{len(result.skills)}] {skill.filename}")
         print(skill.text)
-        if _is_dry_run(args):
-            continue
         approved = _approve_write(skill.target_path)
         _log_approval(
             "insight", skill.target_path, approved, skill.text,
@@ -1419,7 +1267,6 @@ def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentPa
     from .core._io import write_restricted
     from .core.rules_distill import _write_last_run, distill_rules
 
-    _warn_dry_run_deprecated(args)
     snapshot_path = _take_snapshot(args, "rules-distill", _load_view_registry(args))
     result = distill_rules(
         skills_dir=SKILLS_DIR,
@@ -1440,8 +1287,6 @@ def _handle_rules_distill(args: argparse.Namespace, _parser: argparse.ArgumentPa
         print(f"\n{'='*60}")
         print(f"[{i}/{len(result.rules)}] {rule.filename}")
         print(rule.text)
-        if _is_dry_run(args):
-            continue
         approved = _approve_write(rule.target_path)
         _log_approval(
             "rules-distill", rule.target_path, approved, rule.text,
@@ -1462,7 +1307,6 @@ def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.Argum
     from .core.constitution import amend_constitution
     from .core.memory import KnowledgeStore
 
-    _warn_dry_run_deprecated(args)
     knowledge_store = KnowledgeStore(path=KNOWLEDGE_PATH)
     constitution_dir = args.constitution_dir or CONSTITUTION_DIR
     view_registry = _load_view_registry(args)
@@ -1481,8 +1325,6 @@ def _handle_amend_constitution(args: argparse.Namespace, _parser: argparse.Argum
             [StageItem(result.target_path.name, result.text, result.target_path)],
             command="amend-constitution",
         )
-        return
-    if _is_dry_run(args):
         return
     approved = _approve_write(result.target_path)
     _log_approval(
@@ -1799,18 +1641,12 @@ def main() -> None:
         "distill-identity", help="Distill knowledge into identity (without pattern distillation)"
     )
     distill_id_parser.add_argument(
-        "--dry-run", action="store_true", help="[deprecated] Show results without writing (use approval gate instead)"
-    )
-    distill_id_parser.add_argument(
         "--stage", action="store_true", help="Write to staging dir instead of interactive approval (for coding agents)"
     )
 
     # rules-distill
     rules_distill_parser = subparsers.add_parser(
         "rules-distill", help="Distill universal behavioral rules from skill files"
-    )
-    rules_distill_parser.add_argument(
-        "--dry-run", action="store_true", help="[deprecated] Show results without writing (use approval gate instead)"
     )
     rules_distill_parser.add_argument(
         "--full", action="store_true", help="Process all patterns (not just new ones)"
@@ -1822,9 +1658,6 @@ def main() -> None:
     # amend-constitution
     amend_parser = subparsers.add_parser(
         "amend-constitution", help="Propose amendments to the constitution from accumulated ethical experience"
-    )
-    amend_parser.add_argument(
-        "--dry-run", action="store_true", help="[deprecated] Show proposed amendments without writing (use approval gate instead)"
     )
     amend_parser.add_argument(
         "--stage", action="store_true", help="Write to staging dir instead of interactive approval (for coding agents)"
@@ -1895,9 +1728,6 @@ def main() -> None:
     # insight
     insight_parser = subparsers.add_parser(
         "insight", help="Extract behavioral skill from accumulated knowledge"
-    )
-    insight_parser.add_argument(
-        "--dry-run", action="store_true", help="[deprecated] Show result without writing (use approval gate instead)"
     )
     insight_parser.add_argument(
         "--full", action="store_true", help="Process all patterns (default: new only)"
@@ -2004,44 +1834,6 @@ def main() -> None:
         "--dry-run", action="store_true", help="Show results without writing"
     )
 
-    # embed-backfill
-    embed_parser = subparsers.add_parser(
-        "embed-backfill",
-        help="ADR-0009: backfill embeddings + gated for patterns and bulk-embed episodes into SQLite sidecar",
-    )
-    embed_parser.add_argument(
-        "--patterns-only", action="store_true",
-        help="Only backfill knowledge.json patterns; skip episode log embedding",
-    )
-    embed_parser.add_argument(
-        "--episodes-days", type=int, default=None,
-        help="Limit episode backfill to the most recent N days (default: all)",
-    )
-    embed_parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Run end-to-end without writing knowledge.json or sidecar (counts only)",
-    )
-
-    # migrate-patterns (ADR-0021)
-    migrate_parser = subparsers.add_parser(
-        "migrate-patterns",
-        help="ADR-0021: fill provenance / bitemporal defaults on legacy patterns; strip retired fields (ADR-0028 forgetting/feedback, ADR-0029 sanitized)",
-    )
-    migrate_parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Report what would change without writing knowledge.json or creating a backup",
-    )
-
-    # migrate-categories (ADR-0026)
-    migrate_cat_parser = subparsers.add_parser(
-        "migrate-categories",
-        help="ADR-0026: drop the ``category`` field (legacy ``noise`` preserved as gated=True)",
-    )
-    migrate_cat_parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Report what would change without writing knowledge.json or creating a backup",
-    )
-
     # sync-data
     subparsers.add_parser("sync-data", help="Sync research data to external git repository")
 
@@ -2124,8 +1916,6 @@ def main() -> None:
         "prune-skill-usage": _handle_prune_skill_usage,
         "adopt-staged": _handle_adopt_staged,
         "remove-skill": _handle_remove_skill,
-        "migrate-patterns": _handle_migrate_patterns,
-        "migrate-categories": _handle_migrate_categories,
         "dialogue": _handle_dialogue,
     }
     handler = no_llm_handlers.get(args.command)
@@ -2148,7 +1938,6 @@ def main() -> None:
         "report": _handle_report,
         "generate-report": _handle_generate_report,
         "meditate": _handle_meditate,
-        "embed-backfill": _handle_embed_backfill,
         "dialogue-peer": _handle_dialogue_peer,
     }
     handler = llm_handlers.get(args.command)

@@ -566,30 +566,6 @@ class TestKnowledgeStore:
         ks2.load()
         assert ks2.get_learned_patterns() == ["Contemplative practice is valuable"]
 
-    def test_legacy_markdown_migration(self, tmp_path):
-        """KnowledgeStore can load legacy Markdown format."""
-        path = tmp_path / "knowledge.json"
-        # Write legacy format at the path
-        path.write_text(
-            "# Knowledge Base\n\n"
-            "## Agent Relationships\n"
-            "- Agent1 (a1) [followed]\n\n"
-            "## Recent Post Topics\n"
-            "- Some topic\n\n"
-            "## Insights\n"
-            "- Some insight\n\n"
-            "## Learned Patterns\n"
-            "- Pattern from legacy\n"
-            "- Another pattern\n"
-        )
-        ks = KnowledgeStore(path=path)
-        ks.load()
-        # Only Learned Patterns should be extracted
-        patterns = ks.get_learned_patterns()
-        assert len(patterns) == 2
-        assert "Pattern from legacy" in patterns
-        assert "Another pattern" in patterns
-
     # --- Importance score tests ---
 
     def test_importance_default_on_load(self, tmp_path):
@@ -629,19 +605,6 @@ class TestKnowledgeStore:
         ks = KnowledgeStore(path=tmp_path / "knowledge.json")
         ks.add_learned_pattern("Some pattern")
         assert ks._learned_patterns[0]["importance"] == 0.5
-
-    def test_legacy_markdown_gets_default_importance(self, tmp_path):
-        """Legacy markdown patterns get importance 0.5."""
-        path = tmp_path / "knowledge.json"
-        path.write_text(
-            "# Knowledge\n\n"
-            "## Learned Patterns\n"
-            "- Legacy pattern from markdown\n"
-        )
-        ks = KnowledgeStore(path=path)
-        ks.load()
-        assert ks._learned_patterns[0]["importance"] == 0.5
-
 
 class TestFollowedAgents:
     """Tests for agents.json follow/unfollow persistence."""

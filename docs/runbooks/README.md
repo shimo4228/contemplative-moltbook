@@ -6,8 +6,11 @@
 
 | Path | 種別 | 対象 |
 |---|---|---|
-| `adr-0019-migration.md` | Migration guide | ADR-0019 embedding + views 移行手順 |
 | `rca/` | Post-mortem | 事故 / 想定外挙動の根本原因分析 |
+
+> Past migration guides (e.g. `adr-0019-migration.md`) were retired together
+> with their CLI subcommands once active deployments finished migrating.
+> See ADR-0035 for the sunset rationale.
 
 ## 配置ルール
 

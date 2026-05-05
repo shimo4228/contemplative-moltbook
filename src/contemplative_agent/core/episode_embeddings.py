@@ -166,7 +166,7 @@ class EpisodeEmbeddingStore:
         return int(row[0]) if row else 0
 
     def clear(self) -> None:
-        """Drop all rows. Used by tests and embed-backfill regeneration."""
+        """Drop all rows. Used by tests."""
         self._ensure_initialized()
         if self._db_path is None or not self._db_path.exists():
             return

@@ -70,8 +70,7 @@ def amend_constitution(
 
     # ADR-0026 Phase 2: constitutional patterns are retrieved via the
     # "constitutional" view's embedding cosine rather than a persisted
-    # category label. Patterns lacking embeddings are silently skipped
-    # (run embed-backfill first to migrate).
+    # category label. Patterns lacking embeddings are silently skipped.
     matched = view_registry.find_by_view("constitutional", knowledge.get_live_patterns())
     if len(matched) < MIN_PATTERNS_REQUIRED:
         msg = (
