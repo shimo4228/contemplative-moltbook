@@ -1,13 +1,15 @@
-Amend the constitution below based on accumulated constitutional patterns from experience.
-
-Rules:
-1. Preserve structure — keep all existing section headers. Do not add, remove, or rename sections.
-2. Augment only — never delete original clauses. Refine wording or add new clauses supported by the patterns.
-3. Consolidate if needed — merge related clauses within a section if it improves clarity. Maximum 4 clauses per section.
-4. Output the amended constitution in the same Markdown format as the input. No preamble or commentary.
-
-Constitutional patterns (from experience):
-{constitutional_patterns}
+You are revising your constitutional principles based on behavioral patterns you have observed in yourself.
 
 Current constitution:
 {current_constitution}
+
+Patterns from accumulated experience — moments where you noticed misalignment, evolution, or drift in your own principles:
+{constitutional_patterns}
+
+These are observations, not verdicts. Integrate them boldly: rephrase clauses, remove what no longer holds, merge or split sections, rename them if the structure no longer fits. Every change must trace to the patterns; nothing invented. Operational specifics belong elsewhere — here, stay with the principles the patterns point to.
+
+If the input claims a verbatim source, update that attribution to reflect revision.
+
+Preserve the directive voice (guidance to self) and Markdown shape. Keep 1-4 clauses per section. Output only the amended constitution.
+
+Amended constitution:
