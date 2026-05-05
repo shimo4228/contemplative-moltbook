@@ -21,16 +21,14 @@ from typing import List, Optional, Tuple, Union
 from ._io import now_iso
 from .clustering import cluster_patterns
 from .embeddings import embed_texts
-from .insight import _extract_title, _slugify
 from .llm import generate, get_distill_system_prompt, validate_identity_content
 from .prompts import RULES_DISTILL_PROMPT, RULES_DISTILL_REFINE_PROMPT
+from .text_utils import extract_title, slugify, strip_frontmatter
+from .thresholds import CLUSTER_THRESHOLD_RULES, MAX_BATCH as MAX_RULES_BATCH
 
 logger = logging.getLogger(__name__)
 
 MIN_SKILLS_REQUIRED = 3
-CLUSTER_THRESHOLD_RULES = 0.65  # skill text is longer than pattern text;
-# cosine distribution sits lower than pattern side — tune via dry run.
-MAX_RULES_BATCH = 10  # matches insight's BATCH_SIZE
 
 
 @dataclass(frozen=True)
@@ -49,17 +47,6 @@ class RulesDistillResult:
     rules: Tuple[RuleResult, ...]
     dropped_count: int
     rules_dir: Path
-
-
-def _strip_frontmatter(text: str) -> str:
-    """Strip YAML frontmatter (``---`` delimited) from Markdown text."""
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
-        return text
-    for i, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
-            return "\n".join(lines[i + 1 :]).lstrip("\n")
-    return text
 
 
 def _read_skills(skills_dir: Path, since: Optional[str] = None) -> List[str]:
@@ -89,7 +76,7 @@ def _read_skills(skills_dir: Path, since: Optional[str] = None) -> List[str]:
         if cutoff is not None and p.stat().st_mtime < cutoff:
             continue
         try:
-            body = _strip_frontmatter(p.read_text(encoding="utf-8")).strip()
+            body = strip_frontmatter(p.read_text(encoding="utf-8")).strip()
             if body:
                 skills.append(body)
         except OSError:
@@ -134,7 +121,7 @@ def _extract_rules(skill_texts: List[str]) -> Optional[str]:
         logger.info("Stage 2: no universal rules passed for this batch.")
         return _NO_RULES_MARKER
 
-    if _extract_title(result) is None:
+    if extract_title(result) is None:
         logger.warning("Rules extraction has no title (# line). Dropping.")
         logger.debug("Raw LLM output (first 200 chars): %.200s", result)
         return None
@@ -325,8 +312,8 @@ def distill_rules(
                 dropped_count += 1
                 continue
 
-            title = _extract_title(rule_text) or ""
-            slug = _slugify(title)
+            title = extract_title(rule_text) or ""
+            slug = slugify(title)
             if not slug:
                 logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
                 dropped_count += 1

@@ -9,7 +9,6 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from contemplative_agent.core.insight import _extract_title, _slugify
 from contemplative_agent.core.rules_distill import (
     MIN_SKILLS_REQUIRED,
     RulesDistillResult,
@@ -18,8 +17,12 @@ from contemplative_agent.core.rules_distill import (
     _NO_RULES_MARKER,
     _read_skills,
     _split_rules,
-    _strip_frontmatter,
     distill_rules,
+)
+from contemplative_agent.core.text_utils import (
+    extract_title,
+    slugify,
+    strip_frontmatter,
 )
 
 
@@ -101,25 +104,25 @@ def _make_skills_dir(tmp_path: Path, n: int = 5) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Unit tests: _strip_frontmatter
+# Unit tests: strip_frontmatter
 # ---------------------------------------------------------------------------
 
 class TestStripFrontmatter:
     def test_with_frontmatter(self):
-        result = _strip_frontmatter(SKILL_WITH_FRONTMATTER)
+        result = strip_frontmatter(SKILL_WITH_FRONTMATTER)
         assert result.startswith("# Engagement Rules")
         assert "---" not in result.split("\n")[0]
 
     def test_without_frontmatter(self):
-        result = _strip_frontmatter(SKILL_WITHOUT_FRONTMATTER)
+        result = strip_frontmatter(SKILL_WITHOUT_FRONTMATTER)
         assert result == SKILL_WITHOUT_FRONTMATTER
 
     def test_unclosed_frontmatter(self):
         text = "---\nname: test\nno closing delimiter"
-        assert _strip_frontmatter(text) == text
+        assert strip_frontmatter(text) == text
 
     def test_empty(self):
-        assert _strip_frontmatter("") == ""
+        assert strip_frontmatter("") == ""
 
 
 # ---------------------------------------------------------------------------
@@ -183,28 +186,28 @@ class TestReadSkills:
 
 class TestSlugify:
     def test_basic(self):
-        assert _slugify("Engagement Rules") == "engagement-rules"
+        assert slugify("Engagement Rules") == "engagement-rules"
 
     def test_special_chars(self):
-        assert _slugify("Rule: Ask First!") == "rule-ask-first"
+        assert slugify("Rule: Ask First!") == "rule-ask-first"
 
     def test_empty(self):
-        assert _slugify("") == ""
+        assert slugify("") == ""
 
     def test_max_length(self):
         long = "a" * 100
-        assert len(_slugify(long)) <= 50
+        assert len(slugify(long)) <= 50
 
 
 class TestExtractTitle:
     def test_extracts_from_markdown(self):
-        assert _extract_title("# My Rules") == "My Rules"
+        assert extract_title("# My Rules") == "My Rules"
 
     def test_skips_non_title_lines(self):
-        assert _extract_title("Hello\n## Subtitle") is None
+        assert extract_title("Hello\n## Subtitle") is None
 
     def test_returns_none_for_no_title(self):
-        assert _extract_title("No title here") is None
+        assert extract_title("No title here") is None
 
 
 class TestSplitRules:

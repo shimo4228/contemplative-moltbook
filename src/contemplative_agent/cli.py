@@ -555,10 +555,10 @@ def _handle_stocktake_result(
     from datetime import date
 
     from .core._io import write_restricted
-    from .core.insight import _extract_title, _slugify
-    from .core.stocktake import format_report, is_merge_rejected, merge_group
+    from .core.stocktake import format_stocktake_report, is_merge_rejected, merge_group
+    from .core.text_utils import extract_title, slugify
 
-    print(format_report(result, label))
+    print(format_stocktake_report(result, label))
 
     if not result.merge_groups and not result.quality_issues:
         return
@@ -600,8 +600,8 @@ def _handle_stocktake_result(
 
             print(merged_text)
 
-            title = _extract_title(merged_text) or fallback_title
-            slug = _slugify(title) or fallback_title
+            title = extract_title(merged_text) or fallback_title
+            slug = slugify(title) or fallback_title
             filename = f"{slug}-{date.today().strftime('%Y%m%d')}.md"
             target_path = target_dir / filename
 

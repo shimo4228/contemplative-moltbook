@@ -21,7 +21,8 @@ from typing import List, Optional, Set, Tuple
 
 from .embeddings import cosine_similarity_matrix, embed_texts
 from .llm import generate
-from .rules_distill import _strip_frontmatter
+from .text_utils import strip_frontmatter
+from .thresholds import SIM_CLUSTER_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,6 @@ MIN_FILES_FOR_DEDUP = 2
 # band; distinct skills typically score < 0.75. 0.80 is the midpoint
 # and errs slightly toward over-grouping, relying on the merge LLM's
 # CANNOT_MERGE path to reject genuine false positives.
-SIM_CLUSTER_THRESHOLD = 0.80
 
 _HEADING_RE = re.compile(r"^#{1,6}\s+", re.MULTILINE)
 _WS_RE = re.compile(r"\s+")
@@ -82,7 +82,7 @@ def _read_files(directory: Path) -> List[Tuple[str, str]]:
         if p.name.startswith("."):
             continue
         try:
-            body = _strip_frontmatter(p.read_text(encoding="utf-8")).strip()
+            body = strip_frontmatter(p.read_text(encoding="utf-8")).strip()
             if body:
                 items.append((p.name, body))
         except OSError:
@@ -326,8 +326,13 @@ def run_rules_stocktake(
     )
 
 
-def format_report(result: StocktakeResult, label: str) -> str:
-    """Format a StocktakeResult as a human-readable report."""
+def format_stocktake_report(result: StocktakeResult, label: str) -> str:
+    """Format a StocktakeResult as a human-readable report.
+
+    Renamed from ``format_report`` in ADR-0035 PR2 to remove the same-name
+    collision with ``core.metrics.format_report`` (which formats a
+    SessionReport, not a StocktakeResult).
+    """
     lines: List[str] = []
     lines.append(f"{label} Stocktake Report")
     lines.append("=" * len(lines[0]))

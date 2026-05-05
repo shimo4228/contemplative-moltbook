@@ -13,8 +13,6 @@ from the embeddings themselves, not from predefined seed texts.
 from __future__ import annotations
 
 import logging
-import re
-import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -28,13 +26,12 @@ from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
 from .prompts import INSIGHT_EXTRACTION_PROMPT
 from .skill_frontmatter import parse as parse_skill_frontmatter, render as render_skill_frontmatter
+from .text_utils import MAX_SLUG_LENGTH, extract_title, slugify
+from .thresholds import CLUSTER_THRESHOLD_INSIGHT as CLUSTER_THRESHOLD, MAX_BATCH as BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
 MIN_PATTERNS_REQUIRED = 3
-MAX_SLUG_LENGTH = 50
-BATCH_SIZE = 10          # max patterns per cluster passed to the LLM
-CLUSTER_THRESHOLD = 0.70  # calibration: docs/evidence/adr-0009/threshold-calibration-20260417.md
 
 
 @dataclass(frozen=True)
@@ -53,21 +50,6 @@ class InsightResult:
     skills: Tuple[SkillResult, ...]
     dropped_count: int
     skills_dir: Path
-
-
-def _slugify(title: str) -> str:
-    """Convert a title to a filesystem-safe slug."""
-    normalized = unicodedata.normalize("NFKD", title)
-    slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
-    return slug[:MAX_SLUG_LENGTH]
-
-
-def _extract_title(skill_text: str) -> Optional[str]:
-    """Extract title from the first '# ' line in skill text."""
-    for line in skill_text.splitlines():
-        if line.startswith("# "):
-            return line[2:].strip()
-    return None
 
 
 def _extract_skill(
@@ -92,7 +74,7 @@ def _extract_skill(
         return None
 
     text = result.strip()
-    if _extract_title(text) is None:
+    if extract_title(text) is None:
         logger.warning("Skill has no title, dropping.")
         logger.debug("Raw LLM output (first 300 chars): %.300s", result)
         return None
@@ -278,8 +260,8 @@ def extract_insight(
             dropped_count += 1
             continue
 
-        title = _extract_title(skill_text) or ""
-        slug = _slugify(title)
+        title = extract_title(skill_text) or ""
+        slug = slugify(title)
         if not slug:
             logger.warning(
                 "Batch %d/%d [%s]: empty slug, dropping",

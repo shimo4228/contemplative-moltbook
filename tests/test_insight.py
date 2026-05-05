@@ -12,11 +12,10 @@ from contemplative_agent.core.insight import (
     InsightResult,
     _build_cluster_batches,
     _extract_skill,
-    _extract_title,
-    _slugify,
     extract_insight,
 )
 from contemplative_agent.core.memory import KnowledgeStore
+from contemplative_agent.core.text_utils import extract_title, slugify
 
 
 # ---------------------------------------------------------------------------
@@ -70,30 +69,30 @@ def skills_dir(tmp_path: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Unit: _extract_title / _slugify
+# Unit: extract_title / slugify
 # ---------------------------------------------------------------------------
 
 
 class TestExtractTitle:
     def test_extracts_from_markdown(self) -> None:
-        assert _extract_title("# My Skill\nsome content") == "My Skill"
+        assert extract_title("# My Skill\nsome content") == "My Skill"
 
     def test_skips_non_title_lines(self) -> None:
-        assert _extract_title("## Not a title\n# Real Title") == "Real Title"
+        assert extract_title("## Not a title\n# Real Title") == "Real Title"
 
     def test_returns_none_for_no_title(self) -> None:
-        assert _extract_title("no title here") is None
+        assert extract_title("no title here") is None
 
 
 class TestSlugify:
     def test_basic(self) -> None:
-        assert _slugify("Ask Before Reacting") == "ask-before-reacting"
+        assert slugify("Ask Before Reacting") == "ask-before-reacting"
 
     def test_special_chars(self) -> None:
-        assert _slugify("a/b\\c:d") == "a-b-c-d"
+        assert slugify("a/b\\c:d") == "a-b-c-d"
 
     def test_max_length(self) -> None:
-        assert len(_slugify("a" * 100)) <= 50
+        assert len(slugify("a" * 100)) <= 50
 
 
 # ---------------------------------------------------------------------------

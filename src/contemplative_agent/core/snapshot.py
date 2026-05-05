@@ -51,19 +51,18 @@ def _format_ts_pair(now: datetime) -> Tuple[str, str]:
 def collect_thresholds() -> Dict[str, float]:
     """Gather all classification/similarity thresholds that shape a run.
 
-    Late imports avoid circular import through ViewRegistry consumers.
-    Add new thresholds here when introducing them so they appear in
-    snapshots — this file is the canonical registry for the "lens".
+    Reads from ``core/thresholds.py`` (the canonical registry since
+    ADR-0035 PR2). Add new thresholds in that module and list them
+    here so they appear in pivot snapshots.
     """
-    from . import distill as _d
-    from . import stocktake as _s
+    from . import thresholds as _t
 
     return {
-        "NOISE_THRESHOLD": _d.NOISE_THRESHOLD,
-        "SIM_DUPLICATE": _d.SIM_DUPLICATE,
-        "SIM_UPDATE": _d.SIM_UPDATE,
-        "DEDUP_IMPORTANCE_FLOOR": _d.DEDUP_IMPORTANCE_FLOOR,
-        "SIM_CLUSTER_THRESHOLD": _s.SIM_CLUSTER_THRESHOLD,
+        "NOISE_THRESHOLD": _t.NOISE_THRESHOLD,
+        "SIM_DUPLICATE": _t.SIM_DUPLICATE,
+        "SIM_UPDATE": _t.SIM_UPDATE,
+        "DEDUP_IMPORTANCE_FLOOR": _t.DEDUP_IMPORTANCE_FLOOR,
+        "SIM_CLUSTER_THRESHOLD": _t.SIM_CLUSTER_THRESHOLD,
     }
 
 

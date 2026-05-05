@@ -32,16 +32,16 @@ from .embeddings import cosine, embed_texts
 
 logger = logging.getLogger(__name__)
 
-# Cosine threshold below which ``select`` returns no skills (no-inject
-# fallback). Calibrated conservatively — nomic-embed-text puts topically
-# unrelated pairs at ~0.2-0.3; 0.45 keeps out "vaguely related" noise
-# without demanding near-paraphrase.
-DEFAULT_THRESHOLD = 0.45
-DEFAULT_TOP_K = 3
+# Calibration values live in ``core/thresholds.py`` since ADR-0035 PR2;
+# re-export under the historical names so adapters and tests keep the
+# stable import path ``skill_router.DEFAULT_THRESHOLD`` etc.
+from .thresholds import (  # noqa: E402 — module-level by design
+    FAILURE_RATE_FOR_REFLECT,
+    MIN_FAILURES_FOR_REFLECT,
+    SKILL_ROUTER_DEFAULT as DEFAULT_THRESHOLD,
+)
 
-# skill-reflect aggregator thresholds (see ADR-0023).
-MIN_FAILURES_FOR_REFLECT = 2
-FAILURE_RATE_FOR_REFLECT = 0.3
+DEFAULT_TOP_K = 3
 
 # Truncation for the context excerpt stored in the selection log. Short
 # enough to avoid becoming a second episode log; long enough to give

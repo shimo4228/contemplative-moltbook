@@ -42,15 +42,16 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 30
 
-# Embedding-based dedup thresholds (ADR-0009). Calibrated against
-# nomic-embed-text on knowledge.json patterns; tune via dry runs.
-SIM_DUPLICATE = 0.90  # near-exact same pattern → SKIP (calibrated 2026-04-17; was 0.92, max cosine=0.8980 on 97 patterns)
-SIM_UPDATE = 0.80     # similar enough to boost importance → UPDATE
-
-# Episode noise gate (ADR-0026). Embedding-based classify uses NOISE_THRESHOLD
-# alone; the former CONSTITUTIONAL_THRESHOLD was retired in ADR-0026 Phase 3
-# when classification collapsed from three-way to two-way (gated/kept).
-NOISE_THRESHOLD = 0.55
+# Embedding-based dedup + noise thresholds live in ``core/thresholds.py``
+# since ADR-0035 PR2; re-exported under the historical names here so
+# existing call sites and prompt templates that reference them keep
+# working without ad-hoc late imports.
+from .thresholds import (  # noqa: E402 — module-level by design
+    DEDUP_IMPORTANCE_FLOOR,
+    NOISE_THRESHOLD,
+    SIM_DUPLICATE,
+    SIM_UPDATE,
+)
 
 # JSON Schemas for constrained decoding (Ollama v0.5+ format parameter)
 IMPORTANCE_SCHEMA: Dict = {
@@ -669,9 +670,6 @@ def _distill_category(
                      importance, source_type, pattern[:80])
 
     return _CategoryResult(results=tuple(all_results), added=len(add_patterns), updated=updated)
-
-
-DEDUP_IMPORTANCE_FLOOR = 0.05  # Patterns below this effective importance are excluded from dedup
 
 
 def _dedup_patterns(

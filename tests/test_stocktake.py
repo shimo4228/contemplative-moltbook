@@ -19,7 +19,7 @@ from contemplative_agent.core.stocktake import (
     _normalize_for_similarity,
     _pairwise_similarity,
     _read_files,
-    format_report,
+    format_stocktake_report,
     is_merge_rejected,
     merge_group,
     run_rules_stocktake,
@@ -520,7 +520,7 @@ class TestFormatReport:
             quality_issues=(QualityIssue("c.md", "too short"),),
             total_files=3,
         )
-        report = format_report(result, "Skill")
+        report = format_stocktake_report(result, "Skill")
         assert "Skill Stocktake Report" in report
         assert "a.md, b.md" in report
         assert "overlap" in report
@@ -529,6 +529,6 @@ class TestFormatReport:
 
     def test_format_clean(self):
         result = StocktakeResult(merge_groups=(), quality_issues=(), total_files=5)
-        report = format_report(result, "Rules")
+        report = format_stocktake_report(result, "Rules")
         assert "No duplicates" in report
         assert "5 healthy" in report
