@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 from ._io import now_iso
+from .artifact_extraction import resolve_artifact_path
 from .clustering import cluster_patterns
 from .knowledge_store import effective_importance
 from .llm import generate, validate_identity_content
@@ -26,7 +26,7 @@ from .episode_log import EpisodeLog
 from .memory import KnowledgeStore
 from .prompts import INSIGHT_EXTRACTION_PROMPT
 from .skill_frontmatter import parse as parse_skill_frontmatter, render as render_skill_frontmatter
-from .text_utils import MAX_SLUG_LENGTH, extract_title, slugify
+from .text_utils import extract_title
 from .thresholds import CLUSTER_THRESHOLD_INSIGHT as CLUSTER_THRESHOLD, MAX_BATCH as BATCH_SIZE
 
 logger = logging.getLogger(__name__)
@@ -235,8 +235,6 @@ def extract_insight(
     skill_results: List[SkillResult] = []
     dropped_count = 0
 
-    today = date.today().strftime("%Y%m%d")
-
     for batch_idx, (topic, batch) in enumerate(batches):
         logger.info(
             "Batch %d/%d [%s]: %d patterns",
@@ -260,26 +258,14 @@ def extract_insight(
             dropped_count += 1
             continue
 
-        title = extract_title(skill_text) or ""
-        slug = slugify(title)
-        if not slug:
-            logger.warning(
-                "Batch %d/%d [%s]: empty slug, dropping",
-                batch_idx + 1, len(batches), topic,
-            )
+        resolved = resolve_artifact_path(
+            skill_text,
+            skills_dir,
+            label=f"Batch {batch_idx + 1}/{len(batches)} [{topic}]",
+        )
+        if resolved is None:
             dropped_count += 1
             continue
-
-        filename = f"{slug}-{today}.md"
-
-        if skills_dir is not None:
-            file_path = skills_dir / filename
-            if not file_path.resolve().is_relative_to(skills_dir.resolve()):
-                logger.error("Skill path escape attempt: %s", file_path)
-                dropped_count += 1
-                continue
-        else:
-            file_path = Path(filename)
 
         # Merge ADR-0023 router fields into the LLM's legacy frontmatter block
         # (stacking two blocks leaks legacy metadata into the router's body embed).
@@ -287,8 +273,8 @@ def extract_insight(
         rendered = render_skill_frontmatter(existing_meta, body)
         skill_results.append(SkillResult(
             text=rendered,
-            filename=filename,
-            target_path=file_path,
+            filename=resolved.filename,
+            target_path=resolved.target_path,
         ))
 
     if not skill_results:

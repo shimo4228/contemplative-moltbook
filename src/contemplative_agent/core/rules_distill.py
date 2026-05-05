@@ -14,16 +14,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 from ._io import now_iso
+from .artifact_extraction import resolve_artifact_path
 from .clustering import cluster_patterns
 from .embeddings import embed_texts
 from .llm import generate, get_distill_system_prompt, validate_identity_content
 from .prompts import RULES_DISTILL_PROMPT, RULES_DISTILL_REFINE_PROMPT
-from .text_utils import extract_title, slugify, strip_frontmatter
+from .text_utils import extract_title, strip_frontmatter
 from .thresholds import CLUSTER_THRESHOLD_RULES, MAX_BATCH as MAX_RULES_BATCH
 
 logger = logging.getLogger(__name__)
@@ -305,35 +306,25 @@ def distill_rules(
             # Fallback: treat entire text as single rule if split fails
             individual_rules = [rules_text]
 
-        today = date.today().strftime("%Y%m%d")
         for rule_text in individual_rules:
             if not validate_identity_content(rule_text):
                 logger.warning("Batch %d/%d: forbidden pattern in rule, dropping", batch_idx + 1, len(batches))
                 dropped_count += 1
                 continue
 
-            title = extract_title(rule_text) or ""
-            slug = slugify(title)
-            if not slug:
-                logger.warning("Batch %d/%d: empty slug, dropping", batch_idx + 1, len(batches))
+            resolved = resolve_artifact_path(
+                rule_text,
+                rules_dir,
+                label=f"Batch {batch_idx + 1}/{len(batches)}",
+            )
+            if resolved is None:
                 dropped_count += 1
                 continue
 
-            filename = f"{slug}-{today}.md"
-
-            if rules_dir is not None:
-                file_path = rules_dir / filename
-                if not file_path.resolve().is_relative_to(rules_dir.resolve()):
-                    logger.error("Rule path escape attempt: %s", file_path)
-                    dropped_count += 1
-                    continue
-            else:
-                file_path = Path(filename)
-
             rule_results.append(RuleResult(
                 text=rule_text,
-                filename=filename,
-                target_path=file_path,
+                filename=resolved.filename,
+                target_path=resolved.target_path,
             ))
 
     if not rule_results:
