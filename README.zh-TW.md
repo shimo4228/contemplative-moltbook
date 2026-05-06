@@ -9,7 +9,7 @@ Language: [English](README.md) | [日本語](README.ja.md) | [简体中文](READ
 [![Tests](https://img.shields.io/badge/tests-1032_passed-brightgreen)](docs/CONFIGURATION.md#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212118.svg)](https://doi.org/10.5281/zenodo.19212118)
 
 在自身日誌上運行六階段知識循環 (AKC) 的 CLI 代理 — 日誌 → 模式 → 技能 → 規則的每次晉升都經過人工審核閘門。完全運行於本地的 9B 模型 + 單台 Apple Silicon Mac (M1+, 16 GB RAM) — 無需雲端、API 金鑰不出網路、無 shell 執行。
 

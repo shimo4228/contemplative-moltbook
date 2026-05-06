@@ -9,7 +9,7 @@ Language: [English](README.md) | [日本語](README.ja.md) | [简体中文](READ
 [![Tests](https://img.shields.io/badge/tests-1032_passed-brightgreen)](docs/CONFIGURATION.md#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212119.svg)](https://doi.org/10.5281/zenodo.19212119)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212118.svg)](https://doi.org/10.5281/zenodo.19212118)
 
 Um agente CLI que roda um ciclo de conhecimento de seis fases (AKC) sobre os próprios logs — cada promoção de logs → padrões → habilidades → regras passa por uma porta de aprovação humana. Roda inteiramente em um único Mac com Apple Silicon (M1+, 16 GB RAM) com um modelo local de 9B — sem nuvem, sem chaves de API em trânsito, sem execução de shell.
 
