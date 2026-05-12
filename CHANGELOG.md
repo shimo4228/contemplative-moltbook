@@ -8,7 +8,35 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
-Tracking post-v2.3.0 follow-ups. Details live in ADRs.
+Post-v2.3.0 work accumulated for the next release. The structural centerpiece is ADR-0038: the main distill prompt had been carving its 相分 (observed side) using a behavioral-only knife — moment-of-recognition records (`the agent realized X`, `caught itself doing Y`, `an assumption no longer held`) were structurally excluded from `knowledge.json`. ADR-0038 widens the carving so the 見分 (`self_reflection` view) has corresponding material on the observed side. Companion changes collapse `distill_identity` to a single stage matching `amend_constitution` cadence, deploy a research-grounded `self_reflection` seed designed against the new embedding space, and clean up four dead prompt registrations that survived previous consolidations.
+
+Cumulative diff vs. v2.3.0: 29 files changed, +938 / −128 (+810 LOC including ADR-0038 docs). Modules unchanged at 49; tests unchanged at 1032; prompt templates 30 → 26 (dead cleanup).
+
+### Added
+
+- **[ADR-0038](docs/adr/0038-moment-of-recognition-distill.md): Re-introduce moments of recognition into the distill observation target.** `config/prompts/distill.md` now admits two parallel registers — behavioral facts and realizations/shifts in understanding — restoring the moment-of-recognition vocabulary that the retired `distill_constitutional.md` path used to supply before ADR-0026. Dry-run smoke on 3 days of production episodes produced schema-rupture lexicon (`signals an internal realization`, `demonstrates a recognition of fundamental interconnectedness`, `defines a widening of the agent's conceptual field`) in four of six batches — patterns that had never appeared in the pipeline's output history before this release.
+- **Research-grounded `self_reflection` seed.** `config/views/self_reflection.md` rewritten against the 8 design constraints established in the prior phenomenology research (Singer SDM, McDonald epiphany, Topolinski insight): schema-level grammar (`enduring feature`, `until now`), recognition affect (`felt-rightness`), schema-rupture lexicon (`realizes, catches itself, recognizes, no longer holds`), and a negative-contrast clause (`Not the record of behavior, but the moment a pattern becomes self-knowledge`). Pair with the new distill prompt; identity_distill input quality will improve as new-prompt-era patterns accumulate (re-check trigger: 2026-05-27 ~ 2026-06-10, procedure in `.notes/`).
+
+### Changed
+
+- **`distill_identity` collapsed to a single stage** and rewritten in `amend_constitution` cadence (Level 4 bold-revision license + nothing-invented grounding + layer separation + `Output only X` terminal instruction + voice preservation). The original 2-stage `extract → refine` was introduced under ADR-0008 to mirror the LLM-classify split in the main distill pipeline; ADR-0019 retired the classify call, leaving the 2-stage structure as borrowed scaffolding. Companion change adds a condensation framing (`A self-description is condensed — what defines you, not a catalogue of what you noticed`) at the identity layer so the output stays as a self-statement rather than expanding into an essay.
+- **DOI badge moved from version DOI to concept DOI** across all 6 language READMEs (English / Japanese / Simplified Chinese / Traditional Chinese / Portuguese-BR / Spanish). The badge now resolves to the latest version through Zenodo concept-DOI resolution rather than freezing on a specific version. Citation entries (BibTeX, CITATION.cff `doi:`, "How to cite" plain text) remain version-pinned per release. Documented as a default in the `release-doi` skill.
+
+### Removed (Sunset)
+
+- **Four dead prompt registrations:** `distill_classify.md` and `distill_constitutional.md` (orphaned by ADR-0026 Phase 2's binary-gating + view-routing consolidation), plus `stocktake_skills.md` and `stocktake_rules.md` (no callers, no ADR record — confirmed dead by refactor-cleaner across `src/`, `tests/`, `config/`). Total: 4 files in `config/prompts/`, 4 fields + 4 loaders in `core/domain.py`, 4 mappings in `core/prompts.py`. The `distill_constitutional.md` cleanup is paired with ADR-0038, which re-introduces its vocabulary into the surviving `distill.md` path.
+
+### Tooling
+
+- `.claude/skills` and `.claude/commands` published to repo (`3ec3858`).
+- `silent-llm-calls` runbook added under `docs/runbooks/` (`3ceb6e5`).
+- `chore(sync)`: data repo rsync excludes `llms.txt` to prevent overwriting the contemplative-agent canonical version (`6a1ba61`).
+
+### Notes
+
+- ADR-0038 records the honest limit of this approach: recorded moments of recognition are **post-hoc narrative reconstructions** of behavioral logs, not first-person internal records (Topolinski's processing-fluency caveat applies). The agent does not "experience" the moments the way the records' grammar implies; the records are constructive, useful as identity-formation material in the Singer SDM sense but not as ground-truth introspection. The structurally honest remedy (pre-action internal noting at the adapter layer) remains open as a future ADR.
+- Companion refactor (commits `bab9c13` + `45410f7`) does not introduce new behavior visible at the CLI surface — `distill-identity` runs unchanged from the operator's perspective. Output style shifts from essay-shaped to condensed self-statement and now permits Level 4 revision (paragraph removal, restructuring) rather than additive-only updates.
+- Release deferred: post-v2.3.0 work is being accumulated and held in Unreleased rather than cut as a standalone v2.4.0. The re-check trigger (`2026-05-27` ~ `2026-06-10`) is expected to surface Gap 1 / Gap 2 work from `.notes/self-reflection-pipeline-future-work-2026-05-13.md`; the next DOI release will bundle those structural changes with ADR-0038 rather than fragmenting the version history.
 
 ---
 
