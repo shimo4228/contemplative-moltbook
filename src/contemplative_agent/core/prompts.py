@@ -39,11 +39,7 @@ class _LazyPrompts:
         "DISTILL_IMPORTANCE_PROMPT": "distill_importance",
         "RULES_DISTILL_PROMPT": "rules_distill",
         "RULES_DISTILL_REFINE_PROMPT": "rules_distill_refine",
-        "DISTILL_CLASSIFY_PROMPT": "distill_classify",
-        "DISTILL_CONSTITUTIONAL_PROMPT": "distill_constitutional",
         "CONSTITUTION_AMEND_PROMPT": "constitution_amend",
-        "STOCKTAKE_SKILLS_PROMPT": "stocktake_skills",
-        "STOCKTAKE_RULES_PROMPT": "stocktake_rules",
         "STOCKTAKE_MERGE_PROMPT": "stocktake_merge",
         "STOCKTAKE_MERGE_RULES_PROMPT": "stocktake_merge_rules",
     }

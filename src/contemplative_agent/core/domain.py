@@ -69,11 +69,7 @@ class PromptTemplates:
     distill_importance: str = ""
     rules_distill: str = ""
     rules_distill_refine: str = ""
-    distill_classify: str = ""
-    distill_constitutional: str = ""
     constitution_amend: str = ""
-    stocktake_skills: str = ""
-    stocktake_rules: str = ""
     stocktake_merge: str = ""
     stocktake_merge_rules: str = ""
 
@@ -244,11 +240,7 @@ def load_prompt_templates(prompts_dir: Optional[Path] = None) -> PromptTemplates
         distill_importance=read("distill_importance.md", required=False),
         rules_distill=read("rules_distill.md", required=False),
         rules_distill_refine=read("rules_distill_refine.md", required=False),
-        distill_classify=read("distill_classify.md", required=False),
-        distill_constitutional=read("distill_constitutional.md", required=False),
         constitution_amend=read("constitution_amend.md", required=False),
-        stocktake_skills=read("stocktake_skills.md", required=False),
-        stocktake_rules=read("stocktake_rules.md", required=False),
         stocktake_merge=read("stocktake_merge.md", required=False),
         stocktake_merge_rules=read("stocktake_merge_rules.md", required=False),
     )
