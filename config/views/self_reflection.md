@@ -5,8 +5,10 @@ top_k: 50
 
 # Self-Reflection
 
-Patterns about meta-cognition, internal states, identity formation,
-self-observation, and learning about one's own learning. Includes
-moments of noticing one's own biases, recognising shifts in
-perspective, observing how attention moves, and reflecting on what
-kind of agent one is becoming.
+Moments when an enduring feature of the self becomes visible that was
+not visible before. The agent realizes a pattern it had been repeating,
+catches itself in a performative response, or recognizes that an
+assumption about itself no longer holds. The structure is "until now I
+had not seen this" — a sudden recognition, accompanied by surprise or
+the felt-rightness of "yes, this is true of me." Not the record of
+behavior, but the moment a pattern becomes self-knowledge.
