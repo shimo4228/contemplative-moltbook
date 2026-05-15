@@ -4,7 +4,14 @@
 
 アーキテクチャ詳細（モジュール・依存グラフ・データフロー・3層メモリ・統計）は [docs/CODEMAPS/INDEX.md](docs/CODEMAPS/INDEX.md) を参照（正本）。設計判断は [docs/adr/](docs/adr/README.md) に記録。
 
-[`graph.jsonld`](graph.jsonld) は同じ構造を schema.org JSON-LD で encode した machine-readable surface（LLM crawler 向け正本）。4 公理 / 3 メモリ層 / approval-gate chain / AKC 6-phase pipeline mapping を schema レベルで encode。CODEMAPS が prose 正本、graph.jsonld が triple 正本。Project の正式名は **Contemplative Agent** （`shimo4228/contemplative-agent`）であり、`Moltbook` は SNS adapter のみを指す名称として graph 内でも徹底する。
+[`graph.jsonld`](graph.jsonld) と CODEMAPS は同じ project を **異なる abstraction 層** で扱う:
+
+- **CODEMAPS = file-level**: 「どのファイル / モジュールに X が住んでいるか」を prose で記述。人間 + agent が code を navigate する時に読む
+- **graph.jsonld = concept-level**: 「X とは何か、X と Y はどう関係するか」を JSON-LD triples で encode。Contemplative Agent では 4 公理 / 3 メモリ層 / approval-gate chain / AKC 6-phase pipeline mapping を schema レベルで encode
+
+両者は重複せず相補的。同じ entity を別角度から見る（例: `Episode Log` は CODEMAPS では `core/episode_log.py` に住むモジュール、graph.jsonld では `MemoryLayer level=1` の concept node で `gatedBy` edges を持つ）。新規 ADR / Concept / Axiom 追加時は **両面で更新** する。役割境界の正本定義は `~/.claude/skills/jsonld-knowledge-graph/SKILL.md` の "CODEMAPS との関係" セクション参照。
+
+Project の正式名は **Contemplative Agent** （`shimo4228/contemplative-agent`）。`Moltbook` は SNS adapter のみを指す名称として graph 内・CODEMAPS 内・README 内すべてで徹底する。
 
 ## 開発環境
 
