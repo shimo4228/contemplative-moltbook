@@ -228,6 +228,10 @@ The **Meditation adapter** is defined as an experimental adapter implementing Ac
 - **Code**: `core/insight.py`, `core/llm.py` (system prompt assembly)
 - **ADR**: ADR-0011 (skills creation), ADR-0036 (sunset of skill-as-memory loop)
 
+## How do the four contemplative axioms relate to the three memory layers and the AKC six-phase pipeline?
+
+The relationships described in prose throughout this document are also published as a machine-readable JSON-LD graph at [`graph.jsonld`](graph.jsonld). The graph encodes six core node types (`ResearchLine`, `Axiom`, `MemoryLayer`, `ADR`, `Concept`, `EcosystemRepo`) and seven edge types — including custom edges `gatedBy` (`MemoryLayer → ADR-0012`, encoding the approval-gate chain structurally) and `appliesTo` (`ADR-0033 → AAP Quadrants`, the cross-line bridge to Agent Attribution Practice). Three design choices are load-bearing. First, the four axioms are typed as `Axiom` (not `Concept`), reflecting that they form a closed swappable preset rather than free-form terminology — Contemplative Agent ships them as the default but accepts 11 alternative templates. Second, `gatedBy` edges run from each MemoryLayer to ADR-0012, making the approval-gate chain queryable as triples rather than buried in prose; promotions into the Identity layer cannot bypass this edge in the schema. Third, `MemoryLayer` `@id`s are shared with the AKC graph (same URI for the three layers in both files), so an LLM crawling both graphs sees the layers as identical entities rather than as parallel definitions. The ResearchLine `@id` uses the parent Zenodo concept DOI (`10.5281/zenodo.19212118`) per shimo4228 convention — Citation files use the latest versioned DOI, badges and graphs use the concept DOI.
+
 ---
 
 *Last updated: 2026-05-05*

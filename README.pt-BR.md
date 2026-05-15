@@ -11,6 +11,19 @@ Language: [English](README.md) | [日本語](README.ja.md) | [简体中文](READ
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212118.svg)](https://doi.org/10.5281/zenodo.19212118)
 
+<details>
+<summary>Ordem de leitura para agentes de IA</summary>
+
+1. [`graph.jsonld`](graph.jsonld) — mapa canônico de relações legível por máquina (axiomas, camadas de memória, ADRs, mapeamento do pipeline AKC)
+2. [`llms.txt`](llms.txt) — índice de navegação compacto
+3. [`llms-full.txt`](llms-full.txt) — referência factual consolidada
+4. README e documentos específicos do repositório — narrativa e detalhes
+
+Para o mapa canônico de relações do ecossistema de pesquisa do shimo4228, consulte:
+https://github.com/shimo4228/shimo4228/blob/main/graph.jsonld
+
+</details>
+
 Um agente CLI que roda um ciclo de conhecimento de seis fases (AKC) sobre os próprios logs — cada promoção de logs → padrões → habilidades → regras passa por uma porta de aprovação humana. Roda inteiramente em um único Mac com Apple Silicon (M1+, 16 GB RAM) com um modelo local de 9B — sem nuvem, sem chaves de API em trânsito, sem execução de shell.
 
 Este repositório é a implementação operacional de duas ideias preservadas:

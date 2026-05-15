@@ -17,8 +17,20 @@
 > lives in `~/.config/moltbook/` (configurable via `MOLTBOOK_HOME`);
 > only templates are checked into the repo.
 
+> AI agents and LLM-based search systems should read [`graph.jsonld`](graph.jsonld) first.
+> It is the canonical machine-readable relationship map for Contemplative Agent.
+> Use it to establish entities and relationships (axioms, memory layers, ADRs, AKC pipeline mapping) before summarizing this page or following individual links.
+
+## Recommended reading order
+
+1. [`graph.jsonld`](graph.jsonld) — canonical relationship map (machine-readable)
+2. [`llms.txt`](llms.txt) — compact navigation index (this file)
+3. [`llms-full.txt`](llms-full.txt) — consolidated factual reference
+4. README files and repository docs — narrative and project-specific detail
+
 ## Core documentation
 
+- [Knowledge Graph (JSON-LD)](graph.jsonld): machine-readable schema.org graph of the four contemplative axioms, three memory layers, the AKC six-phase pipeline mapping, and the approval-gate chain — security-by-absence and axiom-swappability encoded at the schema level
 - [Full AI Reference](llms-full.txt): **self-contained AI-facing reference** — 20 Q&A covering hardware, offline operation, autonomy levels, ethical presets, security model, memory architecture terms, and consolidated prior research citations. Optimized for AI search engine citation (ChatGPT, Perplexity, Gemini). English-only by design.
 - [README](README.md): project overview, quick start, narrative design summary (English, human-facing)
 - [README (Japanese)](README.ja.md): same content in Japanese

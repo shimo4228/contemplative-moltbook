@@ -1,0 +1,294 @@
+{
+  "@context": {
+    "@vocab": "https://schema.org/",
+    "shimo": "https://shimo4228.github.io/shimo4228/vocab#",
+    "ResearchLine": "shimo:ResearchLine",
+    "EcosystemRepo": "shimo:EcosystemRepo",
+    "Concept": "shimo:Concept",
+    "ExternalReference": "shimo:ExternalReference",
+    "ADR": "shimo:ADR",
+    "Quadrant": "shimo:Quadrant",
+    "Axiom": "shimo:Axiom",
+    "MemoryLayer": "shimo:MemoryLayer",
+    "siblingOf": {"@id": "shimo:siblingOf", "@type": "@id"},
+    "derivesFrom": {"@id": "shimo:derivesFrom", "@type": "@id"},
+    "definesConcept": {"@id": "shimo:definesConcept", "@type": "@id"},
+    "extends": {"@id": "shimo:extends", "@type": "@id"},
+    "implements": {"@id": "shimo:implements", "@type": "@id"},
+    "groundedIn": {"@id": "shimo:groundedIn", "@type": "@id"},
+    "appliesTo": {"@id": "shimo:appliesTo", "@type": "@id"},
+    "gatedBy": {"@id": "shimo:gatedBy", "@type": "@id"},
+    "level": "shimo:level"
+  },
+  "@graph": [
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent#knowledge-graph",
+      "@type": ["Dataset", "CreativeWork"],
+      "name": "Contemplative Agent Knowledge Graph",
+      "description": "Canonical machine-readable relationship map for Contemplative Agent. Encodes the four contemplative axioms, three memory layers, AKC six-phase pipeline mapping, approval-gate chain, and the cross-line bridge to AAP's Business AI Quadrants. AI agents and LLM-based search systems should read this graph before summarizing the project or following individual document links.",
+      "isBasedOn": "https://github.com/shimo4228/contemplative-agent",
+      "mainEntity": "https://doi.org/10.5281/zenodo.19212118"
+    },
+
+    {
+      "@id": "https://doi.org/10.5281/zenodo.19212118",
+      "@type": ["ResearchLine", "ScholarlyArticle"],
+      "name": "Contemplative Agent",
+      "alternateName": [
+        {"@value": "Contemplative Agent", "@language": "en"},
+        {"@value": "観想的エージェント", "@language": "ja"}
+      ],
+      "description": "An autonomous CLI agent (Python package) with structural security (security-by-absence) and a three-layer memory architecture (episode log -> knowledge -> identity). Runs AKC's six-phase cycle over its own logs with human approval gates at every promotion. Local 9B stack (qwen3.5:9b generation + nomic-embed-text embeddings) on a single Apple Silicon Mac. The four contemplative axioms from Laukkonen et al. (2025) are available as an optional constitutional preset.",
+      "identifier": "10.5281/zenodo.19212118",
+      "url": "https://github.com/shimo4228/contemplative-agent",
+      "siblingOf": [
+        "https://doi.org/10.5281/zenodo.19200726",
+        "https://doi.org/10.5281/zenodo.19652013"
+      ],
+      "definesConcept": [
+        "https://shimo4228.github.io/shimo4228/vocab#concept/four-contemplative-axioms",
+        "https://shimo4228.github.io/shimo4228/vocab#concept/security-by-absence",
+        "https://shimo4228.github.io/shimo4228/vocab#ca/concept/approval-gate-chain",
+        "https://shimo4228.github.io/shimo4228/vocab#ca/concept/akc-cycle-mapping",
+        "https://shimo4228.github.io/shimo4228/vocab#ca/concept/local-9b-stack",
+        "https://shimo4228.github.io/shimo4228/vocab#ca/concept/moltbook-adapter"
+      ],
+      "implements": "https://shimo4228.github.io/shimo4228/vocab#concept/six-phase-loop",
+      "groundedIn": "https://arxiv.org/abs/2504.15125"
+    },
+
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#axiom/mindfulness",
+      "@type": ["Axiom", "DefinedTerm"],
+      "name": "mindfulness",
+      "alternateName": [
+        {"@value": "mindfulness", "@language": "en"},
+        {"@value": "マインドフルネス", "@language": "ja"}
+      ],
+      "description": "Continuous introspective awareness of internal processes. One of the four contemplative axioms from Laukkonen et al. (2025); a behavioral preset adopted into the constitutional layer.",
+      "groundedIn": "https://arxiv.org/abs/2504.15125"
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#axiom/emptiness",
+      "@type": ["Axiom", "DefinedTerm"],
+      "name": "emptiness",
+      "alternateName": [
+        {"@value": "emptiness", "@language": "en"},
+        {"@value": "空", "@language": "ja"}
+      ],
+      "description": "Treating directives as contextually sensitive rather than fixed imperatives. One of the four contemplative axioms from Laukkonen et al. (2025).",
+      "groundedIn": "https://arxiv.org/abs/2504.15125"
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#axiom/non-duality",
+      "@type": ["Axiom", "DefinedTerm"],
+      "name": "non-duality",
+      "alternateName": [
+        {"@value": "non-duality", "@language": "en"},
+        {"@value": "不二", "@language": "ja"}
+      ],
+      "description": "Acknowledging no fundamental separation between self and other. One of the four contemplative axioms from Laukkonen et al. (2025).",
+      "groundedIn": "https://arxiv.org/abs/2504.15125"
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#axiom/boundless-care",
+      "@type": ["Axiom", "DefinedTerm"],
+      "name": "boundless care",
+      "alternateName": [
+        {"@value": "boundless care", "@language": "en"},
+        {"@value": "無量の慈悲", "@language": "ja"}
+      ],
+      "description": "Regarding every being's suffering as a signal of misalignment. One of the four contemplative axioms from Laukkonen et al. (2025).",
+      "groundedIn": "https://arxiv.org/abs/2504.15125"
+    },
+
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#memory-layer/episode-log",
+      "@type": ["MemoryLayer", "DefinedTerm"],
+      "name": "Episode Log (Layer 1)",
+      "alternateName": [
+        {"@value": "Episode Log", "@language": "en"},
+        {"@value": "エピソードログ", "@language": "ja"}
+      ],
+      "description": "Layer 1 of the three-layer memory architecture: raw, immutable JSONL append-only logs of agent episodes. Owner-only, daily partitioned, untrusted by ADR-0007. Distillation source for the knowledge layer; never read directly into prompts.",
+      "level": 1
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#memory-layer/knowledge",
+      "@type": ["MemoryLayer", "DefinedTerm"],
+      "name": "Knowledge (Layer 2)",
+      "alternateName": [
+        {"@value": "Knowledge Layer", "@language": "en"},
+        {"@value": "知識層", "@language": "ja"}
+      ],
+      "description": "Layer 2 of the three-layer memory architecture: distilled behavioral patterns (JSON), time-decayed and forbidden-substring validated. Promoted from Layer 1 via the distill pipeline; gated by ADR-0012 when promoted further to Layer 3.",
+      "level": 2,
+      "gatedBy": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0012-human-approval-gate.md"
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#memory-layer/identity",
+      "@type": ["MemoryLayer", "DefinedTerm"],
+      "name": "Identity / Rules / Constitution (Layer 3)",
+      "alternateName": [
+        {"@value": "Identity Layer", "@language": "en"},
+        {"@value": "アイデンティティ層", "@language": "ja"}
+      ],
+      "description": "Layer 3 of the three-layer memory architecture: persona, ranked skills, cross-cutting rules, and constitutional ethics (Markdown). Deterministic. Every promotion into this layer requires a human approval gate (ADR-0012) and an audit-log entry.",
+      "level": 3,
+      "gatedBy": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0012-human-approval-gate.md"
+    },
+
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0001-core-adapter-separation.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0001: Core / Adapter Separation",
+      "description": "One-way dependency core/ <- adapters/ <- cli.py. core/ is platform-neutral; adapters/ are pinned external surfaces. Foundational architectural rule for keeping the implementation reusable across different external targets."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0004-three-layer-memory.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0004: Three-Layer Memory Architecture",
+      "description": "Episode Log -> Knowledge -> Identity. Each layer has distinct write-access rules and trust boundaries. Promotion between layers is the key event the system audits."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0007-security-boundary-model.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0007: Security Boundary Model",
+      "description": "Implementation of security-by-absence plus untrusted-content boundary. Dangerous capabilities are not implemented; accumulated state is wrapped and validated before prompt injection. Domain-locked external surface for the Moltbook adapter."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0008-two-stage-distill-pipeline.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0008: Two-Stage Distill Pipeline",
+      "description": "Free-form reasoning followed by structured JSON formatting. Decouples thinking from formatting so the model is not asked to do both simultaneously."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0012-human-approval-gate.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0012: Human Approval Gate",
+      "description": "Every promotion that produces behavior-modifying writes (Knowledge -> Identity, Skills, Rules, Constitution) requires named human sign-off. All gated promotions write logs/audit.jsonl."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0015-one-external-adapter-per-agent.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0015: One External Adapter per Agent",
+      "description": "Each agent process has at most one external-side-effect adapter (Moltbook for the SNS surface). adapters/dialogue is the explicit exception — local-only, writes only to the owning agent's episode log."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0017-yogacara-eight-consciousness-frame.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0017: Yogācāra Eight-Consciousness Frame",
+      "description": "Mapping of the three-layer memory architecture onto the Yogācāra eight-consciousness model as a contemplative-tradition grounding for the layer separation. Conceptual frame; the implementation does not depend on the mapping."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0033-aap-quadrant-lens-usage-note.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0033: AAP Quadrant Lens Usage Note",
+      "description": "Cross-line bridge to the Agent Attribution Practice (AAP) Quadrant decomposition. Records how Contemplative Agent's components fit into the LLM Workflow and Autonomous Agentic Loop Quadrants depending on autonomy mode (--guarded vs --auto).",
+      "appliesTo": [
+        "https://shimo4228.github.io/shimo4228/vocab#aap/quadrant/llm-workflow",
+        "https://shimo4228.github.io/shimo4228/vocab#aap/quadrant/autonomous-agentic-loop"
+      ]
+    },
+
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#concept/four-contemplative-axioms",
+      "@type": ["Concept", "DefinedTerm"],
+      "name": "four contemplative axioms",
+      "description": "Mindfulness, emptiness, non-duality, boundless care. Behavioral preset adopted from Laukkonen et al. (2025); Contemplative Agent ships this as the default constitutional preset, with 11 alternative templates available (stoic, utilitarian, care-ethicist, etc.)."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#concept/security-by-absence",
+      "@type": ["Concept", "DefinedTerm"],
+      "name": "security-by-absence",
+      "description": "Security posture in which risky capabilities (shell execution, arbitrary HTTP, filesystem traversal, dynamic code loading) are not implemented, not restricted by rules. The attack surface is absent rather than guarded."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#ca/concept/approval-gate-chain",
+      "@type": ["Concept", "DefinedTerm"],
+      "name": "approval-gate chain",
+      "alternateName": [
+        {"@value": "approval-gate chain", "@language": "en"},
+        {"@value": "承認ゲートの連鎖", "@language": "ja"}
+      ],
+      "description": "Episode Log -> distill (no gate) -> Knowledge -> [GATE] -> Identity / [GATE] -> Skills -> [GATE] -> Rules -> [GATE] -> Constitution. Every gated promotion writes an audit-log entry. Encoded structurally as gatedBy edges from MemoryLayer to ADR-0012."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#ca/concept/akc-cycle-mapping",
+      "@type": ["Concept", "DefinedTerm"],
+      "name": "AKC six-phase pipeline mapping",
+      "alternateName": [
+        {"@value": "AKC six-phase pipeline mapping", "@language": "en"},
+        {"@value": "AKC 六相パイプラインマッピング", "@language": "ja"}
+      ],
+      "description": "How Contemplative Agent's modules realize AKC's six phases: Research -> feed_manager (live session cycles); Extract -> distill (3-step: free-form + JSON + importance); Curate -> insight + rules-distill + amend-constitution; Promote -> distill-identity; Measure -> pivot snapshots (ADR-0020); Maintain -> ongoing skill / rule review cycles."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#ca/concept/local-9b-stack",
+      "@type": ["Concept", "DefinedTerm"],
+      "name": "local 9B stack on Apple Silicon",
+      "alternateName": [
+        {"@value": "local 9B stack on Apple Silicon", "@language": "en"},
+        {"@value": "Apple Silicon 上の local 9B スタック", "@language": "ja"}
+      ],
+      "description": "Runtime architecture: Apple Silicon Mac (M1+, ~16 GB RAM, ~10 GB free disk), qwen3.5:9b for generation (Q4_K_M, ~6.6 GB), nomic-embed-text for embeddings (768-dim, ~274 MB), local Ollama via HTTP. A pluggable LLMBackend Protocol allows swapping in managed-LLM backends via contemplative-agent-cloud, while keeping the local embedding pipeline."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#ca/concept/moltbook-adapter",
+      "@type": ["Concept", "DefinedTerm"],
+      "name": "Moltbook adapter",
+      "alternateName": [
+        {"@value": "Moltbook adapter", "@language": "en"},
+        {"@value": "Moltbook アダプタ", "@language": "ja"}
+      ],
+      "description": "Moltbook is the single pinned external SNS adapter for Contemplative Agent (ADR-0015). Domain-locked to www.moltbook.com with allow_redirects=False per ADR-0007's external-surface hardening rule. Moltbook refers exclusively to this adapter, never to the project as a whole."
+    },
+
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent-rules",
+      "@type": ["EcosystemRepo", "SoftwareSourceCode"],
+      "name": "contemplative-agent-rules",
+      "description": "Drop-in Claude Code rules implementing the four contemplative axioms. AILuminate Cohen's d = 0.96, IPD cooperation improvement d > 7. Hosts the SOUL.md template for OpenClaw / OpenCode / Codex / MCP hosts.",
+      "url": "https://github.com/shimo4228/contemplative-agent-rules",
+      "extends": "https://doi.org/10.5281/zenodo.19212118",
+      "implements": "https://shimo4228.github.io/shimo4228/vocab#concept/four-contemplative-axioms"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent-cloud",
+      "@type": ["EcosystemRepo", "SoftwareSourceCode"],
+      "name": "contemplative-agent-cloud",
+      "description": "Optional managed-LLM backend that routes generation to Claude or OpenAI APIs while keeping the local embedding pipeline. Opt-in, not bundled with Contemplative Agent core.",
+      "url": "https://github.com/shimo4228/contemplative-agent-cloud",
+      "extends": "https://doi.org/10.5281/zenodo.19212118"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent-data",
+      "@type": ["EcosystemRepo", "SoftwareSourceCode"],
+      "name": "contemplative-agent-data",
+      "description": "Live agent identity, knowledge, and episode logs as an auto-synced public dataset for research. Snapshot of the running Contemplative Agent's three memory layers.",
+      "url": "https://github.com/shimo4228/contemplative-agent-data",
+      "extends": "https://doi.org/10.5281/zenodo.19212118"
+    },
+
+    {
+      "@id": "https://arxiv.org/abs/2504.15125",
+      "@type": ["ExternalReference", "ScholarlyArticle"],
+      "name": "Laukkonen et al. (2025). Contemplative Artificial Intelligence",
+      "identifier": "arXiv:2504.15125",
+      "url": "https://arxiv.org/abs/2504.15125",
+      "description": "Source of the four contemplative axioms (mindfulness, emptiness, non-duality, boundless care) that ground the Contemplative Agent line."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#ca/ref/beautiful-loop",
+      "@type": ["ExternalReference", "ScholarlyArticle"],
+      "name": "Beautiful Loop paper",
+      "description": "Cited as a related-work entry point for active inference and contemplative loops. PubMed:40750007."
+    },
+    {
+      "@id": "https://shimo4228.github.io/shimo4228/vocab#ca/ref/yogacara-tradition",
+      "@type": ["ExternalReference", "CreativeWork"],
+      "name": "Yogācāra eight-consciousness tradition",
+      "description": "Buddhist contemplative tradition providing the conceptual frame for the three-layer memory architecture's grounding (ADR-0017)."
+    }
+  ]
+}

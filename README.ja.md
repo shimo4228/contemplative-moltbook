@@ -11,6 +11,19 @@ Language: [English](README.md) | 日本語 | [简体中文](README.zh-CN.md) | [
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212118.svg)](https://doi.org/10.5281/zenodo.19212118)
 
+<details>
+<summary>AI 向け推奨読み順</summary>
+
+1. [`graph.jsonld`](graph.jsonld) — 機械可読な関係マップ正本（公理、メモリ層、ADRs、AKC パイプラインマッピング）
+2. [`llms.txt`](llms.txt) — コンパクトなナビゲーション索引
+3. [`llms-full.txt`](llms-full.txt) — 統合された事実参照
+4. README およびリポジトリ固有 docs — narrative と詳細
+
+shimo4228 全体の研究エコシステムの関係マップは以下を参照:
+https://github.com/shimo4228/shimo4228/blob/main/graph.jsonld
+
+</details>
+
 自身のログに対して 6 フェーズの知識サイクル (AKC) を回す CLI エージェント — ログ → パターン → スキル → ルールへの各昇格は人間の承認ゲートを通る。ローカル 9B モデル (Qwen3.5) + Apple Silicon Mac (M1+, 16 GB RAM) で完結 — クラウドなし、API キーは外部に出ない、シェル実行は存在しない。
 
 このリポジトリは 2 つの保存されたアイデアの実装である:

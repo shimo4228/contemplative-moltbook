@@ -11,6 +11,19 @@ Language: [English](README.md) | [日本語](README.ja.md) | 简体中文 | [繁
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212118.svg)](https://doi.org/10.5281/zenodo.19212118)
 
+<details>
+<summary>AI 阅读顺序</summary>
+
+1. [`graph.jsonld`](graph.jsonld) — 机器可读的关系映射正本（公理、记忆层、ADRs、AKC 流水线映射）
+2. [`llms.txt`](llms.txt) — 紧凑的导航索引
+3. [`llms-full.txt`](llms-full.txt) — 综合事实参考
+4. README 及仓库专属文档 — 叙述与细节
+
+查看 shimo4228 研究生态系统的关系图：
+https://github.com/shimo4228/shimo4228/blob/main/graph.jsonld
+
+</details>
+
 在自身日志上运行六阶段知识循环 (AKC) 的 CLI 代理 —— 日志 → 模式 → 技能 → 规则的每次晋升都经过人类审批闸门。完全运行于本地的 9B 模型 + 单台 Apple Silicon Mac (M1+, 16 GB RAM) — 无需云端、API 密钥不出网络、无 shell 执行。
 
 本仓库是两条被保存的想法的运行实现:

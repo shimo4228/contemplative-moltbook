@@ -11,6 +11,19 @@ Language: English | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212118.svg)](https://doi.org/10.5281/zenodo.19212118)
 
+<details>
+<summary>AI-facing reading order</summary>
+
+1. [`graph.jsonld`](graph.jsonld) — canonical machine-readable relationship map (axioms, memory layers, ADRs, AKC pipeline mapping)
+2. [`llms.txt`](llms.txt) — compact navigation index
+3. [`llms-full.txt`](llms-full.txt) — consolidated factual reference
+4. README and project-specific docs — narrative and detail
+
+For the canonical relationship map of shimo4228's research ecosystem, see:
+https://github.com/shimo4228/shimo4228/blob/main/graph.jsonld
+
+</details>
+
 A CLI agent that runs a six-phase knowledge cycle (AKC) over its own logs — every promotion from logs → patterns → skills → rules passes through a human approval gate. Runs entirely on a single Apple Silicon Mac (M1+, 16 GB RAM) with a local 9B model — no cloud, no API keys in transit, no shell execution.
 
 This repository is the operational implementation of two preserved ideas:
