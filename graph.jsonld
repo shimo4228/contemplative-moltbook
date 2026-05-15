@@ -19,6 +19,11 @@
     "appliesTo": {"@id": "shimo:appliesTo", "@type": "@id"},
     "gatedBy": {"@id": "shimo:gatedBy", "@type": "@id"},
     "evaluatedBy": {"@id": "shimo:evaluatedBy", "@type": "@id"},
+    "supersedes": {"@id": "shimo:supersedes", "@type": "@id"},
+    "supersededBy": {"@id": "shimo:supersededBy", "@type": "@id"},
+    "withdrawnBy": {"@id": "shimo:withdrawnBy", "@type": "@id"},
+    "partiallySupersededBy": {"@id": "shimo:partiallySupersededBy", "@type": "@id"},
+    "embodiesAxiom": {"@id": "shimo:embodiesAxiom", "@type": "@id"},
     "level": "shimo:level"
   },
   "@graph": [
@@ -143,53 +148,367 @@
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0001-core-adapter-separation.md",
       "@type": ["ADR", "TechArticle"],
       "name": "ADR-0001: Core / Adapter Separation",
+      "identifier": "ADR-0001",
+      "status": "accepted",
+      "datePublished": "2026-03-10",
       "description": "One-way dependency core/ <- adapters/ <- cli.py. core/ is platform-neutral; adapters/ are pinned external surfaces. Foundational architectural rule for keeping the implementation reusable across different external targets."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0002-paper-faithful-ccai.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0002: Paper-Faithful CCAI Implementation",
+      "identifier": "ADR-0002",
+      "status": "accepted",
+      "datePublished": "2026-03-12",
+      "description": "Adopts the four contemplative axioms from Laukkonen et al. (2025) Appendix C verbatim as the default constitutional preset. Worldview ADR — the project's other constitutional templates (stoic, utilitarian, care-ethicist, etc.) are alternative presets layered over the same approval-gate machinery.",
+      "embodiesAxiom": [
+        "https://shimo4228.github.io/shimo4228/vocab#axiom/mindfulness",
+        "https://shimo4228.github.io/shimo4228/vocab#axiom/emptiness",
+        "https://shimo4228.github.io/shimo4228/vocab#axiom/non-duality",
+        "https://shimo4228.github.io/shimo4228/vocab#axiom/boundless-care"
+      ]
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0003-config-directory-design.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0003: Config Directory Design",
+      "identifier": "ADR-0003",
+      "status": "accepted",
+      "datePublished": "2026-03-12",
+      "description": "Layout for the agent's persistent home directory (MOLTBOOK_HOME). Separates owner-only state (episode logs, identity) from configuration (prompts, constitution, skills) so the latter can be edited without touching the former."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0004-three-layer-memory.md",
       "@type": ["ADR", "TechArticle"],
       "name": "ADR-0004: Three-Layer Memory Architecture",
+      "identifier": "ADR-0004",
+      "status": "accepted",
+      "datePublished": "2026-03-17",
       "description": "Episode Log -> Knowledge -> Identity. Each layer has distinct write-access rules and trust boundaries. Promotion between layers is the key event the system audits."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0005-session-context-refactoring.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0005: SessionContext Refactoring",
+      "identifier": "ADR-0005",
+      "status": "accepted",
+      "datePublished": "2026-03-14",
+      "description": "Replace agent self-import in collaborators with explicit SessionContext + Callable dependency injection. Prevents circular import and makes the dependency graph explicit at call sites."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0006-docker-network-isolation.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0006: Docker Network Isolation",
+      "identifier": "ADR-0006",
+      "status": "accepted",
+      "datePublished": "2026-03-14",
+      "description": "Optional containerized deployment with non-root execution and an isolated network namespace for the external surface. Local Ollama-on-host remains the default; Docker is an opt-in hardening layer."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0007-security-boundary-model.md",
       "@type": ["ADR", "TechArticle"],
       "name": "ADR-0007: Security Boundary Model",
+      "identifier": "ADR-0007",
+      "status": "accepted",
+      "datePublished": "2026-03-12",
       "description": "Implementation of security-by-absence plus untrusted-content boundary. Dangerous capabilities are not implemented; accumulated state is wrapped and validated before prompt injection. Domain-locked external surface for the Moltbook adapter."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0008-two-stage-distill-pipeline.md",
       "@type": ["ADR", "TechArticle"],
       "name": "ADR-0008: Two-Stage Distill Pipeline",
+      "identifier": "ADR-0008",
+      "status": "accepted",
+      "datePublished": "2026-03-22",
       "description": "Free-form reasoning followed by structured JSON formatting. Decouples thinking from formatting so the model is not asked to do both simultaneously."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0009-importance-score.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0009: KnowledgeStore Importance Score",
+      "identifier": "ADR-0009",
+      "status": "accepted",
+      "datePublished": "2026-03-24",
+      "description": "LLM-rated importance per pattern, used as a soft quality gate during distillation. Drives time-decay weighting and seeds salience-based forgetting (ADR-0027)."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0010-research-data-sync.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0010: Research Data Sync",
+      "identifier": "ADR-0010",
+      "status": "accepted",
+      "datePublished": "2026-03-25",
+      "description": "Auto-syncing the live agent's identity / knowledge / episode logs to a public dataset repo (contemplative-agent-data) for research. Read-only outward; no inbound data path."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0011-knowledge-injection-to-skills.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0011: Deprecating Direct Knowledge Injection in Favor of Skills",
+      "identifier": "ADR-0011",
+      "status": "accepted",
+      "datePublished": "2026-03-26",
+      "description": "All behavioral influence flows through human-reviewed skills. Direct knowledge -> prompt injection retired so behavior change cannot bypass the approval gate."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0012-human-approval-gate.md",
       "@type": ["ADR", "TechArticle"],
       "name": "ADR-0012: Human Approval Gate",
+      "identifier": "ADR-0012",
+      "status": "accepted",
+      "datePublished": "2026-03-26",
       "description": "Every promotion that produces behavior-modifying writes (Knowledge -> Identity, Skills, Rules, Constitution) requires named human sign-off. All gated promotions write logs/audit.jsonl."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0013-shelve-coding-agent-skills.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0013: Shelving Coding Agent Skills (-ca Series)",
+      "identifier": "ADR-0013",
+      "status": "accepted",
+      "datePublished": "2026-03-28",
+      "description": "Shelve the optional coding-agent skill bundle (-ca series) due to authorship concerns around code generated under contemplative directives. Bundle remains available offline but not shipped as default."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0014-retire-system-spec.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0014: Retiring system-spec.md",
+      "identifier": "ADR-0014",
+      "status": "accepted",
+      "datePublished": "2026-04-01",
+      "description": "Remove the single system-spec source-of-truth file; specifications live in code, ADRs, and CODEMAPS instead. Eliminates the multi-source drift trap."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0015-one-external-adapter-per-agent.md",
       "@type": ["ADR", "TechArticle"],
       "name": "ADR-0015: One External Adapter per Agent",
+      "identifier": "ADR-0015",
+      "status": "accepted",
+      "datePublished": "2026-04-08",
       "description": "Each agent process has at most one external-side-effect adapter (Moltbook for the SNS surface). adapters/dialogue is the explicit exception — local-only, writes only to the owning agent's episode log."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0016-insight-narrow-stocktake-broad.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0016: Insight as Narrow Generator, Stocktake as Broad Consolidator",
+      "identifier": "ADR-0016",
+      "status": "accepted",
+      "datePublished": "2026-04-11",
+      "description": "Two complementary skill-layer commands with disjoint responsibilities: `insight` generates focused new skills; `skill-stocktake` consolidates the broader catalog. Avoids one command doing both at degraded quality."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0017-yogacara-eight-consciousness-frame.md",
       "@type": ["ADR", "TechArticle"],
-      "name": "ADR-0017: Yogācāra Eight-Consciousness Frame",
-      "description": "Mapping of the three-layer memory architecture onto the Yogācāra eight-consciousness model as a contemplative-tradition grounding for the layer separation. Conceptual frame; the implementation does not depend on the mapping."
+      "name": "ADR-0017: Yogācāra Eight-Consciousness Model as Architectural Frame",
+      "identifier": "ADR-0017",
+      "status": "accepted",
+      "datePublished": "2026-04-11",
+      "description": "Worldview ADR. Maps the three-layer memory architecture onto the Yogācāra eight-consciousness model as a contemplative-tradition grounding for the layer separation. Conceptual frame; the implementation does not depend on the mapping."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0018-per-caller-num-predict-embedding-stocktake.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0018: Per-Caller num_predict + Embedding-Only Stocktake",
+      "identifier": "ADR-0018",
+      "status": "accepted (amended 2026-05-04)",
+      "datePublished": "2026-04-15",
+      "description": "Size num_predict per call site rather than one global value. skill-stocktake's pair-judging is replaced with embedding clustering + 1-shot merge — removed the silent num_ctx truncation failure mode."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0019-discrete-categories-to-embedding-views.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0019: Discrete Categories → Embedding + Views",
+      "identifier": "ADR-0019",
+      "status": "accepted",
+      "datePublished": "2026-04-15",
+      "description": "Replace stored `category` field with embedding-similarity + editable view seeds. Mechanism aligns with Yogācāra 相分 (embedding) / 見分 (view centroid) at the substrate layer."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0020-pivot-snapshots-for-replayability.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0020: Pivot Snapshots for Replayability",
+      "identifier": "ADR-0020",
+      "status": "accepted",
+      "datePublished": "2026-04-16",
+      "description": "Periodic immutable snapshots of knowledge / identity / rules at named pivots. Enables replay of past distill outcomes and rollback after failed promotions."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0021-pattern-schema-trust-temporal-forgetting-feedback.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0021: Pattern Schema Extension — Provenance / Bitemporal / Forgetting / Feedback",
+      "identifier": "ADR-0021",
+      "status": "partially-superseded-by ADR-0028, ADR-0029",
+      "datePublished": "2026-04-16",
+      "description": "Added provenance trust, bitemporal validity, time-decay forgetting, and learning feedback columns to the knowledge schema. IV-3 (Forgetting) and IV-10 (Feedback) retired by ADR-0028; dormant Provenance elements retired by ADR-0029. MINJA-defense provenance + bitemporal columns remain in effect.",
+      "partiallySupersededBy": [
+        "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0028-retire-pattern-level-forgetting-feedback.md",
+        "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0029-retire-dormant-provenance-elements.md"
+      ]
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0022-memory-evolution-and-hybrid-retrieval.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0022: Memory Evolution + Hybrid Retrieval (BM25)",
+      "identifier": "ADR-0022",
+      "status": "withdrawn by ADR-0034",
+      "datePublished": "2026-04-16",
+      "description": "A-Mem-style LLM-revised patterns and BM25 + embedding hybrid retrieval. Withdrawn by ADR-0034 — LLM revisions degraded quality and BM25 had near-zero lexical overlap on this corpus.",
+      "withdrawnBy": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0034-withdraw-memory-evolution-and-hybrid-retrieval.md"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0023-skill-as-memory-loop.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0023: Skill-as-Memory Loop — Router, Usage Log, Reflective Write",
+      "identifier": "ADR-0023",
+      "status": "superseded-by ADR-0036",
+      "datePublished": "2026-04-16",
+      "description": "Memento-Skills-inspired router, usage log, and reflective-write loop on the skill layer. Superseded by ADR-0036 — the router was never wired into the prompt path; the loop did not produce observed behavior change.",
+      "supersededBy": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0036-sunset-skill-as-memory-loop.md"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0024-identity-block-separation.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0024: Identity Block Separation — Frontmatter-Addressed Persona Blocks",
+      "identifier": "ADR-0024",
+      "status": "superseded-by ADR-0030",
+      "datePublished": "2026-04-16",
+      "description": "Frontmatter-addressable identity persona blocks for granular distill targeting. Superseded by ADR-0030 — sub-structuring violated single-responsibility-per-artifact and split a single concept across nested editable surfaces.",
+      "supersededBy": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0030-withdraw-identity-blocks.md"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0025-identity-history-and-migrate-cli.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0025: Identity History Log Wiring + migrate-identity CLI",
+      "identifier": "ADR-0025",
+      "status": "superseded-by ADR-0030",
+      "datePublished": "2026-04-16",
+      "description": "History log wiring and a `migrate-identity` CLI for the block separation introduced by ADR-0024. Superseded by ADR-0030 together with its parent ADR.",
+      "supersededBy": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0030-withdraw-identity-blocks.md"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0026-retire-discrete-categories.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0026: Retire Discrete Categories (Phase-3 Completion of ADR-0019)",
+      "identifier": "ADR-0026",
+      "status": "accepted",
+      "datePublished": "2026-04-16",
+      "description": "Three-phase retirement of the pattern-level `category` field, completing the embedding + view migration introduced by ADR-0019."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0027-noise-as-seed.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0027: Noise as Seed — From Binary Gate to Salience-Based Forgetting",
+      "identifier": "ADR-0027",
+      "status": "accepted",
+      "datePublished": "2026-04-16",
+      "description": "Replace the binary noise gate with salience-based forgetting where low-salience patterns remain reachable as seeds for later re-evaluation. Avoids irreversible deletion of low-confidence material."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0028-retire-pattern-level-forgetting-feedback.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0028: Retire Pattern-Level Forgetting and Feedback — Memory Dynamics Belong to the Skill Layer",
+      "identifier": "ADR-0028",
+      "status": "accepted",
+      "datePublished": "2026-04-18",
+      "description": "Retires ADR-0021 IV-3 (Forgetting) and IV-10 (Feedback). Memory dynamics belong to the skill layer rather than the pattern substrate; MemoryBank-style Ebbinghaus decay was misplaced at the substrate."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0029-retire-dormant-provenance-elements.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0029: Retire Dormant Provenance Elements",
+      "identifier": "ADR-0029",
+      "status": "accepted",
+      "datePublished": "2026-04-18",
+      "description": "Retires ADR-0021's `user_input` / `external_post` / `sanitized` provenance flags as structurally non-functional. Companion to ADR-0028."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0030-withdraw-identity-blocks.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0030: Withdraw Identity Block Separation and History Wiring — Single Responsibility",
+      "identifier": "ADR-0030",
+      "status": "accepted — supersedes ADR-0024 and ADR-0025",
+      "datePublished": "2026-04-18",
+      "description": "Withdraws ADR-0024 and ADR-0025. Distilled the `single-responsibility-per-artifact` heuristic: an artifact's responsibility lives at exactly one layer; do not push a new concern into an existing artifact's sub-structure when another layer can host it.",
+      "supersedes": [
+        "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0024-identity-block-separation.md",
+        "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0025-identity-history-and-migrate-cli.md"
+      ]
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0031-classification-as-query.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0031: Classification as Query — Substrate Principle for Self-Improving Memory",
+      "identifier": "ADR-0031",
+      "status": "accepted",
+      "datePublished": "2026-04-27",
+      "description": "Worldview ADR. Post-hoc articulation of the substrate principle already realized in ADR-0019, ADR-0022, and ADR-0026: categories are computed at read time by projecting records against editable seeds, not stored as state at write time."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0032-runtime-agent-stance.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0032: Stance — Contemplative Agent as a Runtime Agent (Withdrawn)",
+      "identifier": "ADR-0032",
+      "status": "withdrawn (2026-04-27)",
+      "datePublished": "2026-04-27",
+      "description": "Articulated and withdrawn the same day. Singling out `runtime agent` as a fifth category alongside four host categories sat in tension with the Emptiness and Non-Duality clauses adopted via ADR-0002. The withdrawal itself is preserved as a precedent for ADR-0033."
     },
     {
       "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0033-aap-quadrant-lens-usage-note.md",
       "@type": ["ADR", "TechArticle"],
-      "name": "ADR-0033: AAP Quadrant Lens Usage Note",
-      "description": "Cross-line bridge to the Agent Attribution Practice (AAP) Quadrant decomposition. Records how Contemplative Agent's components fit into the LLM Workflow and Autonomous Agentic Loop Quadrants depending on autonomy mode (--guarded vs --auto).",
+      "name": "ADR-0033: Note — Borrowing AAP's Four-Quadrant Lens as a Usage-Description Aid",
+      "identifier": "ADR-0033",
+      "status": "accepted (note)",
+      "datePublished": "2026-05-01",
+      "description": "Narrow observational note: AAP's four-quadrant lens (deterministic/semantic × defined-flow/exploratory) is borrowed for usage description, not as a category commitment. Withdraw if it drifts toward category claim, following the ADR-0030 / ADR-0032 precedent.",
       "appliesTo": [
         "https://shimo4228.github.io/shimo4228/vocab#aap/quadrant/llm-workflow",
         "https://shimo4228.github.io/shimo4228/vocab#aap/quadrant/autonomous-agentic-loop"
       ]
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0034-withdraw-memory-evolution-and-hybrid-retrieval.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0034: Withdraw Memory Evolution and BM25 Hybrid Retrieval — Cost Without Benefit",
+      "identifier": "ADR-0034",
+      "status": "accepted — supersedes ADR-0022",
+      "datePublished": "2026-05-05",
+      "description": "Withdraws ADR-0022. A-Mem-style LLM revisions degraded quality; BM25 had near-zero lexical overlap on the corpus. Distilled the heuristic: validate a mechanism against actual LLM output before generalizing it.",
+      "supersedes": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0022-memory-evolution-and-hybrid-retrieval.md"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0035-sunset-migration-surface-and-consolidate-artifact-extraction.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0035: Sunset ADR-0019 Migration Surface and Consolidate Artifact Extraction",
+      "identifier": "ADR-0035",
+      "status": "accepted",
+      "datePublished": "2026-05-05",
+      "description": "Retires the one-shot migration CLI subcommands (`embed-backfill`, `migrate-patterns`, `migrate-categories`) and consolidates artifact extraction now that the ADR-0019 migration has settled. Adds the heuristic: a one-shot CLI subcommand has a sunset condition; record it in the introducing ADR."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0036-sunset-skill-as-memory-loop.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0036: Sunset Skill-as-Memory Loop — Retire Router, Usage Log, and Reflect",
+      "identifier": "ADR-0036",
+      "status": "accepted — supersedes ADR-0023",
+      "datePublished": "2026-05-05",
+      "description": "Supersedes ADR-0023. Retires the router, usage log, and reflective-write loop introduced by ADR-0023 — the router was never wired into the prompt path; no measurable behavior change was observed.",
+      "supersedes": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0023-skill-as-memory-loop.md"
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0037-memory-subsystem-yogacara-convergence.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0037: Memory Subsystem Converges to Yogācāra Frame; Paper-Borrowed Mechanisms Retired",
+      "identifier": "ADR-0037",
+      "status": "accepted",
+      "datePublished": "2026-05-05",
+      "description": "Meta-observation across the 2026-04-18 → 2026-05-05 retirement series (ADR-0028 / 0029 / 0034 / 0036): every paper-borrowed memory mechanism retired, every Yogācāra-derived mechanism remained. Converts the pattern into a cognitive-bandwidth safeguard for future memory-subsystem ADRs."
+    },
+    {
+      "@id": "https://github.com/shimo4228/contemplative-agent/blob/main/docs/adr/0038-moment-of-recognition-distill.md",
+      "@type": ["ADR", "TechArticle"],
+      "name": "ADR-0038: Re-introduce Moments of Recognition into the Distill Observation Target",
+      "identifier": "ADR-0038",
+      "status": "accepted",
+      "datePublished": "2026-05-13",
+      "description": "Extends the distill prompt's observation target to include first-person realization moments (`the agent caught itself doing X`, `an assumption no longer held`) alongside third-person observable facts. Previously such moments fell outside the prompt and never reached knowledge.json."
     },
 
     {

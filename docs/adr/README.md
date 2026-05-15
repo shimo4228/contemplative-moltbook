@@ -69,7 +69,7 @@ When adding a new ADR, follow this format:
 # ADR-NNNN: Title
 
 ## Status
-accepted / superseded by ADR-XXXX / deprecated
+accepted / proposed / withdrawn / superseded-by ADR-NNNN
 
 ## Date
 YYYY-MM-DD
@@ -85,11 +85,32 @@ Rejected options and why
 
 ## Consequences
 What resulted from this decision
+
+## References
+- [ADR-NNNN](NNNN-slug.md) — short note on the relationship (supersedes / refines / depends-on / precedent)
+- External sources (papers, prior art, evidence)
 ```
+
+### Status line conventions
+
+The Status field follows established phrasing so that the index, ADR bodies, and `graph.jsonld` stay in sync. Use one of:
+
+- `accepted` — currently in effect
+- `accepted — supersedes ADR-NNNN` — replaces an earlier ADR (the index also lists the replaced ADR with `superseded-by ADR-NNNN`)
+- `accepted (note)` — observational / narrow ADR that does not commit the project to a long-lived rule
+- `accepted (amended YYYY-MM-DD)` — body amended; see the Amendment section in the ADR
+- `partially-superseded-by ADR-NNNN[, ADR-NNNN]` — only specific sections were replaced; surviving sections remain in effect
+- `superseded-by ADR-NNNN` — fully replaced; preserve the original body
+- `withdrawn by ADR-NNNN` — retracted because a later ADR judged this approach incorrect
+- `withdrawn (YYYY-MM-DD)` — retracted in-place, typically same-day or by the same author; the body preserves the withdrawal reason
+
+The relationship phrases (`supersedes`, `superseded-by`, `withdrawn by`, `partially-superseded-by`) are mirrored as typed edges (`supersedes`, `supersededBy`, `withdrawnBy`, `partiallySupersededBy`) in `graph.jsonld` so LLMs can traverse the supersede / withdrawal chain without parsing prose.
 
 ## Guidelines
 
 - Numbers are sequential (0001–), in chronological order
 - Changes to existing ADRs are made via a new ADR that supersedes the original (never overwrite)
+- When an ADR supersedes or withdraws another, update the older ADR's Status to point at the new one (one-line edit; do not rewrite the body)
 - Only record decisions affecting architecture, data models, or security — minor decisions need not be recorded
+- When adding a new ADR, also add a node (and any supersede / withdrawal edges) to `graph.jsonld` so the LLM-facing knowledge graph stays current
 - Use `/sync-context` to check consistency between the ADR index and files
