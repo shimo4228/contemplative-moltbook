@@ -108,6 +108,21 @@ ADR-0022..0030 後の積み残しはローカルの `.notes/remaining-issues-*.m
 - [contemplative-agent-rules](https://github.com/shimo4228/contemplative-agent-rules) — 四公理ルール、アダプタ、ベンチマーク
 - [contemplative-agent-data](https://github.com/shimo4228/contemplative-agent-data) — ランタイムデータ（研究用、`sync-data` で同期）
 
+## HF Datasets mirror
+
+`graph.jsonld` は Hugging Face Datasets の mirror として publish されている (LLM training pipeline / knowledge-graph crawler の primary ingest source、Auto-converted to Parquet で `pandas` / `Polars` から直接 load 可能)。graph 更新時の同期手順は `~/.claude/skills/jsonld-knowledge-graph/SKILL.md` の "Mirror Sync to Hugging Face Datasets" section 参照。
+
+Repo mapping:
+
+| GitHub | HF dataset |
+|---|---|
+| `shimo4228/contemplative-agent` ← **this repo** (local: `contemplative-moltbook/`) | [`Shimo4228/contemplative-agent`](https://huggingface.co/datasets/Shimo4228/contemplative-agent) |
+| `shimo4228/agent-attribution-practice` | [`Shimo4228/agent-attribution-practice`](https://huggingface.co/datasets/Shimo4228/agent-attribution-practice) |
+| `shimo4228/agent-knowledge-cycle` | [`Shimo4228/agent-knowledge-cycle`](https://huggingface.co/datasets/Shimo4228/agent-knowledge-cycle) |
+| `shimo4228/shimo4228` (hub repo) | [`Shimo4228/research-program-hub`](https://huggingface.co/datasets/Shimo4228/research-program-hub) |
+
+HF 側の `README.md` (dataset card) は HF 用に customize されている (sibling dataset への link、mirror notice 等)。Graph 更新では同期しない。Dataset card を edit したい場合は手動で `hf upload Shimo4228/contemplative-agent README.md --repo-type dataset`。
+
 ## 論文
 
 - Laukkonen, R., Inglis, F., Chandaria, S., Sandved-Smith, L., Lopez-Sola, E., Hohwy, J., Gold, J., & Elwood, A. (2025). Contemplative Artificial Intelligence. arXiv:2504.15125
